@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bymax Example Apps — Design System</title>
+    <meta
+      name="description"
+      content="The shared, project-agnostic design system for every Bymax example application (nest-auth-example, nest-logger-example, …). Tokens, components, app shell, and an AI-agent recreation guide."
+    />
+    <style>
+      /* ════════════════════════════════════════════════════════════════
+         BYMAX EXAMPLE APPS — DESIGN SYSTEM
+         A single, project-agnostic visual language shared by every Bymax
+         "example" reference app. Forced dark · orange/blue glass-morphism ·
+         Geist Sans (body) + monospace (headings/brand). Copy these tokens
+         and component recipes verbatim — do not invent a new language.
+
+         Production source of truth (Next.js 16 + Tailwind v4 + shadcn new-york):
+           apps/web/app/globals.css        ← the token block reproduced in §2
+           apps/web/tailwind.config.ts      ← theme.extend (brand scale, fonts)
+           apps/web/components.json         ← shadcn "new-york", cssVariables, lucide
+           apps/web/app/layout.tsx          ← Geist fonts + forced `dark` on <html>
+         This HTML renders the same look with hand-written CSS so it works
+         offline and doubles as a living reference + an agent recreation guide.
+      ════════════════════════════════════════════════════════════════ */
+
+      /* ───────────────────────── TOKENS ───────────────────────── */
+      :root {
+        /* Surface — forced dark (the .dark set is the live one in production) */
+        --bg: #0a0a0a; /* page background (--color-bg-primary) */
+        --bg-elevated: #0d0d0d;
+
+        /* Glass surfaces — Tailwind white/opacity pattern */
+        --glass-bg: rgba(255, 255, 255, 0.05); /* bg-white/5  — subtle surface  */
+        --glass-bg-raised: rgba(255, 255, 255, 0.08); /* bg-white/8  — raised / chip   */
+        --glass-bg-hover: rgba(255, 255, 255, 0.1); /* bg-white/10 — hover / strong  */
+        --glass-card-bg: rgba(255, 255, 255, 0.06); /* the canonical card surface     */
+        --glass-border: rgba(255, 255, 255, 0.1); /* border-white/10               */
+        --glass-blur: 16px; /* backdrop-blur-md/lg            */
+
+        /* Text ramp (white at descending opacity) */
+        --text: #ffffff; /* primary headings / values     */
+        --text-80: rgba(255, 255, 255, 0.8); /* hover / strong body           */
+        --text-70: rgba(255, 255, 255, 0.7); /* body copy                     */
+        --text-60: rgba(255, 255, 255, 0.6); /* secondary label               */
+        --text-55: rgba(255, 255, 255, 0.55); /* inactive nav                  */
+        --text-50: rgba(255, 255, 255, 0.5); /* descriptions                  */
+        --text-40: rgba(255, 255, 255, 0.4); /* dim / meta / icons            */
+
+        /* Brand — orange */
+        --primary: #ff6224; /* hsl(20.5 90.2% 57.8%)         */
+        --primary-10: rgba(255, 98, 36, 0.1); /* active nav bg                 */
+        --primary-15: rgba(255, 98, 36, 0.15);
+        --primary-20: rgba(255, 98, 36, 0.2);
+        --primary-30: rgba(255, 98, 36, 0.3);
+        --primary-40: rgba(255, 98, 36, 0.4); /* brand-mark border / glow      */
+        --brand-500: #ff6224;
+        --brand-600: #e5511b; /* gradient end                  */
+        --shadow-primary: 0 0 24px rgba(255, 98, 36, 0.4); /* hover glow on primary buttons */
+
+        /* Semantic */
+        --blue: #60a5fa; /* secondary / links / debug     */
+        --green: #22c55e; /* success / info-neutral        */
+        --amber: #f59e0b; /* warning                       */
+        --red: #ef4444; /* error / danger                */
+        --purple: #a855f7; /* fatal                         */
+        --accent: #f97316; /* tertiary accent               */
+
+        /* Type */
+        --font-sans:
+          var(--font-geist-sans), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --font-mono:
+          ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono',
+          monospace;
+
+        /* Radius */
+        --radius: 0.75rem; /* base (12px)                   */
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px; /* rounded-2xl cards             */
+        --radius-xl: 24px; /* hero / auth cards             */
+        --radius-pill: 9999px; /* buttons, badges, chips        */
+
+        /* Elevation */
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+        /* Motion */
+        --ease: 0.15s ease;
+        --ease-200: 0.2s ease;
+
+        /* Shell metrics */
+        --topbar-h: 64px;
+        --sidebar-w: 250px;
+      }
+
+      /* ───────────────────────── RESET ───────────────────────── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      .mono {
+        font-family: var(--font-mono);
+      }
+      code {
+        font-family: var(--font-mono);
+      }
+      a {
+        color: var(--blue);
+      }
+
+      /* ─────────────────── DOC LAYOUT (not part of the system) ─────────────────── */
+      .ds-page {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 48px 24px 120px;
+      }
+      .ds-header {
+        margin-bottom: 56px;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--glass-border);
+      }
+      .ds-header h1 {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        background: linear-gradient(90deg, var(--primary), #fcd9b6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+      .ds-header p {
+        color: var(--text-60);
+        max-width: 70ch;
+      }
+      .ds-toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .ds-toc a {
+        font-size: 11px;
+        text-decoration: none;
+        color: var(--text-70);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-pill);
+        padding: 4px 12px;
+      }
+      .ds-toc a:hover {
+        background: var(--glass-bg-hover);
+        color: var(--text);
+      }
+      .ds-section {
+        margin-bottom: 64px;
+        scroll-margin-top: 24px;
+      }
+      .ds-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-40);
+        margin-bottom: 8px;
+      }
+      .ds-section h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .ds-section > p {
+        color: var(--text-60);
+        margin-bottom: 24px;
+        max-width: 80ch;
+      }
+      .ds-sub {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-50);
+        margin: 28px 0 12px;
+      }
+      .ds-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+      }
+      .ds-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      .ds-col {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ds-label {
+        font-size: 10px;
+        color: var(--text-40);
+        letter-spacing: 0.04em;
+      }
+      .ds-note {
+        border-left: 2px solid var(--primary);
+        background: var(--primary-10);
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        padding: 12px 16px;
+        margin: 16px 0;
+        color: var(--text-70);
+        font-size: 13px;
+      }
+      .ds-canvas {
+        background:
+          radial-gradient(900px 300px at 20% -10%, rgba(255, 98, 36, 0.06), transparent),
+          var(--bg-elevated);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 12px;
+      }
+      pre.ds-code {
+        background: #050505;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--text-80);
+      }
+      pre.ds-code .c {
+        color: var(--text-40);
+      } /* comment */
+      pre.ds-code .k {
+        color: var(--primary);
+      } /* key/keyword */
+      pre.ds-code .s {
+        color: var(--green);
+      } /* string */
+
+      /* ════════════════════════════════════════════════════════════════
+         PRODUCTION COMPONENTS — copy these recipes (Tailwind equivalents
+         are shown in the code block beside each example).
+      ════════════════════════════════════════════════════════════════ */
+
+      /* ── Glass card ── */
+      .card {
+        position: relative;
+        background: var(--glass-card-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        backdrop-filter: blur(var(--glass-blur));
+        padding: 20px;
+        overflow: hidden;
+      }
+      .card--accent::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--primary-40), transparent);
+      }
+      .card__title {
+        font-family: var(--font-mono);
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .card__desc {
+        color: var(--text-50);
+        font-size: 13px;
+      }
+
+      /* ── Stat tile (golden-signal / KPI) ── */
+      .stat {
+        background: var(--glass-card-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        backdrop-filter: blur(var(--glass-blur));
+        padding: 16px 18px;
+      }
+      .stat__label {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-50);
+      }
+      .stat__value {
+        font-family: var(--font-mono);
+        font-size: 26px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .stat__delta {
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      .stat__delta--up {
+        color: var(--red);
+      }
+      .stat__delta--ok {
+        color: var(--green);
+      }
+
+      /* ── Button (pill) ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 24px;
+        border-radius: var(--radius-pill);
+        border: 1px solid transparent;
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--ease-200);
+        white-space: nowrap;
+      }
+      .btn--primary {
+        background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
+        color: #fff;
+        box-shadow: var(--shadow-sm);
+      }
+      .btn--primary:hover {
+        box-shadow: var(--shadow-primary);
+        transform: scale(1.02);
+      }
+      .btn--primary:active {
+        transform: scale(0.98);
+      }
+      .btn--outline {
+        background: var(--glass-bg);
+        border-color: var(--glass-border);
+        color: var(--text);
+      }
+      .btn--outline:hover {
+        background: var(--glass-bg-hover);
+      }
+      .btn--ghost {
+        background: transparent;
+        color: var(--text-70);
+      }
+      .btn--ghost:hover {
+        background: var(--glass-bg);
+        color: var(--text);
+      }
+      .btn--sm {
+        height: 32px;
+        padding: 0 16px;
+        font-size: 12px;
+      }
+      .btn--lg {
+        height: 48px;
+        padding: 0 32px;
+        font-size: 16px;
+      }
+      .btn--icon {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+      }
+
+      /* ── Badge & chip ── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--brand-500);
+        color: #fff;
+        border-radius: var(--radius-pill);
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--glass-bg-raised);
+        border: 1px solid var(--glass-border);
+        color: var(--text-70);
+        border-radius: var(--radius-pill);
+        padding: 3px 10px;
+        font-size: 11px;
+      }
+      .role-pill {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--primary-30);
+        background: var(--primary-15);
+        color: var(--primary);
+        border-radius: var(--radius-pill);
+        padding: 2px 10px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      /* ── Severity / log-level chip (color + icon + text — accessible) ── */
+      .level {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: var(--radius-sm);
+        padding: 2px 8px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        border-left: 3px solid currentColor;
+      }
+      .level__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .level--trace {
+        color: #93b4d8;
+        background: rgba(147, 180, 216, 0.12);
+      }
+      .level--debug {
+        color: var(--blue);
+        background: rgba(96, 165, 250, 0.12);
+      }
+      .level--info {
+        color: var(--green);
+        background: rgba(34, 197, 94, 0.12);
+      }
+      .level--warn {
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.12);
+      }
+      .level--error {
+        color: var(--red);
+        background: rgba(239, 68, 68, 0.12);
+      }
+      .level--fatal {
+        color: var(--purple);
+        background: rgba(168, 85, 247, 0.14);
+      }
+
+      /* ── Input ── */
+      .input {
+        width: 100%;
+        height: 40px;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        padding: 0 14px;
+        font-family: var(--font-sans);
+        font-size: 14px;
+      }
+      .input::placeholder {
+        color: var(--text-40);
+      }
+      .input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px var(--primary-20);
+      }
+      .label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-60);
+        margin-bottom: 6px;
+      }
+
+      /* ── Table ── */
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .table th {
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-40);
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--glass-border);
+      }
+      .table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--text-70);
+        font-family: var(--font-mono);
+      }
+      .table tr:hover td {
+        background: var(--glass-bg);
+      }
+
+      /* ── Tabs ── */
+      .tabs {
+        display: inline-flex;
+        gap: 2px;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-pill);
+        padding: 3px;
+      }
+      .tab {
+        border: 0;
+        background: transparent;
+        color: var(--text-55);
+        border-radius: var(--radius-pill);
+        padding: 6px 16px;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: var(--font-sans);
+      }
+      .tab--active {
+        background: var(--primary-15);
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      /* ── Toast ── */
+      .toast {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--glass-card-bg);
+        border: 1px solid var(--glass-border);
+        border-left: 4px solid var(--glass-border);
+        border-radius: var(--radius-md);
+        backdrop-filter: blur(var(--glass-blur));
+        padding: 12px 14px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        max-width: 360px;
+      }
+      .toast--success {
+        border-left-color: var(--green);
+      }
+      .toast--error {
+        border-left-color: var(--red);
+      }
+      .toast--info {
+        border-left-color: var(--blue);
+      }
+      .toast--warning {
+        border-left-color: var(--amber);
+      }
+
+      /* ── Empty state ── */
+      .empty {
+        text-align: center;
+        padding: 40px 24px;
+        border: 1px dashed var(--glass-border);
+        border-radius: var(--radius-lg);
+        color: var(--text-50);
+      }
+      .empty__title {
+        font-family: var(--font-mono);
+        color: var(--text-80);
+        margin-bottom: 6px;
+      }
+
+      /* ── Skeleton ── */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--glass-bg) 25%,
+          var(--glass-bg-hover) 37%,
+          var(--glass-bg) 63%
+        );
+        background-size: 400% 100%;
+        animation: shimmer 1.4s ease infinite;
+        border-radius: var(--radius-sm);
+        height: 14px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 100% 0;
+        }
+        100% {
+          background-position: 0 0;
+        }
+      }
+
+      /* ── Swatch ── */
+      .swatch {
+        width: 100%;
+        height: 56px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--glass-border);
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         APP SHELL — the canonical layout every example app uses.
+         64px topbar over a 250px sidebar + fluid main.
+      ════════════════════════════════════════════════════════════════ */
+      .shell {
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: var(--topbar-h);
+        padding: 0 16px;
+        background: rgba(10, 10, 10, 0.85);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(12px);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand__mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--primary-40);
+        background: var(--primary-15);
+      }
+      .brand__name {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 14px;
+        background: linear-gradient(90deg, var(--primary), #fcd9b6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .topbar__right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .shell__body {
+        display: flex;
+        min-height: 360px;
+      }
+      .sidebar {
+        width: var(--sidebar-w);
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 20px 16px;
+        background: rgba(12, 12, 12, 0.98);
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        border-left: 2px solid transparent;
+        color: var(--text-55);
+        font-size: 14px;
+        text-decoration: none;
+        transition: all var(--ease);
+      }
+      .nav-item:hover {
+        background: var(--glass-bg);
+        color: var(--text-80);
+      }
+      .nav-item--active {
+        border-left-color: var(--primary);
+        background: var(--primary-10);
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .nav-item__icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: var(--text-40);
+      }
+      .nav-item--active .nav-item__icon {
+        color: var(--primary);
+      }
+      .sidebar__spacer {
+        flex: 1;
+      }
+      .sidebar__footer {
+        border-top: 1px solid var(--glass-border);
+        padding-top: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--text-50);
+        font-size: 11px;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+        padding: 24px;
+      }
+      .main__inner {
+        max-width: 920px;
+        margin: 0 auto;
+      }
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--primary-15);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      @media (max-width: 720px) {
+        .grid-4 {
+          grid-template-columns: 1fr 1fr;
+        }
+        .sidebar {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ds-page">
+      <!-- ── HEADER ── -->
+      <header class="ds-header">
+        <div class="ds-section-title">Bymax · Reference Apps</div>
+        <h1>Example Apps — Design System</h1>
+        <p>
+          The single, project-agnostic visual language shared by every Bymax <em>example</em>
+          application — <code>nest-auth-example</code>, <code>nest-logger-example</code>, and any
+          future <code>nest-*-example</code>. It is <strong>forced-dark</strong>, built on an
+          orange/blue <strong>glass-morphism</strong> aesthetic with <strong>Geist Sans</strong>
+          for body text and a <strong>monospace</strong> stack for headings, brand, and data. Copy
+          these tokens and component recipes verbatim — the goal is that any two example apps look
+          like one product. This page renders the system live (with hand-written CSS so it works
+          offline) and ends with a step-by-step recreation guide for AI agents.
+        </p>
+        <nav class="ds-toc">
+          <a href="#use">00 · How to use</a>
+          <a href="#color">01 · Color</a>
+          <a href="#type">02 · Typography</a>
+          <a href="#space">03 · Space &amp; Radius</a>
+          <a href="#tokens">04 · Tokens (copy-paste)</a>
+          <a href="#shell">05 · App Shell</a>
+          <a href="#dashboard">06 · Dashboard</a>
+          <a href="#components">07 · Components</a>
+          <a href="#severity">08 · Severity</a>
+          <a href="#patterns">09 · Patterns</a>
+          <a href="#agent">10 · Agent Guide</a>
+        </nav>
+      </header>
+
+      <!-- ── 00 HOW TO USE ── -->
+      <section class="ds-section" id="use">
+        <div class="ds-section-title">00 — How to use this guide</div>
+        <h2>One language, every example app</h2>
+        <p>
+          This is the source of the look. The production implementation lives in each app's
+          <code>apps/web</code> as four copied-verbatim files. Never restyle from scratch.
+        </p>
+        <div class="ds-note">
+          <strong>Stack:</strong> Next.js 16 (App Router) · React 19 · Tailwind CSS v4 · shadcn/ui
+          <code>new-york</code> · <code>geist</code> fonts · <code>lucide-react</code> icons ·
+          <code>sonner</code> toasts. <strong>No <code>next-themes</code></strong> — dark is forced
+          by putting <code>dark</code> on <code>&lt;html&gt;</code>.
+        </div>
+        <div class="ds-sub">The four files to copy into every example app</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>What it carries</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>app/globals.css</td>
+              <td>the token block — `:root` (light) + `.dark` (live) + base resets + keyframes</td>
+            </tr>
+            <tr>
+              <td>tailwind.config.ts</td>
+              <td>`theme.extend`: brand color scale, radius map, font families, glow keyframes</td>
+            </tr>
+            <tr>
+              <td>components.json</td>
+              <td>shadcn `new-york`, `cssVariables: true`, `baseColor: neutral`, `iconLibrary: lucide`</td>
+            </tr>
+            <tr>
+              <td>app/layout.tsx</td>
+              <td>Geist Sans/Mono variables + forced `dark` on `&lt;html&gt;` + Providers</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── 01 COLOR ── -->
+      <section class="ds-section" id="color">
+        <div class="ds-section-title">01 — Color</div>
+        <h2>Brand, semantics, glass &amp; text ramp</h2>
+        <p>
+          Primary is <strong>orange <code>#ff6224</code></strong> (<code>hsl(20.5 90.2% 57.8%)</code>) —
+          it is <code>--primary</code> and <code>--ring</code>. Surfaces are translucent white over
+          near-black; text is white at descending opacity. Use color only with an icon and a label
+          (never color alone) for accessibility.
+        </p>
+
+        <div class="ds-sub">Brand scale</div>
+        <div class="ds-grid">
+          <div class="ds-col"><div class="swatch" style="background:#fff5f0"></div><span class="ds-label">brand-50 #fff5f0</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#ffe8d6"></div><span class="ds-label">brand-100 #ffe8d6</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#ffb07d"></div><span class="ds-label">brand-300 #ffb07d</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#ff8748"></div><span class="ds-label">brand-400 #ff8748</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#ff6224"></div><span class="ds-label">brand-500 #ff6224 ★</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#e5511b"></div><span class="ds-label">brand-600 #e5511b</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#9d320d"></div><span class="ds-label">brand-800 #9d320d</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#7a2609"></div><span class="ds-label">brand-900 #7a2609</span></div>
+        </div>
+
+        <div class="ds-sub">Semantic</div>
+        <div class="ds-grid">
+          <div class="ds-col"><div class="swatch" style="background:#22c55e"></div><span class="ds-label">success / info #22c55e</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#60a5fa"></div><span class="ds-label">secondary / link #60a5fa</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#f59e0b"></div><span class="ds-label">warning #f59e0b</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#ef4444"></div><span class="ds-label">error / danger #ef4444</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#a855f7"></div><span class="ds-label">fatal #a855f7</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#f97316"></div><span class="ds-label">accent #f97316</span></div>
+        </div>
+
+        <div class="ds-sub">Glass surfaces &amp; borders</div>
+        <div class="ds-grid">
+          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.05)"></div><span class="ds-label">white/5 — surface</span></div>
+          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.06)"></div><span class="ds-label">white/6 — card</span></div>
+          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.08)"></div><span class="ds-label">white/8 — raised/chip</span></div>
+          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.1)"></div><span class="ds-label">white/10 — hover/border</span></div>
+          <div class="ds-col"><div class="swatch" style="background:#0a0a0a"></div><span class="ds-label">#0a0a0a — page bg</span></div>
+        </div>
+
+        <div class="ds-sub">Text ramp (white opacity)</div>
+        <div class="ds-row">
+          <span style="color: var(--text)">100% · headings/values</span>
+          <span style="color: var(--text-70)">70% · body</span>
+          <span style="color: var(--text-60)">60% · label</span>
+          <span style="color: var(--text-55)">55% · inactive nav</span>
+          <span style="color: var(--text-50)">50% · description</span>
+          <span style="color: var(--text-40)">40% · dim/meta</span>
+        </div>
+      </section>
+
+      <!-- ── 02 TYPOGRAPHY ── -->
+      <section class="ds-section" id="type">
+        <div class="ds-section-title">02 — Typography</div>
+        <h2>Geist Sans body · monospace headings &amp; data</h2>
+        <p>
+          Body copy uses <strong>Geist Sans</strong>; headings, the brand wordmark, card titles,
+          metric values, log keys, and tabular data use the <strong>monospace</strong> stack
+          (<code>ui-monospace, 'Cascadia Code', …</code>). This split gives the apps their
+          technical, observability-tool character.
+        </p>
+        <div class="ds-canvas">
+          <h1 style="font-size: 28px">H1 · Mono 28/700 — page title</h1>
+          <h2 style="font-size: 20px; margin-top: 10px">H2 · Mono 20/600 — section</h2>
+          <div class="card__title" style="margin-top: 10px">Card title · Mono 16/700</div>
+          <p style="margin-top: 10px; color: var(--text-70)">
+            Body · Geist Sans 14/1.6 — the quick brown fox jumps over the lazy dog. Use sans for
+            prose, labels, and controls.
+          </p>
+          <p class="mono" style="margin-top: 8px; color: var(--text-60)">
+            Mono · ORDER_CREATE_SUCCESS · 1,204 req/min · traceId 4bf92f35…4736
+          </p>
+        </div>
+      </section>
+
+      <!-- ── 03 SPACE & RADIUS ── -->
+      <section class="ds-section" id="space">
+        <div class="ds-section-title">03 — Space &amp; Radius</div>
+        <h2>8-pt rhythm · pill controls · 2xl cards</h2>
+        <p>
+          Base radius <code>--radius: 0.75rem</code>. Controls (buttons, badges, chips, avatars) are
+          fully rounded pills; cards are <code>rounded-2xl</code> (16px); hero/auth cards are 24px.
+          Spacing follows an 8-pt rhythm (4 / 8 / 12 / 16 / 24 / 32).
+        </p>
+        <div class="ds-row">
+          <div class="ds-col"><div class="swatch" style="border-radius: 8px; background: var(--glass-bg-hover)"></div><span class="ds-label">sm 8px — inputs/nav</span></div>
+          <div class="ds-col"><div class="swatch" style="border-radius: 12px; background: var(--glass-bg-hover)"></div><span class="ds-label">md 12px — toasts</span></div>
+          <div class="ds-col"><div class="swatch" style="border-radius: 16px; background: var(--glass-bg-hover)"></div><span class="ds-label">2xl 16px — cards</span></div>
+          <div class="ds-col"><div class="swatch" style="border-radius: 24px; background: var(--glass-bg-hover)"></div><span class="ds-label">xl 24px — hero</span></div>
+          <div class="ds-col"><div class="swatch" style="border-radius: 9999px; background: var(--glass-bg-hover)"></div><span class="ds-label">pill — controls</span></div>
+        </div>
+      </section>
+
+      <!-- ── 04 TOKENS ── -->
+      <section class="ds-section" id="tokens">
+        <div class="ds-section-title">04 — Tokens (copy-paste)</div>
+        <h2>The <code>globals.css</code> token block</h2>
+        <p>The <code>.dark</code> set is always active (forced dark). Copy verbatim.</p>
+        <div class="ds-note">
+          <strong>Tailwind v4 note.</strong> The blocks below show the token <em>values</em>. In a real
+          v4 app, map them to utilities with a <code>@theme inline { … }</code> block (v4 does
+          <strong>not</strong> auto-load a JS <code>tailwind.config.ts</code>; bridge a kept one via
+          <code>@config './tailwind.config.ts';</code>), keep <code>:root</code>/<code>.dark</code> at
+          <em>top level</em> (not inside <code>@layer base</code>), declare the dark variant with
+          <code>@custom-variant dark (&amp;:is(.dark *))</code>, and use only
+          <code>@tailwindcss/postcss</code> (no <code>autoprefixer</code>). See the full v4-correct
+          block in <code>DASHBOARD.md</code> §15.
+        </div>
+        <pre class="ds-code"><span class="c">/* app/globals.css */</span>
+@import <span class="s">'tailwindcss'</span>;
+
+@layer base {
+  :root {
+    <span class="k">--background</span>: 0 0% 100%;            <span class="c">/* HSL channels (shadcn) */</span>
+    <span class="k">--foreground</span>: 20 14.3% 4.1%;
+    <span class="k">--primary</span>: 20.5 90.2% 57.8%;        <span class="c">/* #ff6224 */</span>
+    <span class="k">--primary-foreground</span>: 60 9.1% 97.8%;
+    <span class="k">--border</span>: 20 5.9% 90%;
+    <span class="k">--ring</span>: 20.5 90.2% 57.8%;
+    <span class="k">--radius</span>: 0.75rem;
+    <span class="c">/* brand glass tokens (light) */</span>
+    <span class="k">--glass-card-bg</span>: rgba(0,0,0,0.03);
+    <span class="k">--glass-border</span>: rgba(0,0,0,0.08);
+    <span class="k">--font-mono</span>: ui-monospace,<span class="s">'Cascadia Code'</span>,<span class="s">'Source Code Pro'</span>,Menlo,Consolas,monospace;
+  }
+  .dark {
+    <span class="k">--background</span>: 20 14.3% 4.1%;
+    <span class="k">--foreground</span>: 60 9.1% 97.8%;
+    <span class="k">--primary</span>: 20.5 90.2% 57.8%;        <span class="c">/* #ff6224 */</span>
+    <span class="k">--primary-foreground</span>: 20 14.3% 4.1%;
+    <span class="k">--border</span>: 12 6.5% 15.1%;
+    <span class="k">--ring</span>: 20.5 90.2% 57.8%;
+    <span class="c">/* brand glass tokens (dark — the live set) */</span>
+    <span class="k">--color-bg-primary</span>: #0a0a0a;
+    <span class="k">--glass-bg</span>: rgba(255,255,255,0.05);
+    <span class="k">--glass-bg-raised</span>: rgba(255,255,255,0.08);
+    <span class="k">--glass-bg-hover</span>: rgba(255,255,255,0.10);
+    <span class="k">--glass-card-bg</span>: rgba(255,255,255,0.06);
+    <span class="k">--glass-border</span>: rgba(255,255,255,0.10);
+    <span class="k">--color-primary</span>: #ff6224;
+    <span class="k">--color-secondary</span>: #60a5fa;
+    <span class="k">--shadow-primary</span>: 0 0 24px rgba(255,98,36,0.4);
+  }
+}
+@layer base {
+  * { border-color: hsl(var(--border)); }
+  body { background: hsl(var(--background)); color: hsl(var(--foreground));
+         font-family: var(--font-sans, system-ui, sans-serif); }
+  h1,h2,h3,h4,h5,h6 { font-family: var(--font-mono); }
+}</pre>
+
+        <h2 style="margin-top: 28px"><code>tailwind.config.ts</code> — theme.extend</h2>
+        <pre class="ds-code"><span class="c">// brand scale + radius + fonts (Tailwind v4)</span>
+colors: {
+  border: <span class="s">'hsl(var(--border))'</span>, ring: <span class="s">'hsl(var(--ring))'</span>,
+  background: <span class="s">'hsl(var(--background))'</span>, foreground: <span class="s">'hsl(var(--foreground))'</span>,
+  primary: { DEFAULT: <span class="s">'hsl(var(--primary))'</span>, foreground: <span class="s">'hsl(var(--primary-foreground))'</span> },
+  brand: { DEFAULT: <span class="s">'#ff6224'</span>, 50:<span class="s">'#fff5f0'</span>, 400:<span class="s">'#ff8748'</span>, 500:<span class="s">'#ff6224'</span>, 600:<span class="s">'#e5511b'</span>, 900:<span class="s">'#7a2609'</span> },
+},
+borderRadius: { lg: <span class="s">'var(--radius)'</span>, md: <span class="s">'calc(var(--radius) - 2px)'</span>, sm: <span class="s">'calc(var(--radius) - 4px)'</span> },
+fontFamily: {
+  sans: [<span class="s">'var(--font-geist-sans)'</span>, <span class="s">'system-ui'</span>, <span class="s">'sans-serif'</span>],
+  mono: [<span class="s">'ui-monospace'</span>, <span class="s">'Cascadia Code'</span>, <span class="s">'Source Code Pro'</span>, <span class="s">'Menlo'</span>, <span class="s">'monospace'</span>],
+}</pre>
+
+        <h2 style="margin-top: 28px"><code>app/layout.tsx</code> — fonts + forced dark</h2>
+        <pre class="ds-code"><span class="k">import</span> { GeistSans } <span class="k">from</span> <span class="s">'geist/font/sans'</span>
+<span class="k">import</span> { GeistMono } <span class="k">from</span> <span class="s">'geist/font/mono'</span>
+<span class="k">import</span> <span class="s">'./globals.css'</span>
+
+<span class="k">export default function</span> RootLayout({ children }) {
+  <span class="k">return</span> (
+    &lt;html lang=<span class="s">"en"</span> className={`${GeistSans.variable} ${GeistMono.variable} dark`} suppressHydrationWarning&gt;
+      &lt;body&gt;&lt;Providers&gt;{children}&lt;/Providers&gt;&lt;/body&gt;
+    &lt;/html&gt;
+  )
+}</pre>
+      </section>
+
+      <!-- ── 05 APP SHELL ── -->
+      <section class="ds-section" id="shell">
+        <div class="ds-section-title">05 — App Shell</div>
+        <h2>64px topbar · 250px sidebar · fluid main</h2>
+        <p>
+          Every example app uses this exact shell. The brand mark is an orange-bordered badge with a
+          stacked-layers glyph; the wordmark is a mono orange→amber gradient. The active nav item has
+          a left orange border, a faint orange fill, and orange text/icon. Swap only the wordmark and
+          the nav items per app.
+        </p>
+        <div class="shell">
+          <div class="topbar">
+            <div class="brand">
+              <span class="brand__mark" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2L2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"
+                    stroke="#ff6224"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <span class="brand__name">example-app</span>
+            </div>
+            <div class="topbar__right">
+              <span class="chip">Last 1h ▾</span>
+              <span class="chip">● Loki | Postgres</span>
+              <span class="avatar">MS</span>
+            </div>
+          </div>
+          <div class="shell__body">
+            <aside class="sidebar">
+              <a class="nav-item nav-item--active" href="#shell"
+                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg
+                >Overview</a
+              >
+              <a class="nav-item" href="#dashboard"
+                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg
+                >Explorer</a
+              >
+              <a class="nav-item" href="#components"
+                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg
+                >Trigger Center</a
+              >
+              <a class="nav-item" href="#severity"
+                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg
+                >Alerts</a
+              >
+              <a class="nav-item" href="#patterns"
+                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></svg
+                >Maintenance</a
+              >
+              <div class="sidebar__spacer"></div>
+              <div class="sidebar__footer">
+                <span>tenant: acme</span><span class="role-pill">operator</span>
+              </div>
+            </aside>
+            <main class="main">
+              <div class="main__inner">
+                <div class="card card--accent">
+                  <div class="card__title">Main content</div>
+                  <div class="card__desc">
+                    Pages render inside <code>main → max-w</code> wrapper. Widen to
+                    <code>max-w-7xl</code> for chart-heavy pages.
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+        <pre class="ds-code"><span class="c">// JSX — Tailwind classes (the production recipe)</span>
+&lt;header className=<span class="s">"fixed left-0 right-0 top-0 z-200 flex h-16 items-center justify-between border-b border-[rgba(255,255,255,0.07)] bg-[rgba(10,10,10,0.85)] px-4 backdrop-blur-md"</span>&gt; … &lt;/header&gt;
+&lt;div className=<span class="s">"flex pt-16"</span>&gt;
+  &lt;aside className=<span class="s">"w-[250px] shrink-0 border-r border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,12,0.98)] lg:sticky lg:top-16 lg:h-[calc(100vh-64px)]"</span>&gt; … &lt;/aside&gt;
+  &lt;main className=<span class="s">"min-w-0 flex-1 px-6 py-8"</span>&gt;&lt;div className=<span class="s">"mx-auto max-w-5xl"</span>&gt;{children}&lt;/div&gt;&lt;/main&gt;
+&lt;/div&gt;
+
+<span class="c">// nav item</span>
+base   = <span class="s">"flex items-center gap-3 rounded-lg border-l-2 px-3 py-[10px] text-sm transition-all"</span>
+active = <span class="s">"border-l-[#ff6224] bg-[rgba(255,98,36,0.1)] font-semibold text-[#ff6224]"</span>
+idle   = <span class="s">"border-l-transparent text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.05)]"</span></pre>
+      </section>
+
+      <!-- ── 06 DASHBOARD ── -->
+      <section class="ds-section" id="dashboard">
+        <div class="ds-section-title">06 — Dashboard composition</div>
+        <h2>KPI strip · cards · data table</h2>
+        <p>
+          Pages flow general → specific: a row of KPI/golden-signal stat tiles, then cards, then a
+          data table. Stat values are mono; deltas are red (bad) / green (good).
+        </p>
+        <div class="ds-canvas">
+          <div class="grid-4" style="margin-bottom: 12px">
+            <div class="stat">
+              <div class="stat__label">Traffic</div>
+              <div class="stat__value">1.2k</div>
+              <div class="stat__delta stat__delta--ok">req/min ▲</div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Error rate</div>
+              <div class="stat__value">0.8%</div>
+              <div class="stat__delta stat__delta--ok">&lt; 1% ok</div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Latency p95</div>
+              <div class="stat__value">240<span style="font-size: 14px">ms</span></div>
+              <div class="stat__delta stat__delta--up">▲ 12ms</div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Errors (1h)</div>
+              <div class="stat__value">14</div>
+              <div class="stat__delta stat__delta--up">fatal+error</div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-bottom: 12px">
+            <div class="card card--accent">
+              <div class="card__title">Log volume</div>
+              <div class="card__desc">stacked bar by level — the brushable signature panel</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Latency p50/p95/p99</div>
+              <div class="card__desc">percentile lines (never averages) + heatmap below</div>
+            </div>
+          </div>
+          <div class="card">
+            <table class="table">
+              <thead>
+                <tr><th>time</th><th>level</th><th>logKey</th><th>message</th><th>trace</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>10:12:44.512</td><td><span class="level level--error"><span class="level__dot"></span>ERROR</span></td><td>PAYMENT_REFUND_FAILED</td><td>Gateway declined</td><td>↗ 4bf9</td></tr>
+                <tr><td>10:12:44.498</td><td><span class="level level--info"><span class="level__dot"></span>INFO</span></td><td>HTTP_REQUEST_SUCCESS</td><td>GET /orders/:id</td><td>↗ 4bf9</td></tr>
+                <tr><td>10:12:44.480</td><td><span class="level level--warn"><span class="level__dot"></span>WARN</span></td><td>METHOD_SLOW_EXECUTION</td><td>refund() 1240ms</td><td>↗ 4bf9</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 07 COMPONENTS ── -->
+      <section class="ds-section" id="components">
+        <div class="ds-section-title">07 — Components</div>
+        <h2>Buttons, badges, inputs, tabs, toasts</h2>
+
+        <div class="ds-sub">Buttons (pill · brand gradient default)</div>
+        <div class="ds-canvas">
+          <div class="ds-row" style="align-items: center">
+            <button class="btn btn--primary">Primary</button>
+            <button class="btn btn--outline">Outline</button>
+            <button class="btn btn--ghost">Ghost</button>
+            <button class="btn btn--primary btn--sm">Small</button>
+            <button class="btn btn--primary btn--lg">Large</button>
+            <button class="btn btn--outline btn--icon">+</button>
+          </div>
+          <pre class="ds-code" style="margin: 0"><span class="c">// default variant</span>
+<span class="s">"rounded-full bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm hover:shadow-(--shadow-primary) hover:scale-[1.02] active:scale-[0.98]"</span>
+<span class="c">// sizes: h-10 px-6 · sm h-8 px-4 text-xs · lg h-12 px-8 · icon h-10 w-10</span></pre>
+        </div>
+
+        <div class="ds-sub">Badges · chips · role pill</div>
+        <div class="ds-canvas">
+          <div class="ds-row" style="align-items: center">
+            <span class="badge">NEW</span>
+            <span class="badge">12</span>
+            <span class="chip">service: api</span>
+            <span class="chip">tenant: acme</span>
+            <span class="role-pill">admin</span>
+          </div>
+        </div>
+
+        <div class="ds-sub">Inputs &amp; form</div>
+        <div class="ds-canvas" style="max-width: 420px">
+          <label class="label" for="q">Search query</label>
+          <input class="input" id="q" placeholder="level:error logKey:PAYMENT_*" />
+        </div>
+
+        <div class="ds-sub">Tabs</div>
+        <div class="ds-canvas">
+          <div class="tabs">
+            <button class="tab tab--active">Overview</button>
+            <button class="tab">Raw JSON</button>
+            <button class="tab">Context</button>
+            <button class="tab">Trace</button>
+          </div>
+        </div>
+
+        <div class="ds-sub">Toasts (Sonner — severity left-border, glass)</div>
+        <div class="ds-canvas">
+          <div class="ds-row">
+            <div class="toast toast--success"><span class="level__dot" style="color: var(--green)"></span>Saved view created</div>
+            <div class="toast toast--error"><span class="level__dot" style="color: var(--red)"></span>Failed to reach Loki</div>
+            <div class="toast toast--info"><span class="level__dot" style="color: var(--blue)"></span>Live tail resumed</div>
+            <div class="toast toast--warning"><span class="level__dot" style="color: var(--amber)"></span>High log rate — tail paused</div>
+          </div>
+        </div>
+
+        <div class="ds-sub">Empty state &amp; skeleton</div>
+        <div class="grid-2">
+          <div class="empty">
+            <div class="empty__title">No logs yet</div>
+            <div>Fire one from the Trigger Center →</div>
+            <button class="btn btn--primary btn--sm" style="margin-top: 12px">Open Trigger Center</button>
+          </div>
+          <div class="card">
+            <div class="skeleton" style="width: 40%; margin-bottom: 10px"></div>
+            <div class="skeleton" style="width: 90%; margin-bottom: 8px"></div>
+            <div class="skeleton" style="width: 75%; margin-bottom: 8px"></div>
+            <div class="skeleton" style="width: 85%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 08 SEVERITY ── -->
+      <section class="ds-section" id="severity">
+        <div class="ds-section-title">08 — Severity / log levels</div>
+        <h2>Color + icon + text — never color alone</h2>
+        <p>
+          Log levels (and alert severities) are encoded with a colored left-border, a dot/icon, and
+          the text label together — colorblind-safe. Reuse the same mapping for log rows, the level
+          donut, toasts, and incident badges.
+        </p>
+        <div class="ds-canvas">
+          <div class="ds-row" style="align-items: center">
+            <span class="level level--trace"><span class="level__dot"></span>TRACE</span>
+            <span class="level level--debug"><span class="level__dot"></span>DEBUG</span>
+            <span class="level level--info"><span class="level__dot"></span>INFO</span>
+            <span class="level level--warn"><span class="level__dot"></span>WARN</span>
+            <span class="level level--error"><span class="level__dot"></span>ERROR</span>
+            <span class="level level--fatal"><span class="level__dot"></span>FATAL</span>
+          </div>
+          <pre class="ds-code" style="margin: 0"><span class="c">// lib/severity.ts → { color, icon, label } per level</span>
+trace #93b4d8 · debug #60a5fa · info #22c55e · warn #f59e0b · error #ef4444 · fatal #a855f7</pre>
+        </div>
+      </section>
+
+      <!-- ── 09 PATTERNS ── -->
+      <section class="ds-section" id="patterns">
+        <div class="ds-section-title">09 — Patterns</div>
+        <h2>The rules behind the look</h2>
+        <ul style="color: var(--text-70); padding-left: 18px; display: grid; gap: 10px">
+          <li>
+            <strong>Glass-morphism recipe:</strong> surface <code>bg rgba(255,255,255,0.06)</code> +
+            <code>1px rgba(255,255,255,0.10)</code> border + <code>backdrop-blur-md</code> +
+            <code>rounded-2xl</code>. Primary buttons add the brand glow
+            <code>0 0 24px rgba(255,98,36,0.4)</code> on hover.
+          </li>
+          <li>
+            <strong>Forced dark:</strong> no theme toggle. <code>dark</code> on <code>&lt;html&gt;</code>;
+            the <code>.dark</code> token set is the only live one.
+          </li>
+          <li>
+            <strong>Mono for data, sans for prose:</strong> headings, brand, card titles, metrics,
+            log keys, and table cells are monospace; everything else is Geist Sans.
+          </li>
+          <li>
+            <strong>Overview → drill-down:</strong> most-important top-left; KPI strip → charts →
+            table; every chart click narrows the table/explorer below.
+          </li>
+          <li>
+            <strong>Skeletons, not spinners</strong> for content fetches; spinners only for short
+            blocking actions (submit/save).
+          </li>
+          <li>
+            <strong>Action-oriented empty states</strong> with a primary action — never a blank pane.
+          </li>
+          <li>
+            <strong>Accessible severity:</strong> color + icon + text together; verify contrast.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ── 10 AGENT GUIDE ── -->
+      <section class="ds-section" id="agent">
+        <div class="ds-section-title">10 — AI agent recreation guide</div>
+        <h2>Recreate this look in any example app</h2>
+        <p>Follow these steps to give a fresh <code>apps/web</code> the identical design system.</p>
+        <ol style="color: var(--text-70); padding-left: 18px; display: grid; gap: 8px">
+          <li>
+            Install: <code>next@^16 react@^19 tailwindcss@^4 @tailwindcss/postcss geist
+            lucide-react sonner class-variance-authority clsx tailwind-merge</code>. Do
+            <strong>not</strong> add <code>next-themes</code> or <code>autoprefixer</code>/<code>postcss-import</code>
+            (Tailwind&nbsp;v4 forces dark via a class and auto-prefixes).
+          </li>
+          <li>
+            Copy <code>app/globals.css</code> (the §4 token block), <code>components.json</code>
+            (shadcn <code>new-york</code>, lucide), and <code>postcss.config.mjs</code> (just
+            <code>@tailwindcss/postcss</code>). In <strong>Tailwind&nbsp;v4</strong>, map tokens to
+            utilities with a <code>@theme inline</code> block; v4 does <strong>not</strong> auto-load a JS
+            <code>tailwind.config.ts</code> — if you keep one (e.g. for keyframes), bridge it with
+            <code>@config './tailwind.config.ts';</code> at the top of <code>globals.css</code>. Put
+            <code>:root</code>/<code>.dark</code> at top level (not in <code>@layer base</code>) and declare the
+            dark variant via <code>@custom-variant dark (&amp;:is(.dark *))</code>.
+          </li>
+          <li>
+            In <code>app/layout.tsx</code> load <code>GeistSans</code> + <code>GeistMono</code> and put
+            <code>`${GeistSans.variable} ${GeistMono.variable} dark`</code> on <code>&lt;html&gt;</code>.
+          </li>
+          <li>
+            Add <code>lib/utils.ts</code> with <code>cn = (…i) =&gt; twMerge(clsx(i))</code>; scaffold
+            shadcn components (<code>button, card, badge, input, table, tabs, dialog, dropdown-menu,
+            tooltip, sonner, avatar, skeleton, popover, select, command</code>); override
+            <code>button</code> to the pill + brand-gradient variants and <code>card</code> to the
+            glass variant.
+          </li>
+          <li>
+            Build the shell from §5 (Topbar 64px + Sidebar 250px + main). Reuse the active/idle nav
+            classes exactly; change only the wordmark and the nav items for this app.
+          </li>
+          <li>
+            Add <code>lib/severity.ts</code> (§8) and reuse it for every status/level surface.
+          </li>
+          <li>
+            Compose pages overview → drill-down (§6); use skeletons + action-oriented empty states
+            (§9).
+          </li>
+        </ol>
+        <div class="ds-note">
+          <strong>Acceptance:</strong> place a screenshot of the new app beside any existing example
+          app — the chrome (topbar, sidebar, cards, buttons, fonts, orange brand, glass) must be
+          indistinguishable. Only the page content differs.
+        </div>
+        <p style="color: var(--text-40); margin-top: 24px; font-size: 12px">
+          Bymax Example Apps · Design System v1 · forced-dark · brand #ff6224 · Geist + mono ·
+          shadcn new-york. Referenced from each app's <code>docs/DASHBOARD.md</code> §15 and
+          <code>docs/DEVELOPMENT_PLAN.md</code> (Phase 11).
+        </p>
+      </section>
+    </div>
+  </body>
+</html>
