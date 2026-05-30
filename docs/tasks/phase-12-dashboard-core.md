@@ -8,17 +8,17 @@
 
 ## Task index
 
-| ID    | Task                                                                       | Status | Priority | Size | Depends on             |
-| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P12-1 | `lib/api-client.ts` typed fetch wrappers + data hooks (`useLogs`/`useAggregate`/`useFacets`) | 🔴 | High | M | Phase 10, Phase 11 |
-| P12-2 | `lib/filters.ts` nuqs `LogQuery ↔ URL` parsers + global top-bar controls   | 🔴     | High     | M    | P12-1                  |
-| P12-3 | `app/page.tsx` Overview — health strip (4 golden signals + SLO)            | 🔴     | High     | M    | P12-1, P12-2           |
-| P12-4 | Overview — brushable volume timeseries + RED row (Rate/Errors/Duration + heatmap) | 🔴 | High | L | P12-3 |
-| P12-5 | Overview — breakdown row + pipeline-health panel                           | 🔴     | High     | M    | P12-3                  |
-| P12-6 | `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL toggles)       | 🔴     | High     | L    | P12-2                  |
-| P12-7 | Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer | 🔴  | High     | L    | P12-6                  |
-| P12-8 | `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)       | 🔴     | High     | L    | P12-7                  |
-| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)        | 🔴     | High     | M    | P12-1..P12-8           |
+| ID    | Task                                                                                         | Status | Priority | Size | Depends on         |
+| ----- | -------------------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------------ |
+| P12-1 | `lib/api-client.ts` typed fetch wrappers + data hooks (`useLogs`/`useAggregate`/`useFacets`) | 🔴     | High     | M    | Phase 10, Phase 11 |
+| P12-2 | `lib/filters.ts` nuqs `LogQuery ↔ URL` parsers + global top-bar controls                     | 🔴     | High     | M    | P12-1              |
+| P12-3 | `app/page.tsx` Overview — health strip (4 golden signals + SLO)                              | 🔴     | High     | M    | P12-1, P12-2       |
+| P12-4 | Overview — brushable volume timeseries + RED row (Rate/Errors/Duration + heatmap)            | 🔴     | High     | L    | P12-3              |
+| P12-5 | Overview — breakdown row + pipeline-health panel                                             | 🔴     | High     | M    | P12-3              |
+| P12-6 | `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL toggles)                         | 🔴     | High     | L    | P12-2              |
+| P12-7 | Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer                | 🔴     | High     | L    | P12-6              |
+| P12-8 | `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)                         | 🔴     | High     | L    | P12-7              |
+| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)                          | 🔴     | High     | M    | P12-1..P12-8       |
 
 ---
 
@@ -60,6 +60,7 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 > Steps:
 >
 > 1. Define the shared filter + response types in `apps/web/lib/types.ts`, re-exporting library types:
+>
 >    ```typescript
 >    import type { LogEntry, LogLevel } from '@bymax-one/nest-logger/shared'
 >
@@ -97,7 +98,9 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 >      }
 >    }
 >    ```
+>
 > 2. Create `apps/web/lib/api-client.ts` with a base helper + the wrappers:
+>
 >    ```typescript
 >    import type { AggregateMetric, FacetField, LogPage, LogQuery } from './types'
 >    import { ApiError } from './types'
@@ -114,7 +117,10 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 >    }
 >
 >    async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
->      const res = await fetch(`${BASE}${path}`, { ...init, headers: { Accept: 'application/json' } })
+>      const res = await fetch(`${BASE}${path}`, {
+>        ...init,
+>        headers: { Accept: 'application/json' },
+>      })
 >      if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`)
 >      return (await res.json()) as T
 >    }
@@ -131,7 +137,9 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 >    export const getExportUrl = (format: 'json' | 'csv', q: LogQuery) =>
 >      `${BASE}/logs/export?format=${format}&${encodeLogQuery(q)}`
 >    ```
+>
 > 3. Create `apps/web/hooks/use-logs.ts` (infinite/keyset):
+>
 >    ```typescript
 >    'use client'
 >    import { useInfiniteQuery } from '@tanstack/react-query'
@@ -147,6 +155,7 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 >      })
 >    }
 >    ```
+>
 > 4. Create `apps/web/hooks/use-aggregate.ts` and `apps/web/hooks/use-facets.ts` as `useQuery` wrappers over `getAggregate` / `getFacets`, keyed on `['aggregate', metric, query]` / `['facets', fields, query]`.
 > 5. Run `pnpm --filter web typecheck` and `pnpm --filter web build`.
 >    Constraints:
@@ -156,7 +165,6 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 > - The browser **never** aggregates raw rows — charts read `getAggregate` only (`DASHBOARD.md` §11). Do NOT add a client-side group-by.
 > - Do NOT hardcode a backend port other than via `NEXT_PUBLIC_API_URL` (default `http://localhost:3001`).
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `node -e "require('fs').accessSync('apps/web/lib/api-client.ts')"` — expected: exit 0.
@@ -216,6 +224,7 @@ Make every view a shareable deep-link. `lib/filters.ts` defines `nuqs` v2 typed 
 > Steps:
 >
 > 1. Create `apps/web/lib/filters.ts` with the parser map + the derived hook:
+>
 >    ```typescript
 >    'use client'
 >    import { parseAsString, parseAsStringEnum, parseAsBoolean, useQueryStates } from 'nuqs'
@@ -242,7 +251,10 @@ Make every view a shareable deep-link. `lib/filters.ts` defines `nuqs` v2 typed 
 >      return '1h'
 >    }
 >
->    export function useLogQuery(): { query: LogQuery; setQuery: ReturnType<typeof useQueryStates>[1] } {
+>    export function useLogQuery(): {
+>      query: LogQuery
+>      setQuery: ReturnType<typeof useQueryStates>[1]
+>    } {
 >      const [state, setQuery] = useQueryStates(logQueryParsers)
 >      const query: LogQuery = {
 >        source: state.source,
@@ -257,6 +269,7 @@ Make every view a shareable deep-link. `lib/filters.ts` defines `nuqs` v2 typed 
 >      return { query, setQuery }
 >    }
 >    ```
+>
 > 2. Build `components/controls/TimeRangePicker.tsx` — a shadcn `Popover` + preset buttons (`Last 5m/15m/1h/6h/24h/7d`) and an absolute `Calendar` range; on select compute ISO `from`/`to` and call `setQuery`.
 > 3. Build `components/controls/SourceToggle.tsx` — a two-button segmented control bound to `source`; render the persistent callout (use the exact 🎓 copy: "You're viewing **Postgres** (`warn`+, durable). `info`/`debug` lines live only in **Loki**…").
 > 4. Build `components/controls/TenantRoleSwitcher.tsx` — two shadcn `Select`s (tenant list `['acme','globex']`; role `['viewer','operator','admin']`) bound to `tenantId`/`role`; footer pill style per `DASHBOARD.md` §15.
@@ -270,7 +283,6 @@ Make every view a shareable deep-link. `lib/filters.ts` defines `nuqs` v2 typed 
 > - Do NOT add `next-themes`; the app is forced-dark (Phase 11).
 > - Reuse the Phase 11 topbar shell classes verbatim; only add the controls cluster.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "useQueryStates" apps/web/lib/filters.ts` — expected: match (nuqs wired).
@@ -328,6 +340,7 @@ Build the Overview page shell (`app/page.tsx`) and its first row: the **health s
 >
 > 1. Create `apps/web/app/page.tsx`. Keep it a thin server component that renders a `'use client'` `<OverviewContent/>`; `OverviewContent` reads `const { query } = useLogQuery()` and composes the rows. Wrap in the Phase 11 shell container (`<div className="mx-auto max-w-7xl">`).
 > 2. Create `components/charts/StatTile.tsx` — a glass `Card` (`border-(--glass-border) bg-(--glass-card-bg) rounded-2xl`) with `CardTitle` (`font-mono`), a big value, a Recharts sparkline, and a Δ badge:
+>
 >    ```tsx
 >    'use client'
 >    import { Line, LineChart, ResponsiveContainer } from 'recharts'
@@ -370,6 +383,7 @@ Build the Overview page shell (`app/page.tsx`) and its first row: the **health s
 >      )
 >    }
 >    ```
+>
 > 3. Create `components/charts/SloGauge.tsx` — render the 99.9% / 30-day budget as a gauge (`budget = 1 − errorRate`) and badge the 14.4 / 6 / 1 burn rates.
 > 4. Create `components/charts/HealthStrip.tsx` — call `useAggregate('volume', q)`, `useAggregate('errorRate', q)`, `useAggregate('latency', q)`, `useAggregate('statusMix', q)`; derive each tile's value + sparkline series; show `Skeleton` while `isLoading`; show the action-oriented empty state when there are zero buckets. Lay out 5 tiles in a `flex flex-wrap gap-4` / responsive grid.
 > 5. Mount `<HealthStrip query={query} />` as the first row of `app/page.tsx`.
@@ -382,7 +396,6 @@ Build the Overview page shell (`app/page.tsx`) and its first row: the **health s
 > - Use shadcn `Skeleton` for loading, never a spinner.
 > - Reuse the verbatim glass/brand tokens from Phase 11 (`--glass-card-bg`, `--primary`); do NOT introduce new colors.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "useAggregate" apps/web/components/charts/HealthStrip.tsx` — expected: match (server-fed).
@@ -442,6 +455,7 @@ Build the Overview's signature panel and RED row (`DASHBOARD.md` §5 + §11). Th
 > Steps:
 >
 > 1. Create `components/charts/VolumeBar.tsx` — stacked bar by level with a brush that lifts the range to the URL:
+>
 >    ```tsx
 >    'use client'
 >    import { Bar, BarChart, Brush, ResponsiveContainer, XAxis, YAxis } from 'recharts'
@@ -488,6 +502,7 @@ Build the Overview's signature panel and RED row (`DASHBOARD.md` §5 + §11). Th
 >      )
 >    }
 >    ```
+>
 > 2. Create `RequestsLine.tsx` (Rate), `ErrorRateLine.tsx` (two series + `<ReferenceLine y={0.01} />`), `LatencyLines.tsx` (p50/p95/p99 lines), and `LatencyHeatmap.tsx` (per-bucket `durationMs` histogram cells + a "Slow reqs > 1s" stat). Each calls the matching `useAggregate(metric, query)`.
 > 3. In `app/page.tsx`, mount `<VolumeBar query={query} onBrush={(from, to) => setQuery({ from, to })} />` directly under the health strip, then a 2-column RED row (`grid grid-cols-1 lg:grid-cols-2 gap-4`): left = Requests/min + Error-rate; right = Latency lines + heatmap.
 > 4. Run `pnpm --filter web typecheck` + `build`; manually drag the volume brush and confirm `from`/`to` change in the URL.
@@ -499,7 +514,6 @@ Build the Overview's signature panel and RED row (`DASHBOARD.md` §5 + §11). Th
 > - Reuse the severity colors from Phase 11's `lib/severity.ts` where possible; do NOT invent new level colors.
 > - The brush must write through `setQuery` (nuqs) — do NOT hold the range in local component state.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "Brush" apps/web/components/charts/VolumeBar.tsx` — expected: match (brushable).
@@ -557,6 +571,7 @@ Complete the Overview with the breakdown row and the pipeline-health panel (`DAS
 > Steps:
 >
 > 1. Create `components/charts/TopBar.tsx` — a reusable horizontal-bar panel:
+>
 >    ```tsx
 >    'use client'
 >    import { Bar, BarChart, Cell, ResponsiveContainer, YAxis } from 'recharts'
@@ -587,6 +602,7 @@ Complete the Overview with the breakdown row and the pipeline-health panel (`DAS
 >      )
 >    }
 >    ```
+>
 > 2. Create `LevelDonut.tsx` (Recharts `Pie`/donut over `count() by level`, slice `onClick` → `setQuery({ level })`) and `StatusMix.tsx` (stacked bar by status-class).
 > 3. Create `PipelineHealth.tsx` — a stat row reading the `LOGGER_DESTINATION_WRITE_FAILED` / `_INIT_FAILED` / `LOGGER_ENTRY_TRUNCATED` counts (via `useAggregate` grouped by `logKey`, filtered to those keys) + Loki/Postgres write-lag readouts.
 > 4. In `app/page.tsx`, mount a 5-up breakdown row (`grid grid-cols-2 lg:grid-cols-5 gap-4`) — `LevelDonut`, `TopBar` (top logKeys), `TopBar` (top errors), `StatusMix`, `TopBar` (top tenants) — each `onPick`/slice-click wired to `setQuery`; then the `PipelineHealth` panel as the final row.
@@ -599,7 +615,6 @@ Complete the Overview with the breakdown row and the pipeline-health panel (`DAS
 > - Click-to-filter writes through `setQuery` (nuqs) so the pivot is a shareable deep-link; do NOT navigate imperatively with local state.
 > - Reuse severity colors from Phase 11; do NOT invent new ones.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "setQuery" apps/web/components/charts/LevelDonut.tsx` — expected: match (click-to-filter).
@@ -656,6 +671,7 @@ Build the Log Explorer shell (`app/explorer/page.tsx`), its faceted left rail, a
 > Steps:
 >
 > 1. Extend `apps/web/lib/log-keys.ts`:
+>
 >    ```typescript
 >    import { LOG_KEYS_CONVENTION_REGEX } from '@bymax-one/nest-logger/shared'
 >
@@ -665,6 +681,7 @@ Build the Log Explorer shell (`app/explorer/page.tsx`), its faceted left rail, a
 >      return LOG_KEYS_CONVENTION_REGEX.test(probe)
 >    }
 >    ```
+>
 > 2. Create `components/explorer/FacetRail.tsx` — call `useFacets(['level','service','logKey','tenantId'], query)`; render each field as a section of value+count rows; a row click adds a positive filter (`setQuery({ [field]: value })`), Alt/⌥-click marks it negative (encode an `is-not` into the query, e.g. a `!`-prefixed value the API understands).
 > 3. Create `components/explorer/QueryBar.tsx` — a controlled input (optionally a shadcn `Command` popover for autocomplete). On submit, tokenize `key:value` / `key>=value` / free-text `msg ~ "…"` into a `LogQuery` and call `setQuery`. For any `logKey:` token, call `isValidLogKey` and, if invalid, render an inline red hint ("not a valid logKey — expected `MODULE_ACTION_RESULT`"). Render two collapsible teaching toggles showing the compiled SQL + LogQL (use the API's generated-query field, or a small local compiler that mirrors §12 — `level>=warn` → `level IN (...)` / `| json | level=~"warn|error|fatal"`).
 > 4. Create `apps/web/app/explorer/page.tsx` — a `grid grid-cols-[260px_1fr]` layout: `<FacetRail/>` left; right column = `<QueryBar/>` then a `{/* LogTable mounts in P12-7 */}` placeholder. Read `const { query } = useLogQuery()`.
@@ -676,7 +693,6 @@ Build the Log Explorer shell (`app/explorer/page.tsx`), its faceted left rail, a
 > - Filter state lives in the nuqs URL (P12-2) — do NOT add a parallel Context/`useState` store; this is what makes brush→filter (P12-4) land here.
 > - Facet counts come from `/logs/facets` — do NOT compute them client-side from fetched rows.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "LOG_KEYS_CONVENTION_REGEX" apps/web/lib/log-keys.ts` — expected: match (validation wired).
@@ -735,6 +751,7 @@ Build the Explorer's data grid and detail drawer (`DASHBOARD.md` §6). The **tab
 >
 > 1. Create `components/explorer/columns.tsx` — TanStack `ColumnDef<LogEntry>[]` for `time`, `level` (render the severity chip from Phase 11 `lib/severity.ts`), `logKey` (mono `Badge`), `service`, `msg`, `requestId`, `traceId`.
 > 2. Create `components/explorer/LogTable.tsx` — flatten `useLogs(query).data.pages` to rows; drive a `useReactTable` instance; virtualize the body with `useVirtualizer`:
+>
 >    ```tsx
 >    'use client'
 >    import { useRef } from 'react'
@@ -744,10 +761,20 @@ Build the Explorer's data grid and detail drawer (`DASHBOARD.md` §6). The **tab
 >    import { logColumns } from './columns'
 >    import type { LogEntry, LogQuery } from '@/lib/types'
 >
->    export function LogTable({ query, onRowClick }: { query: LogQuery; onRowClick: (r: LogEntry) => void }) {
+>    export function LogTable({
+>      query,
+>      onRowClick,
+>    }: {
+>      query: LogQuery
+>      onRowClick: (r: LogEntry) => void
+>    }) {
 >      const { data, fetchNextPage, hasNextPage } = useLogs(query)
 >      const rows = (data?.pages ?? []).flatMap((p) => p.rows)
->      const table = useReactTable({ data: rows, columns: logColumns, getCoreRowModel: getCoreRowModel() })
+>      const table = useReactTable({
+>        data: rows,
+>        columns: logColumns,
+>        getCoreRowModel: getCoreRowModel(),
+>      })
 >      const parentRef = useRef<HTMLDivElement>(null)
 >      const rowVirtualizer = useVirtualizer({
 >        count: rows.length,
@@ -763,6 +790,7 @@ Build the Explorer's data grid and detail drawer (`DASHBOARD.md` §6). The **tab
 >      )
 >    }
 >    ```
+>
 > 3. Create `components/explorer/DetailDrawer.tsx` — a shadcn `Sheet`/`Dialog` with `Tabs` (Overview / Raw JSON / Context / Trace). Overview: map every field with `filter for` (`setQuery({ [k]: v })`) / `filter out` / `add as column`. Raw JSON: `<JsonView value={row.payload} />` from `@uiw/react-json-view` (redacted fields already read `[REDACTED]` — render verbatim). Context: `getContext({ requestId, before: 10, after: 10 })`. Trace: `traceId`/`spanId`, a `[ View trace ]` anchor to the Grafana/Tempo derived-field URL, and `[ All logs for this trace ]` → `setQuery({ traceId })`.
 > 4. In `app/explorer/page.tsx`, replace the P12-6 table placeholder with `<LogTable query={query} onRowClick={setSelected} />` and a `<DetailDrawer row={selected} .../>`.
 > 5. Run `pnpm --filter web typecheck` + `build`.
@@ -774,7 +802,6 @@ Build the Explorer's data grid and detail drawer (`DASHBOARD.md` §6). The **tab
 > - Severity is color **+** icon **+** text (reuse Phase 11 `lib/severity.ts`) — never color alone (§2 principle 7).
 > - Leave the SSE "new rows at the bottom" wiring to P12-8; expose a small append hook/prop the live tail can drive.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "useVirtualizer" apps/web/components/explorer/LogTable.tsx` — expected: match (virtualized).
@@ -832,6 +859,7 @@ Wire the headline real-time feature (`DASHBOARD.md` §7 + §14). `lib/use-event-
 > Steps:
 >
 > 1. Create `apps/web/lib/use-event-source.ts` with a `RingBuffer` + the hook (per `DASHBOARD.md` §14):
+>
 >    ```typescript
 >    'use client'
 >    import { useEffect, useRef, useState } from 'react'
@@ -880,6 +908,7 @@ Wire the headline real-time feature (`DASHBOARD.md` §7 + §14). `lib/use-event-
 >      return buffer
 >    }
 >    ```
+>
 > 2. Create `apps/web/hooks/use-follow-mode.ts` — track whether the table scroll container is pinned to the bottom; when pinned, auto-scroll on new rows; when scrolled up, set `paused` and accumulate `newCount`; expose `jumpToLatest()` that scrolls to bottom and resumes.
 > 3. (Optional) Create `apps/web/app/api/logs/stream/route.ts` — a Next.js route handler that proxies/transforms the `apps/api` `/logs/stream` `text/event-stream` (set `Cache-Control: no-cache`, `X-Accel-Buffering: no`).
 > 4. Modify `components/explorer/LogTable.tsx` — when `live` is on (from P12-2), merge the ring-buffer snapshot at the bottom of the rows, highlight newly-arrived rows, and render the "**N new logs — Jump to latest**" pill (wired to `useFollowMode`). Add the `Live ▸ Pause ▸ Resume ▸ Clear` controls. Enforce guardrails: only subscribe on relative ranges; auto-pause on a high arrival rate; auto-stop after a long idle.
@@ -892,7 +921,6 @@ Wire the headline real-time feature (`DASHBOARD.md` §7 + §14). `lib/use-event-
 > - Live tail only on **relative** time ranges; auto-pause on high rate; auto-stop on idle (the §7 guardrails).
 > - Ignore the keep-alive `ping` events; do NOT parse empty `data`.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.
 > - `grep -n "requestAnimationFrame" apps/web/lib/use-event-source.ts` — expected: match (rAF-batched).
@@ -958,7 +986,6 @@ Phase 12 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the three da
 > - Do NOT use `--no-verify`, `@ts-ignore`, or `eslint-disable` to pass a gate (§0 principle 6).
 > - Do NOT add placeholder/mocked data to fake a passing behavior — verify against the real stack.
 >   Verification:
->
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web lint` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0.

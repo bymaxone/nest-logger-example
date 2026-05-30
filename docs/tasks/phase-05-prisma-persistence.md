@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID    | Task                                                                       | Status | Priority | Size | Depends on             |
-| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P5-1  | Install Prisma 6 + `schema.prisma` datasource/generator (PostgreSQL 18)    | 🔴     | High     | S    | —                      |
-| P5-2  | `ApplicationLog` model — dashboard-grade columns (DASHBOARD §13)           | 🔴     | High     | S    | P5-1                   |
-| P5-3  | Indexes via native Prisma extended-index syntax (BRIN / keyset / GIN)      | 🔴     | High     | M    | P5-2                   |
-| P5-4  | Domain + governance models (`Order`/`Payment` + `SavedView`/`AlertRule`/`Incident`/`AuditEvent`) | 🔴 | High | M | P5-1                   |
-| P5-5  | `PrismaService` (Nest module, `onModuleInit` connect, shutdown hooks)      | 🔴     | High     | S    | P5-1                   |
-| P5-6  | `prisma/seed.ts` + migrate/seed/index verification                        | 🔴     | High     | M    | P5-2, P5-3, P5-4, P5-5 |
+| ID   | Task                                                                                             | Status | Priority | Size | Depends on             |
+| ---- | ------------------------------------------------------------------------------------------------ | ------ | -------- | ---- | ---------------------- |
+| P5-1 | Install Prisma 6 + `schema.prisma` datasource/generator (PostgreSQL 18)                          | 🔴     | High     | S    | —                      |
+| P5-2 | `ApplicationLog` model — dashboard-grade columns (DASHBOARD §13)                                 | 🔴     | High     | S    | P5-1                   |
+| P5-3 | Indexes via native Prisma extended-index syntax (BRIN / keyset / GIN)                            | 🔴     | High     | M    | P5-2                   |
+| P5-4 | Domain + governance models (`Order`/`Payment` + `SavedView`/`AlertRule`/`Incident`/`AuditEvent`) | 🔴     | High     | M    | P5-1                   |
+| P5-5 | `PrismaService` (Nest module, `onModuleInit` connect, shutdown hooks)                            | 🔴     | High     | S    | P5-1                   |
+| P5-6 | `prisma/seed.ts` + migrate/seed/index verification                                               | 🔴     | High     | M    | P5-2, P5-3, P5-4, P5-5 |
 
 ---
 
@@ -58,6 +58,7 @@ Add Prisma 6 to `apps/api` and create the `prisma/schema.prisma` shell: the `gen
 >    pnpm --filter api add @prisma/client@^6
 >    ```
 > 2. Create `apps/api/prisma/schema.prisma`:
+>
 >    ```prisma
 >    generator client {
 >      provider = "prisma-client-js"
@@ -68,6 +69,7 @@ Add Prisma 6 to `apps/api` and create the `prisma/schema.prisma` shell: the `gen
 >      url      = env("DATABASE_URL")
 >    }
 >    ```
+>
 > 3. Add `db:*` scripts to `apps/api/package.json` (the `prisma` binary reads `prisma/schema.prisma` by default):
 >    ```jsonc
 >    {
@@ -75,8 +77,8 @@ Add Prisma 6 to `apps/api` and create the `prisma/schema.prisma` shell: the `gen
 >        "db:generate": "prisma generate",
 >        "db:migrate": "prisma migrate dev",
 >        "db:seed": "prisma db seed",
->        "db:studio": "prisma studio"
->      }
+>        "db:studio": "prisma studio",
+>      },
 >    }
 >    ```
 > 4. Confirm `DATABASE_URL` is present in the root `.env.example` (from Phase 1) and validated in `apps/api/src/config/env.schema.ts` (Phase 3). Do NOT redefine it; if the Zod entry is missing, add `DATABASE_URL: z.string().url()`.
@@ -88,7 +90,6 @@ Add Prisma 6 to `apps/api` and create the `prisma/schema.prisma` shell: the `gen
 > - Do NOT add the `prisma.seed` config block here (it lands in P5-6) and do NOT create any `model` (P5-2/P5-4 own them).
 > - Do NOT point at a new database — reuse `logger_example` from Phase 1.
 >   Verification:
->
 > - `pnpm --filter api exec prisma validate` — expected: `The schema at prisma/schema.prisma is valid 🚀`.
 > - `pnpm --filter api exec prisma -v` — expected: reports a `6.x` version.
 > - `node -e "require('fs').accessSync('apps/api/prisma/schema.prisma')"` — expected: exit 0.
@@ -141,6 +142,7 @@ Add the `ApplicationLog` model — the durable Postgres log tier written by `Pri
 > Steps:
 >
 > 1. In `apps/api/prisma/schema.prisma`, append:
+>
 >    ```prisma
 >    model ApplicationLog {
 >      id         String   @id @default(cuid())
@@ -160,6 +162,7 @@ Add the `ApplicationLog` model — the durable Postgres log tier written by `Pri
 >      // Indexes are added in P5-3 (BRIN / keyset / GIN + B-tree).
 >    }
 >    ```
+>
 > 2. Keep the `time` column WITHOUT `@default(now())` — it is the entry's own event time, set by `PrismaLogDestination`.
 > 3. Run `pnpm --filter api exec prisma validate`.
 >    Constraints:
@@ -169,7 +172,6 @@ Add the `ApplicationLog` model — the durable Postgres log tier written by `Pri
 > - Do NOT generate a migration yet (P5-6 runs the first `prisma migrate dev` over the complete schema).
 > - `payload` MUST be documented as already-redacted; never store raw PII.
 >   Verification:
->
 > - `pnpm --filter api exec prisma validate` — expected: schema valid.
 > - `pnpm --filter api exec prisma format` then re-read the file — expected: `ApplicationLog` has `id time level logKey message service tenantId? requestId? traceId? spanId? status? durationMs? payload` and no `@@index` lines yet.
 
@@ -217,7 +219,7 @@ Add the `ApplicationLog` indexes that make log querying fast at volume, expresse
 ### Agent Execution Prompt
 
 > Role: Senior TypeScript / NestJS engineer + Postgres index specialist.
-> Context: Task P5-3 of [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-5--prisma--persistence) §Phase 5. The **authoritative** index spec is [`../DASHBOARD.md`](../DASHBOARD.md) §13. The §13 **audit fix** is load-bearing: *"earlier drafts claimed BRIN/GIN can't be expressed in Prisma — that's outdated. The native declarations are correct for Prisma 6/7 (extended indexes are GA on PostgreSQL). Reserve raw SQL only for things Prisma still can't model (BRIN `pages_per_range` tuning or partial indexes)."* Do NOT regress to raw SQL for BRIN/GIN.
+> Context: Task P5-3 of [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-5--prisma--persistence) §Phase 5. The **authoritative** index spec is [`../DASHBOARD.md`](../DASHBOARD.md) §13. The §13 **audit fix** is load-bearing: _"earlier drafts claimed BRIN/GIN can't be expressed in Prisma — that's outdated. The native declarations are correct for Prisma 6/7 (extended indexes are GA on PostgreSQL). Reserve raw SQL only for things Prisma still can't model (BRIN `pages_per_range` tuning or partial indexes)."_ Do NOT regress to raw SQL for BRIN/GIN.
 > Objective: Add the native extended-index set to `ApplicationLog`.
 > Steps:
 >
@@ -242,7 +244,6 @@ Add the `ApplicationLog` indexes that make log querying fast at volume, expresse
 > - Keyset index field order MUST be `(time DESC, id DESC)` to match the `ORDER BY time DESC, id DESC` keyset query in §13.
 > - Do NOT run `migrate dev` here (P5-6 owns the migration); validation + format only.
 >   Verification:
->
 > - `pnpm --filter api exec prisma validate` — expected: schema valid.
 > - `grep -c "@@index" apps/api/prisma/schema.prisma` — expected: `>= 7` (the seven `ApplicationLog` indexes; more once P5-4 domain indexes land).
 > - `grep "type: Brin" apps/api/prisma/schema.prisma` and `grep "type: Gin" apps/api/prisma/schema.prisma` — expected: both match (proves native, not raw-SQL).
@@ -296,6 +297,7 @@ Add the demo-domain tables (`Order`, `Payment`) that produce realistic logs (Pha
 > Steps:
 >
 > 1. Append to `apps/api/prisma/schema.prisma`:
+>
 >    ```prisma
 >    model Order {
 >      id        String   @id @default(cuid())
@@ -366,6 +368,7 @@ Add the demo-domain tables (`Order`, `Payment`) that produce realistic logs (Pha
 >      @@index([at])
 >    }
 >    ```
+>
 > 2. Run `pnpm --filter api exec prisma validate` and `pnpm --filter api exec prisma format`.
 >    Constraints:
 >
@@ -375,7 +378,6 @@ Add the demo-domain tables (`Order`, `Payment`) that produce realistic logs (Pha
 > - The `AlertRule`↔`Incident` relation is the only FK pair here; the `Order`/`Payment` link is intentionally loose (`orderId` string, no FK) so the demo can create payments for arbitrary orders.
 > - Do NOT run `migrate dev` here (P5-6 owns it); validate + format only.
 >   Verification:
->
 > - `pnpm --filter api exec prisma validate` — expected: schema valid.
 > - `grep -E "^model (Order|Payment|SavedView|AlertRule|Incident|AuditEvent)" apps/api/prisma/schema.prisma | wc -l` — expected: `6`.
 
@@ -428,6 +430,7 @@ Create the injectable `PrismaService` (extends the generated `PrismaClient`, `im
 > Steps:
 >
 > 1. Create `apps/api/src/prisma/prisma.service.ts`:
+>
 >    ```typescript
 >    import { Injectable, type OnModuleInit } from '@nestjs/common'
 >    import { PrismaClient } from '@prisma/client'
@@ -439,7 +442,9 @@ Create the injectable `PrismaService` (extends the generated `PrismaClient`, `im
 >      }
 >    }
 >    ```
+>
 > 2. Create `apps/api/src/prisma/prisma.module.ts`:
+>
 >    ```typescript
 >    import { Global, Module } from '@nestjs/common'
 >    import { PrismaService } from './prisma.service'
@@ -451,6 +456,7 @@ Create the injectable `PrismaService` (extends the generated `PrismaClient`, `im
 >    })
 >    export class PrismaModule {}
 >    ```
+>
 > 3. In `apps/api/src/app.module.ts`, add `PrismaModule` to `imports` (it must resolve before `BymaxLoggerModule.forRootAsync` evaluates its factory). Because `BymaxLoggerModule` injects `PrismaService`, and `@Global()` makes the provider visible, this resolves without re-importing per module.
 > 4. Run `pnpm --filter api typecheck`.
 >    Constraints:
@@ -459,7 +465,6 @@ Create the injectable `PrismaService` (extends the generated `PrismaClient`, `im
 > - Do NOT mark `PrismaService` as `forRootAsync`-internal — it's a plain global provider consumed by the logger factory AND every feature module.
 > - Keep the service minimal — query logging / metrics middleware is out of scope for Phase 5.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api dev` (with `pnpm infra:up` running) — expected: boots without a Prisma connection error; `GET /health` returns 200.
 > - `grep -n "PrismaModule" apps/api/src/app.module.ts` — expected: imported.
@@ -509,7 +514,7 @@ Write `prisma/seed.ts` (demo tenants + sample orders/payments) and run the first
 ### Agent Execution Prompt
 
 > Role: Senior NestJS / Prisma engineer closing out the persistence phase.
-> Context: Task P5-6 of [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-5--prisma--persistence) §Phase 5. DoD (from the plan): *"`prisma migrate dev` applies; `prisma db seed` populates; indexes present (`\d application_logs`)."* The complete schema (P5-2 `ApplicationLog` + P5-3 indexes + P5-4 domain/governance) and `PrismaService` (P5-5) must already exist. Postgres 18 + `logger_example` are up via `pnpm infra:up` (Phase 1). `ApplicationLog` rows come from the running app later — the seed only needs demo domain data.
+> Context: Task P5-6 of [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-5--prisma--persistence) §Phase 5. DoD (from the plan): _"`prisma migrate dev` applies; `prisma db seed` populates; indexes present (`\d application_logs`)."_ The complete schema (P5-2 `ApplicationLog` + P5-3 indexes + P5-4 domain/governance) and `PrismaService` (P5-5) must already exist. Postgres 18 + `logger_example` are up via `pnpm infra:up` (Phase 1). `ApplicationLog` rows come from the running app later — the seed only needs demo domain data.
 > Objective: Add the seed + run the first migration; verify migrate/seed/indexes.
 > Steps:
 >
@@ -517,10 +522,11 @@ Write `prisma/seed.ts` (demo tenants + sample orders/payments) and run the first
 > 2. Add the seed config to `apps/api/package.json`:
 >    ```jsonc
 >    {
->      "prisma": { "seed": "tsx prisma/seed.ts" }
+>      "prisma": { "seed": "tsx prisma/seed.ts" },
 >    }
 >    ```
 > 3. Create `apps/api/prisma/seed.ts` — idempotent demo data for two tenants:
+>
 >    ```typescript
 >    import { PrismaClient } from '@prisma/client'
 >
@@ -551,6 +557,7 @@ Write `prisma/seed.ts` (demo tenants + sample orders/payments) and run the first
 >      })
 >      .finally(() => void prisma.$disconnect())
 >    ```
+>
 > 4. Bring up infra and run the first migration + seed:
 >    ```bash
 >    pnpm infra:up
@@ -569,7 +576,6 @@ Write `prisma/seed.ts` (demo tenants + sample orders/payments) and run the first
 > - Do NOT hand-write BRIN/GIN DDL — they MUST come from the native `@@index` declarations (P5-3). Reserve raw SQL strictly for `pages_per_range`/partial-index tuning.
 > - Commit the generated `prisma/migrations/` directory.
 >   Verification:
->
 > - `pnpm --filter api exec prisma migrate dev --name init` — expected: "Your database is now in sync with your schema."
 > - `pnpm --filter api exec prisma db seed` — expected: prints the seeded-tenants line, exit 0.
 > - `grep -iE "USING (brin|gin)" apps/api/prisma/migrations/*_init/migration.sql` — expected: both BRIN and GIN present.

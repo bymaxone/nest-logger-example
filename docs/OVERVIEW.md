@@ -12,20 +12,20 @@
 >
 > **🔧 Reconciled against the shipped `0.1.0` types (May-2026 audit).** The earlier blueprint was authored pre-code against the library's `README.md`, which itself drifts from the shipped code. This document now follows the **code**; the corrections applied:
 >
-> | Symbol | Shipped `0.1.0` (authoritative) | Correction applied |
-> | ------ | ------------------------------- | ------------------ |
-> | NestJS-logger bridge | `app.useLogger(app.get(PinoLoggerService))` + option `shouldUseAsNestLogger` (default true) | no `BymaxLoggerModule.useNestLogger(app)` helper ships — use the idiom |
-> | Request-id middleware | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId`; `applyRequestIdMiddleware()` also exported | as documented |
-> | `otel` auto-inject flag | **`otel.shouldAutoInjectTraceContext`** (default true) | was `autoInjectTraceContext` |
-> | `warnStructured` | **`(logKey, message: string, userId?, meta?)`** | was `(logKey, error, context?)` — message+userId, not Error+context |
-> | structured fatal | **none** — use `fatal()` (variadic) or `errorStructured()` | `fatalStructured` does not exist |
-> | `@LogContext` | **class decorator `@LogContext(name)`** — records a label; `setContext()` applies it in `0.1.0` | was `(store)` method decorator |
-> | `http.excludePaths` | **`readonly RegExp[]`** (anchored, ReDoS-safe) | was `string[]` |
-> | `redactCensor` | **`string`** only | the censor-function form is not in the public type |
-> | `DEFAULT_REDACT_PATHS` | **exported** from the `.` subpath; the example references it | was wrongly called internal (the export-usage audit needs it) |
-> | `http.slowThresholdMs` / `http.userIdResolver` | **do not exist** in `HttpOptions` | slow = `@LogPerformance(ms)`; userId via `info(logKey, msg, userId, …)` |
+> | Symbol                                         | Shipped `0.1.0` (authoritative)                                                                                                 | Correction applied                                                      |
+> | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+> | NestJS-logger bridge                           | `app.useLogger(app.get(PinoLoggerService))` + option `shouldUseAsNestLogger` (default true)                                     | no `BymaxLoggerModule.useNestLogger(app)` helper ships — use the idiom  |
+> | Request-id middleware                          | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId`; `applyRequestIdMiddleware()` also exported | as documented                                                           |
+> | `otel` auto-inject flag                        | **`otel.shouldAutoInjectTraceContext`** (default true)                                                                          | was `autoInjectTraceContext`                                            |
+> | `warnStructured`                               | **`(logKey, message: string, userId?, meta?)`**                                                                                 | was `(logKey, error, context?)` — message+userId, not Error+context     |
+> | structured fatal                               | **none** — use `fatal()` (variadic) or `errorStructured()`                                                                      | `fatalStructured` does not exist                                        |
+> | `@LogContext`                                  | **class decorator `@LogContext(name)`** — records a label; `setContext()` applies it in `0.1.0`                                 | was `(store)` method decorator                                          |
+> | `http.excludePaths`                            | **`readonly RegExp[]`** (anchored, ReDoS-safe)                                                                                  | was `string[]`                                                          |
+> | `redactCensor`                                 | **`string`** only                                                                                                               | the censor-function form is not in the public type                      |
+> | `DEFAULT_REDACT_PATHS`                         | **exported** from the `.` subpath; the example references it                                                                    | was wrongly called internal (the export-usage audit needs it)           |
+> | `http.slowThresholdMs` / `http.userIdResolver` | **do not exist** in `HttpOptions`                                                                                               | slow = `@LogPerformance(ms)`; userId via `info(logKey, msg, userId, …)` |
 >
-> The library's own `README.md` still documents some of these incorrectly (`@LogContext(store)`, `warnStructured(error)`, `fatalStructured`, a `redactCensor` function) — a docs issue should be filed upstream. `TraceContextMixin`, `REDACT_MAX_DEPTH`, the composed mixin, and `LOGGER_ERROR_CODES` are **internal** (not public exports) — referenced as observable *behaviors*, not importable surface.
+> The library's own `README.md` still documents some of these incorrectly (`@LogContext(store)`, `warnStructured(error)`, `fatalStructured`, a `redactCensor` function) — a docs issue should be filed upstream. `TraceContextMixin`, `REDACT_MAX_DEPTH`, the composed mixin, and `LOGGER_ERROR_CODES` are **internal** (not public exports) — referenced as observable _behaviors_, not importable surface.
 
 ---
 
@@ -162,35 +162,35 @@ The three app services are independently deployable. All log/trace state is carr
 
 ## 4. Tech Stack
 
-| Layer                  | Technology                              | Version            | Why                                                         |
-| ---------------------- | --------------------------------------- | ------------------ | ----------------------------------------------------------- |
-| **Logging library**    | `@bymax-one/nest-logger`                | `^0.1.0` (pre-1.0)   | The library this project demonstrates                       |
-| Logging engine         | Pino                                    | `^10.0`            | Library peer dep — ~750k logs/sec, JSON-native              |
-| Pretty dev output      | `pino-pretty`                           | `^13.0` (optional) | Human-readable logs in development                          |
-| Rolling files          | `pino-roll`                             | `^3.0` (optional)  | File destination with daily/size rotation                  |
-| Backend runtime        | Node.js                                 | `>=24`             | Library requirement                                         |
-| Backend framework      | NestJS                                  | `^11.0`            | Library peer dependency                                     |
-| HTTP adapter           | Express                                 | `^5.0`             | Default adapter; library is Express-first (Fastify is v0.2) |
-| Tracing API            | `@opentelemetry/api`                    | `>=1.9.0 <1.10` (optional) | The version cap lives HERE (sdk-node peers `<1.10`); lib detects it to inject `traceId`/`spanId` |
-| Tracing SDK            | `@opentelemetry/sdk-node`               | `^0.218.0`         | Still on the 0.x experimental line (no 1.x yet) — consumer-side init in `instrumentation.ts` |
-| OTLP exporter          | `@opentelemetry/exporter-trace-otlp-http` | `^0.218`         | Ships spans to the OTel Collector (same 0.2xx line as sdk-node) |
-| Auto-instrumentation   | `@opentelemetry/auto-instrumentations-node` | `^0.76`        | ⚠️ DIFFERENT version line from the core experimental pkgs (`0.7x`, not `0.2xx`); HTTP/Express/pg spans + W3C propagation |
-| Database               | PostgreSQL                              | `18`               | Backs the `PrismaLogDestination` + demo domain              |
-| ORM                    | Prisma                                  | `^6.0`             | Type-safe; popular in the NestJS ecosystem                  |
-| Log storage            | Grafana Loki                            | `latest`           | Local log aggregation for the demo                          |
-| Trace storage          | Grafana Tempo                           | `latest`           | Local trace storage for the demo                            |
-| Telemetry pipeline     | OpenTelemetry Collector                 | `latest`           | OTLP receiver → Tempo (traces) + Loki (logs)                |
-| Dashboards             | Grafana                                 | `latest`           | Explore view; trace ↔ log correlation                       |
-| Error tracking (opt.)  | Sentry (`@sentry/node`, `@sentry/opentelemetry`) | `^10.0` (>=10.18) | Optional — `SentryPropagator` + built-in `Sentry.pinoIntegration()` (`enableLogs`) |
-| **Dashboard**          | Next.js / React                         | `^16` / `^19`      | First-class Log Explorer + Playground (see §10 + `docs/DASHBOARD.md`) |
-| Dashboard charts       | Recharts (+ Tremor primitives)          | latest             | Observability charts: volume, error-rate, latency, level mix |
-| Dashboard data         | TanStack Query + Table + Virtual        | latest             | Caching, virtualized log table, infinite scroll             |
-| Real-time              | Server-Sent Events (SSE)                | —                  | Live tail of new log entries into the Explorer              |
-| Package manager        | pnpm                                    | `^10.8`            | Matches the library; first-class workspaces                 |
-| Container runtime      | Docker Compose                          | v2                 | Single-command local stack                                  |
-| Testing (api/worker)   | Jest + supertest                        | `^30`              | Unit + e2e with stdout-capture assertions                   |
-| Mutation testing       | Stryker                                 | `^9`               | Example gate `break: 100` (matches `nest-auth-example`); the lib itself uses ≥99 / `break: 95` |
-| Testing (web, opt.)    | Vitest + Playwright                     | latest             | Unit + end-to-end                                           |
+| Layer                 | Technology                                       | Version                    | Why                                                                                                                      |
+| --------------------- | ------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Logging library**   | `@bymax-one/nest-logger`                         | `^0.1.0` (pre-1.0)         | The library this project demonstrates                                                                                    |
+| Logging engine        | Pino                                             | `^10.0`                    | Library peer dep — ~750k logs/sec, JSON-native                                                                           |
+| Pretty dev output     | `pino-pretty`                                    | `^13.0` (optional)         | Human-readable logs in development                                                                                       |
+| Rolling files         | `pino-roll`                                      | `^3.0` (optional)          | File destination with daily/size rotation                                                                                |
+| Backend runtime       | Node.js                                          | `>=24`                     | Library requirement                                                                                                      |
+| Backend framework     | NestJS                                           | `^11.0`                    | Library peer dependency                                                                                                  |
+| HTTP adapter          | Express                                          | `^5.0`                     | Default adapter; library is Express-first (Fastify is v0.2)                                                              |
+| Tracing API           | `@opentelemetry/api`                             | `>=1.9.0 <1.10` (optional) | The version cap lives HERE (sdk-node peers `<1.10`); lib detects it to inject `traceId`/`spanId`                         |
+| Tracing SDK           | `@opentelemetry/sdk-node`                        | `^0.218.0`                 | Still on the 0.x experimental line (no 1.x yet) — consumer-side init in `instrumentation.ts`                             |
+| OTLP exporter         | `@opentelemetry/exporter-trace-otlp-http`        | `^0.218`                   | Ships spans to the OTel Collector (same 0.2xx line as sdk-node)                                                          |
+| Auto-instrumentation  | `@opentelemetry/auto-instrumentations-node`      | `^0.76`                    | ⚠️ DIFFERENT version line from the core experimental pkgs (`0.7x`, not `0.2xx`); HTTP/Express/pg spans + W3C propagation |
+| Database              | PostgreSQL                                       | `18`                       | Backs the `PrismaLogDestination` + demo domain                                                                           |
+| ORM                   | Prisma                                           | `^6.0`                     | Type-safe; popular in the NestJS ecosystem                                                                               |
+| Log storage           | Grafana Loki                                     | `latest`                   | Local log aggregation for the demo                                                                                       |
+| Trace storage         | Grafana Tempo                                    | `latest`                   | Local trace storage for the demo                                                                                         |
+| Telemetry pipeline    | OpenTelemetry Collector                          | `latest`                   | OTLP receiver → Tempo (traces) + Loki (logs)                                                                             |
+| Dashboards            | Grafana                                          | `latest`                   | Explore view; trace ↔ log correlation                                                                                    |
+| Error tracking (opt.) | Sentry (`@sentry/node`, `@sentry/opentelemetry`) | `^10.0` (>=10.18)          | Optional — `SentryPropagator` + built-in `Sentry.pinoIntegration()` (`enableLogs`)                                       |
+| **Dashboard**         | Next.js / React                                  | `^16` / `^19`              | First-class Log Explorer + Playground (see §10 + `docs/DASHBOARD.md`)                                                    |
+| Dashboard charts      | Recharts (+ Tremor primitives)                   | latest                     | Observability charts: volume, error-rate, latency, level mix                                                             |
+| Dashboard data        | TanStack Query + Table + Virtual                 | latest                     | Caching, virtualized log table, infinite scroll                                                                          |
+| Real-time             | Server-Sent Events (SSE)                         | —                          | Live tail of new log entries into the Explorer                                                                           |
+| Package manager       | pnpm                                             | `^10.8`                    | Matches the library; first-class workspaces                                                                              |
+| Container runtime     | Docker Compose                                   | v2                         | Single-command local stack                                                                                               |
+| Testing (api/worker)  | Jest + supertest                                 | `^30`                      | Unit + e2e with stdout-capture assertions                                                                                |
+| Mutation testing      | Stryker                                          | `^9`                       | Example gate `break: 100` (matches `nest-auth-example`); the lib itself uses ≥99 / `break: 95`                           |
+| Testing (web, opt.)   | Vitest + Playwright                              | latest                     | Unit + end-to-end                                                                                                        |
 
 ---
 
@@ -306,62 +306,62 @@ nest-logger-example/
 
 Every row maps to a public feature/export of `@bymax-one/nest-logger`. Each one is exercised somewhere in this repository.
 
-| #   | Library feature                              | Library surface                                                   | Demonstrated in                                                              | Status |
-| --- | -------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------ |
-| 1   | Synchronous registration                     | `BymaxLoggerModule.forRoot(options)`                              | `apps/worker/src/app.module.ts`                                              | ✅     |
-| 2   | Async registration with `ConfigService`      | `BymaxLoggerModule.forRootAsync({ useFactory, inject, imports })` | `apps/api/src/app.module.ts` + `logger/logger.config.ts`                    | ✅     |
-| 3   | Global module flag                           | `isGlobal` (→ `DynamicModule.global`)                             | `forRootAsync` in `apps/api` (default `true`, set explicitly)                | ✅     |
-| 4   | NestJS internal-logger bridge                | `app.useLogger(app.get(PinoLoggerService))` (or option `shouldUseAsNestLogger`) + `{ bufferLogs: true }` | `apps/api/src/main.ts`, `apps/worker/src/main.ts`                            | ✅     |
-| 5   | Structured `info` / `warnStructured`         | `PinoLoggerService.info(logKey, msg, userId?, meta?)`            | `orders/orders.service.ts`                                                   | ✅     |
-| 6   | Error logging with `Error` object            | `PinoLoggerService.errorStructured(logKey, error, userId?, meta?)`| `payments/payments.service.ts` catch block                                  | ✅     |
-| 7   | Structured warn + variadic `fatal()`             | `warnStructured(logKey, msg, userId?, meta?)`; `fatal()` (no `fatalStructured`) | `payments` (retryable warn), bootstrap fatal path                            | ✅     |
-| 8   | NestJS `LoggerService` interface methods     | `log` / `verbose` (bridge → `info` / `trace`)                     | NestJS framework logs after the logger bridge                                | ✅     |
-| 9   | Per-class logger injection (child logger)    | `@InjectLogger(context)`                                          | every service constructor (e.g. `@InjectLogger(OrdersService.name)`)         | ✅     |
-| 10  | Class context label                          | `@LogContext(name)` (class decorator — records label; `setContext()` applies it) + `LOG_CONTEXT_METADATA_KEY` | `downstream/downstream.service.ts`                                          | ✅     |
-| 11  | Performance / slow-method logging            | `@LogPerformance(thresholdMs?)` → `METHOD_EXECUTION` / `_SLOW_`   | `payments/payments.service.ts` (intentionally slow path)                     | ✅     |
-| 12  | AsyncLocalStorage context propagation        | `LogContextService.run / set / get / getStore`                   | `RequestIdMiddleware` + `downstream` (manual `set`)                          | ✅     |
-| 13  | Automatic request-id middleware              | `RequestIdMiddleware` (via `consumer.apply(...)` / `applyRequestIdMiddleware()`) or `http.shouldGenerateRequestId` | `apps/api/src/app.module.ts` `configure()`                                  | ✅     |
-| 14  | HTTP request/response logging                | `HttpLoggingInterceptor` (`http.isEnabled: true`)                | global; visible on every `/orders` call                                      | ✅     |
-| 15  | HTTP log keys (start/success/redirect/4xx/5xx)| `HTTP_REQUEST_*` reserved keys                                    | exercised by 2xx/4xx/5xx demo routes                                          | ✅     |
-| 16  | Exception filter                             | `HttpExceptionFilter` (`HTTP_EXCEPTION_HANDLED` / `_UNHANDLED`)   | `payments` throws `HttpException`; `pii-demo` throws unexpected               | ✅     |
-| 17  | Double-log avoidance (filter ↔ interceptor)  | `__bymax_logger_handled` coordination                            | asserted in `test/http-logging.e2e-spec.ts`                                  | ✅     |
-| 18  | URL normalization (`:id` placeholder)        | `normalizeUrl` (UUID/ULID/nanoid/numeric → `/:id`)               | `/orders/:id` calls show `"url":"/orders/:id"`                              | ✅     |
-| 19  | Slow-method flag                             | `@LogPerformance(thresholdMs)`                                    | `/orders/slow` exceeds threshold                                             | ✅     |
-| 20  | HTTP path exclusion                          | `http.excludePaths`                                              | `/health` and `/metrics` produce no access logs                              | ✅     |
-| 21  | OTel trace correlation (auto)                | `otel.shouldAutoInjectTraceContext` behavior (the mixin is internal)   | every log when SDK active → `traceId`/`spanId`/`traceFlags`                  | ✅     |
-| 22  | Field-name format (camelCase / snake_case)   | `otel.fieldFormat` (+ per-field overrides)                        | `apps/worker` set to `snake_case` to contrast with `apps/api`                | ✅     |
-| 23  | Cross-service trace propagation              | W3C `traceparent` (auto-instrumentation + `propagation.inject`)  | `apps/api/downstream` → `apps/worker` share one `traceId`                    | ✅     |
-| 24  | Graceful OTel SDK shutdown                   | `sdk.shutdown()` on `SIGTERM`                                     | `instrumentation.ts` in both services                                        | ✅     |
-| 25  | Default PII redaction (97 paths)             | `DEFAULT_REDACT_PATHS` (exported from `.`; auto-applied)         | `pii-demo` logs password/cpf/cardNumber → `[REDACTED]`                       | ✅     |
-| 26  | Custom redact-path extension (merge)         | `redactPaths`                                                    | `logger.config.ts` adds `*.webhookSignature`, `payload.creditCard.*`         | ✅     |
-| 27  | Custom censor (string)                       | `redactCensor` (public type: `string`)                          | `'[REDACTED]'` string in `api`                                               | ✅     |
-| 28  | HTTP header redaction (bracket syntax)       | `req.headers["x-api-key"]`, `res.headers["set-cookie"]`         | `pii-demo` echoes headers; verified redacted                                 | ✅     |
-| 29  | Disable defaults (audit warning)             | `shouldDisableDefaultRedact` → `LOGGER_BOOTSTRAP_WARNING`        | documented + covered by a dedicated test module (never the default)          | ✅     |
-| 30  | Wildcard depth boundary (1–4)                | observable behavior — defaults redact to depth 4 (`REDACT_MAX_DEPTH` is internal) | nested-payload test asserts depth-4 redacted, depth-5 not                    | ✅     |
-| 31  | Oversized-entry guard                        | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                   | `/pii-demo/huge` logs a >64 KB object → truncated envelope                    | ✅     |
-| 32  | Pluggable destinations                       | `ILogDestination` + `destinations[]`                            | `destinations/*` wired via `forRootAsync`                                     | ✅     |
-| 33  | Default stdout destination                   | `DefaultStdoutDestination`                                       | always on — base JSON stream                                                 | ✅     |
-| 34  | Pretty dev destination                       | `PrettyDevDestination` / `isPretty`                             | dev mode (`NODE_ENV !== 'production'`)                                        | ✅     |
-| 35  | Per-destination level filtering              | `ILogDestination.minLevel`                                       | `PrismaLogDestination` persists `warn`+ only                                 | ✅     |
-| 36  | Destination lifecycle hooks                  | `onInit()` / `onShutdown()` (+ reverse-order drain)             | `LokiDestination` flush timer; `app.enableShutdownHooks()`                   | ✅     |
-| 37  | Fail-soft destination errors                 | `LOGGER_DESTINATION_INIT_FAILED` / `_WRITE_FAILED`              | fault-injection test (bad Loki URL) → app keeps running                      | ✅     |
-| 38  | Log-key convention validation                | `LOG_KEYS_CONVENTION_REGEX` (from `/shared`)                    | `scripts/audit-log-keys.mjs` (CI) + `apps/web/lib/log-keys.ts`              | ✅     |
-| 39  | Reserved log keys                            | `RESERVED_LOG_KEYS` (16) (from `/shared`)                       | CI guard: app code never reuses a reserved key                               | ✅     |
-| 40  | Error-code catalog awareness                 | `LOGGER_ERROR_CODES` (8) behaviors                              | `TROUBLESHOOTING.md` + tests assert each surfaces correctly                  | ✅     |
-| 41  | Isomorphic `/shared` types                   | `LogLevel`, `LogEntry`, `ServiceMetadata`, `ReservedLogKey`     | `apps/web` form types + `PrismaLogDestination` typing                        | ✅     |
-| 42  | Runtime options audit                        | `@Inject(LOGGER_OPTIONS_TOKEN)`                                  | `logger/log-audit.service.ts` lists active redact paths                      | ✅     |
-| 43  | Raw Pino escape hatch                        | `getRawLogger()` (dynamic level, advanced)                      | `/admin/log-level` toggles `getRawLogger().level` at runtime                  | ✅     |
-| 44  | Sentry + OTel (optional)                     | `@sentry/opentelemetry` `SentryPropagator` + built-in `Sentry.pinoIntegration()` | gated behind `SENTRY_DSN`; documented in `OTEL.md`                            | ✅     |
-| 45a | `http` per-app options                       | `http.shouldCaptureExceptions` / `shouldGenerateRequestId` / `tenantIdHeader` / `excludePaths` | `logger.config.ts` (§9) wires all four                              | ✅     |
-| 45b | `otel` per-field name overrides              | `otel.traceIdField` / `spanIdField` / `traceFlagsField`          | `apps/worker` sets `traceIdField: 'trace_id'` (§14)                          | ✅     |
-| 45c | Custom serializers + timestamp + self-bridge | `serializers` / `timestamp` / `shouldUseAsNestLogger`            | `logger.config.ts` (§9)                                                      | ✅     |
-| 45d | Power-user logger methods                    | `PinoLoggerService.setContext(ctx)` / `child(bindings)`         | `setContext` in a service ctor; `child()` in a fan-out service               | ✅     |
-| 45e | Remaining injection tokens                   | `LOGGER_PINO_INSTANCE_TOKEN` / `LOGGER_DESTINATIONS_TOKEN` / `LOG_CONTEXT_TOKEN` | `/admin/log-level` (pino instance), pipeline-health svc (destinations) | ✅     |
-| 45f | Redirect + completed HTTP keys               | `HTTP_REQUEST_REDIRECT` (3xx) / `HTTP_REQUEST_COMPLETED`        | `GET /orders/legacy` → 302; `/trigger/status/302`; interceptor timing key    | ✅     |
-| 45  | Real-time log streaming (live tail)          | `LogEntry` SSE feed                                              | `apps/web` Explorer **Live** + `logs/logs.sse.controller.ts` (see `DASHBOARD.md` §7/§14) | ✅ |
-| 46  | Observability charts from log fields         | aggregation over `level`/`logKey`/`status`/`durationMs`         | `apps/web` Overview (RED, volume, breakdowns) ← `GET /logs/aggregate`        | ✅     |
-| 47  | Redaction proven end-to-end in the UI        | `[REDACTED]` payload in Postgres **and** Loki                   | `apps/web` governance "redacted at source" panel (`DASHBOARD.md` §10)        | ✅     |
-| 48  | Two-tier persistence model                   | `warn`+ Postgres vs `info`+ Loki                                | dashboard **source toggle** + teaching callout                              | ✅     |
+| #   | Library feature                                | Library surface                                                                                                    | Demonstrated in                                                                          | Status |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------ |
+| 1   | Synchronous registration                       | `BymaxLoggerModule.forRoot(options)`                                                                               | `apps/worker/src/app.module.ts`                                                          | ✅     |
+| 2   | Async registration with `ConfigService`        | `BymaxLoggerModule.forRootAsync({ useFactory, inject, imports })`                                                  | `apps/api/src/app.module.ts` + `logger/logger.config.ts`                                 | ✅     |
+| 3   | Global module flag                             | `isGlobal` (→ `DynamicModule.global`)                                                                              | `forRootAsync` in `apps/api` (default `true`, set explicitly)                            | ✅     |
+| 4   | NestJS internal-logger bridge                  | `app.useLogger(app.get(PinoLoggerService))` (or option `shouldUseAsNestLogger`) + `{ bufferLogs: true }`           | `apps/api/src/main.ts`, `apps/worker/src/main.ts`                                        | ✅     |
+| 5   | Structured `info` / `warnStructured`           | `PinoLoggerService.info(logKey, msg, userId?, meta?)`                                                              | `orders/orders.service.ts`                                                               | ✅     |
+| 6   | Error logging with `Error` object              | `PinoLoggerService.errorStructured(logKey, error, userId?, meta?)`                                                 | `payments/payments.service.ts` catch block                                               | ✅     |
+| 7   | Structured warn + variadic `fatal()`           | `warnStructured(logKey, msg, userId?, meta?)`; `fatal()` (no `fatalStructured`)                                    | `payments` (retryable warn), bootstrap fatal path                                        | ✅     |
+| 8   | NestJS `LoggerService` interface methods       | `log` / `verbose` (bridge → `info` / `trace`)                                                                      | NestJS framework logs after the logger bridge                                            | ✅     |
+| 9   | Per-class logger injection (child logger)      | `@InjectLogger(context)`                                                                                           | every service constructor (e.g. `@InjectLogger(OrdersService.name)`)                     | ✅     |
+| 10  | Class context label                            | `@LogContext(name)` (class decorator — records label; `setContext()` applies it) + `LOG_CONTEXT_METADATA_KEY`      | `downstream/downstream.service.ts`                                                       | ✅     |
+| 11  | Performance / slow-method logging              | `@LogPerformance(thresholdMs?)` → `METHOD_EXECUTION` / `_SLOW_`                                                    | `payments/payments.service.ts` (intentionally slow path)                                 | ✅     |
+| 12  | AsyncLocalStorage context propagation          | `LogContextService.run / set / get / getStore`                                                                     | `RequestIdMiddleware` + `downstream` (manual `set`)                                      | ✅     |
+| 13  | Automatic request-id middleware                | `RequestIdMiddleware` (via `consumer.apply(...)` / `applyRequestIdMiddleware()`) or `http.shouldGenerateRequestId` | `apps/api/src/app.module.ts` `configure()`                                               | ✅     |
+| 14  | HTTP request/response logging                  | `HttpLoggingInterceptor` (`http.isEnabled: true`)                                                                  | global; visible on every `/orders` call                                                  | ✅     |
+| 15  | HTTP log keys (start/success/redirect/4xx/5xx) | `HTTP_REQUEST_*` reserved keys                                                                                     | exercised by 2xx/4xx/5xx demo routes                                                     | ✅     |
+| 16  | Exception filter                               | `HttpExceptionFilter` (`HTTP_EXCEPTION_HANDLED` / `_UNHANDLED`)                                                    | `payments` throws `HttpException`; `pii-demo` throws unexpected                          | ✅     |
+| 17  | Double-log avoidance (filter ↔ interceptor)    | `__bymax_logger_handled` coordination                                                                              | asserted in `test/http-logging.e2e-spec.ts`                                              | ✅     |
+| 18  | URL normalization (`:id` placeholder)          | `normalizeUrl` (UUID/ULID/nanoid/numeric → `/:id`)                                                                 | `/orders/:id` calls show `"url":"/orders/:id"`                                           | ✅     |
+| 19  | Slow-method flag                               | `@LogPerformance(thresholdMs)`                                                                                     | `/orders/slow` exceeds threshold                                                         | ✅     |
+| 20  | HTTP path exclusion                            | `http.excludePaths`                                                                                                | `/health` and `/metrics` produce no access logs                                          | ✅     |
+| 21  | OTel trace correlation (auto)                  | `otel.shouldAutoInjectTraceContext` behavior (the mixin is internal)                                               | every log when SDK active → `traceId`/`spanId`/`traceFlags`                              | ✅     |
+| 22  | Field-name format (camelCase / snake_case)     | `otel.fieldFormat` (+ per-field overrides)                                                                         | `apps/worker` set to `snake_case` to contrast with `apps/api`                            | ✅     |
+| 23  | Cross-service trace propagation                | W3C `traceparent` (auto-instrumentation + `propagation.inject`)                                                    | `apps/api/downstream` → `apps/worker` share one `traceId`                                | ✅     |
+| 24  | Graceful OTel SDK shutdown                     | `sdk.shutdown()` on `SIGTERM`                                                                                      | `instrumentation.ts` in both services                                                    | ✅     |
+| 25  | Default PII redaction (97 paths)               | `DEFAULT_REDACT_PATHS` (exported from `.`; auto-applied)                                                           | `pii-demo` logs password/cpf/cardNumber → `[REDACTED]`                                   | ✅     |
+| 26  | Custom redact-path extension (merge)           | `redactPaths`                                                                                                      | `logger.config.ts` adds `*.webhookSignature`, `payload.creditCard.*`                     | ✅     |
+| 27  | Custom censor (string)                         | `redactCensor` (public type: `string`)                                                                             | `'[REDACTED]'` string in `api`                                                           | ✅     |
+| 28  | HTTP header redaction (bracket syntax)         | `req.headers["x-api-key"]`, `res.headers["set-cookie"]`                                                            | `pii-demo` echoes headers; verified redacted                                             | ✅     |
+| 29  | Disable defaults (audit warning)               | `shouldDisableDefaultRedact` → `LOGGER_BOOTSTRAP_WARNING`                                                          | documented + covered by a dedicated test module (never the default)                      | ✅     |
+| 30  | Wildcard depth boundary (1–4)                  | observable behavior — defaults redact to depth 4 (`REDACT_MAX_DEPTH` is internal)                                  | nested-payload test asserts depth-4 redacted, depth-5 not                                | ✅     |
+| 31  | Oversized-entry guard                          | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                                                                     | `/pii-demo/huge` logs a >64 KB object → truncated envelope                               | ✅     |
+| 32  | Pluggable destinations                         | `ILogDestination` + `destinations[]`                                                                               | `destinations/*` wired via `forRootAsync`                                                | ✅     |
+| 33  | Default stdout destination                     | `DefaultStdoutDestination`                                                                                         | always on — base JSON stream                                                             | ✅     |
+| 34  | Pretty dev destination                         | `PrettyDevDestination` / `isPretty`                                                                                | dev mode (`NODE_ENV !== 'production'`)                                                   | ✅     |
+| 35  | Per-destination level filtering                | `ILogDestination.minLevel`                                                                                         | `PrismaLogDestination` persists `warn`+ only                                             | ✅     |
+| 36  | Destination lifecycle hooks                    | `onInit()` / `onShutdown()` (+ reverse-order drain)                                                                | `LokiDestination` flush timer; `app.enableShutdownHooks()`                               | ✅     |
+| 37  | Fail-soft destination errors                   | `LOGGER_DESTINATION_INIT_FAILED` / `_WRITE_FAILED`                                                                 | fault-injection test (bad Loki URL) → app keeps running                                  | ✅     |
+| 38  | Log-key convention validation                  | `LOG_KEYS_CONVENTION_REGEX` (from `/shared`)                                                                       | `scripts/audit-log-keys.mjs` (CI) + `apps/web/lib/log-keys.ts`                           | ✅     |
+| 39  | Reserved log keys                              | `RESERVED_LOG_KEYS` (16) (from `/shared`)                                                                          | CI guard: app code never reuses a reserved key                                           | ✅     |
+| 40  | Error-code catalog awareness                   | `LOGGER_ERROR_CODES` (8) behaviors                                                                                 | `TROUBLESHOOTING.md` + tests assert each surfaces correctly                              | ✅     |
+| 41  | Isomorphic `/shared` types                     | `LogLevel`, `LogEntry`, `ServiceMetadata`, `ReservedLogKey`                                                        | `apps/web` form types + `PrismaLogDestination` typing                                    | ✅     |
+| 42  | Runtime options audit                          | `@Inject(LOGGER_OPTIONS_TOKEN)`                                                                                    | `logger/log-audit.service.ts` lists active redact paths                                  | ✅     |
+| 43  | Raw Pino escape hatch                          | `getRawLogger()` (dynamic level, advanced)                                                                         | `/admin/log-level` toggles `getRawLogger().level` at runtime                             | ✅     |
+| 44  | Sentry + OTel (optional)                       | `@sentry/opentelemetry` `SentryPropagator` + built-in `Sentry.pinoIntegration()`                                   | gated behind `SENTRY_DSN`; documented in `OTEL.md`                                       | ✅     |
+| 45a | `http` per-app options                         | `http.shouldCaptureExceptions` / `shouldGenerateRequestId` / `tenantIdHeader` / `excludePaths`                     | `logger.config.ts` (§9) wires all four                                                   | ✅     |
+| 45b | `otel` per-field name overrides                | `otel.traceIdField` / `spanIdField` / `traceFlagsField`                                                            | `apps/worker` sets `traceIdField: 'trace_id'` (§14)                                      | ✅     |
+| 45c | Custom serializers + timestamp + self-bridge   | `serializers` / `timestamp` / `shouldUseAsNestLogger`                                                              | `logger.config.ts` (§9)                                                                  | ✅     |
+| 45d | Power-user logger methods                      | `PinoLoggerService.setContext(ctx)` / `child(bindings)`                                                            | `setContext` in a service ctor; `child()` in a fan-out service                           | ✅     |
+| 45e | Remaining injection tokens                     | `LOGGER_PINO_INSTANCE_TOKEN` / `LOGGER_DESTINATIONS_TOKEN` / `LOG_CONTEXT_TOKEN`                                   | `/admin/log-level` (pino instance), pipeline-health svc (destinations)                   | ✅     |
+| 45f | Redirect + completed HTTP keys                 | `HTTP_REQUEST_REDIRECT` (3xx) / `HTTP_REQUEST_COMPLETED`                                                           | `GET /orders/legacy` → 302; `/trigger/status/302`; interceptor timing key                | ✅     |
+| 45  | Real-time log streaming (live tail)            | `LogEntry` SSE feed                                                                                                | `apps/web` Explorer **Live** + `logs/logs.sse.controller.ts` (see `DASHBOARD.md` §7/§14) | ✅     |
+| 46  | Observability charts from log fields           | aggregation over `level`/`logKey`/`status`/`durationMs`                                                            | `apps/web` Overview (RED, volume, breakdowns) ← `GET /logs/aggregate`                    | ✅     |
+| 47  | Redaction proven end-to-end in the UI          | `[REDACTED]` payload in Postgres **and** Loki                                                                      | `apps/web` governance "redacted at source" panel (`DASHBOARD.md` §10)                    | ✅     |
+| 48  | Two-tier persistence model                     | `warn`+ Postgres vs `info`+ Loki                                                                                   | dashboard **source toggle** + teaching callout                                           | ✅     |
 
 > **Dashboard surfaces (rows 45–48)** are the tip of `apps/web`. Its full feature set — Trigger Center (fire every log type), Log Explorer (facets, virtualized table, detail drawer, trace deep-links), real-time live tail, charts (golden signals + RED + breakdowns), Alerts & Incidents, RBAC, retention, export, saved views — is specified in **[`docs/DASHBOARD.md`](DASHBOARD.md)**, grounded in how Datadog/Grafana/Kibana/SigNoz/Sentry build these tools.
 
@@ -390,13 +390,13 @@ The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
     "@opentelemetry/auto-instrumentations-node": "^0.76.0", // ← separate 0.7x line
     "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/semantic-conventions": "^1.30.0"
+    "@opentelemetry/semantic-conventions": "^1.30.0",
   },
   "optionalDependencies": {
     "pino-pretty": "^13.0.0", // optional PEER of the lib (PrettyDevDestination)
     "@opentelemetry/api": "^1.9.0", // optional PEER of the lib (trace injection); cap <1.10
-    "pino-roll": "^3.0.0" // EXAMPLE-only — for this repo's RollingFileDestination, NOT a lib peer
-  }
+    "pino-roll": "^3.0.0", // EXAMPLE-only — for this repo's RollingFileDestination, NOT a lib peer
+  },
 }
 ```
 
@@ -409,8 +409,8 @@ The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`
 {
   "dependencies": {
     // pnpm symlink to the sibling checkout (≈ `npm link`); `file:` resolves identically.
-    "@bymax-one/nest-logger": "link:../../../nest-logger"
-  }
+    "@bymax-one/nest-logger": "link:../../../nest-logger",
+  },
 }
 ```
 
@@ -467,13 +467,13 @@ The `/shared` subpath is zero-dependency and safe to import in the Next.js conso
 
 A single `docker compose up -d --wait` brings up the full observability backend; the app services run on the host for fast hot-reload (a `--profile full` override can containerize them too).
 
-| Service          | Image                                      | Host port(s)            | Purpose                                                           |
-| ---------------- | ------------------------------------------ | ----------------------- | ---------------------------------------------------------------- |
-| `postgres`       | `postgres:18-alpine`                       | `5432`                  | `application_logs` table (Prisma destination) + demo domain      |
-| `loki`           | `grafana/loki:latest`                      | `3100`                  | Log storage; receives logs from the OTel Collector               |
-| `tempo`          | `grafana/tempo:latest`                     | `3200`                  | Trace storage; receives spans from the OTel Collector            |
-| `otel-collector` | `otel/opentelemetry-collector:latest`      | `4317` gRPC/`4318` HTTP | OTLP receiver → routes traces to Tempo, logs to Loki             |
-| `grafana`        | `grafana/grafana:latest`                   | `3000`                  | Explore UI; Loki + Tempo datasources auto-provisioned            |
+| Service          | Image                                 | Host port(s)            | Purpose                                                     |
+| ---------------- | ------------------------------------- | ----------------------- | ----------------------------------------------------------- |
+| `postgres`       | `postgres:18-alpine`                  | `5432`                  | `application_logs` table (Prisma destination) + demo domain |
+| `loki`           | `grafana/loki:latest`                 | `3100`                  | Log storage; receives logs from the OTel Collector          |
+| `tempo`          | `grafana/tempo:latest`                | `3200`                  | Trace storage; receives spans from the OTel Collector       |
+| `otel-collector` | `otel/opentelemetry-collector:latest` | `4317` gRPC/`4318` HTTP | OTLP receiver → routes traces to Tempo, logs to Loki        |
+| `grafana`        | `grafana/grafana:latest`              | `3000`                  | Explore UI; Loki + Tempo datasources auto-provisioned       |
 
 > **Two log-shipping paths, both shown.** (a) The **`LokiDestination`** pushes batched log lines directly to Loki's push API from the app — the canonical "custom destination" demo. (b) Alternatively, the **OTel Collector** receives logs over OTLP and forwards them to Loki via the **`otlphttp` exporter** pointed at Loki's **native OTLP endpoint** (`http://loki:3100/otlp`, with `allow_structured_metadata: true` on Loki). ⚠️ The Collector's old `loki` exporter was **deprecated and removed (late 2024)** — do **not** use it; Loki v3+ ingests OTLP directly. The example wires (a) by default and documents (b) in `docs/OTEL.md`. A `promtail` service is provided (commented) as a third, file-tailing option for the `RollingFileDestination`.
 
@@ -487,8 +487,8 @@ Root `package.json` infra scripts (ported from `nest-auth-example`):
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down",
     "infra:nuke": "docker compose down -v",
-    "infra:logs": "docker compose logs -f"
-  }
+    "infra:logs": "docker compose logs -f",
+  },
 }
 ```
 
@@ -498,24 +498,24 @@ Root `package.json` infra scripts (ported from `nest-auth-example`):
 
 All runtime configuration is environment-variable driven and validated at startup with a **Zod schema** (`apps/api/src/config/env.schema.ts`). A single root `.env.example` documents every variable; each service reads its own `.env`.
 
-| Variable               | Service      | Example                                  | Used for                                                              |
-| ---------------------- | ------------ | ---------------------------------------- | --------------------------------------------------------------------- |
-| `NODE_ENV`             | all          | `development`                            | Drives `isPretty` default + `deployment.environment` resource attr    |
-| `PORT`                 | api / worker | `3000` / `3001`                          | HTTP listen port                                                      |
-| `LOG_LEVEL`            | all          | `debug`                                  | `BymaxLoggerModuleOptions.level`                                       |
-| `OTEL_SERVICE_NAME`    | all          | `nest-logger-example-api`                | `service.name` + OTel resource `service.name`                         |
-| `RELEASE_SHA`          | all          | `$(git rev-parse --short HEAD)`          | `service.version` + OTel resource `service.version`                   |
-| `OTLP_TRACE_ENDPOINT`  | all          | `http://localhost:4318/v1/traces`        | Where the OTLP exporter ships spans (the Collector)                   |
-| `LOG_EXTRA_REDACT_PATHS` | api        | `*.webhookSignature,payload.creditCard.*`| Comma-split → merged into `redactPaths`                               |
-| `LOKI_URL`             | api          | `http://localhost:3100/loki/api/v1/push` | `LokiDestination` push endpoint                                       |
-| `LOKI_QUERY_URL`       | api          | `http://localhost:3100`                  | Base URL the `logs/loki` proxy queries (`query_range`, `labels`, `tail`) |
-| `DATABASE_URL`         | api          | `postgresql://postgres:postgres@localhost:5432/logger_example` | Prisma connection (domain + `PrismaLogDestination`) |
-| `LOG_DB_MIN_LEVEL`     | api          | `warn`                                   | `PrismaLogDestination.minLevel` — the durable Postgres tier          |
-| `RETENTION_DAYS`       | api          | `30`                                     | TTL sweep over `application_logs` (Maintenance page)                 |
-| `OTEL_FIELD_FORMAT`    | all          | `camelCase` \| `snake_case`              | `otel.fieldFormat`                                                    |
-| `SENTRY_DSN`           | api          | _(unset)_                                | Optional — enables the Sentry + OTel integration                     |
-| `NEXT_PUBLIC_API_URL`  | web          | `http://localhost:3000`                  | Dashboard → `apps/api` `logs/` API base (queries, SSE, aggregates)   |
-| `NEXT_PUBLIC_GRAFANA_URL` | web       | `http://localhost:3000` (Grafana)        | "View trace" deep-links to Tempo via Grafana                         |
+| Variable                  | Service      | Example                                                        | Used for                                                                 |
+| ------------------------- | ------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `NODE_ENV`                | all          | `development`                                                  | Drives `isPretty` default + `deployment.environment` resource attr       |
+| `PORT`                    | api / worker | `3000` / `3001`                                                | HTTP listen port                                                         |
+| `LOG_LEVEL`               | all          | `debug`                                                        | `BymaxLoggerModuleOptions.level`                                         |
+| `OTEL_SERVICE_NAME`       | all          | `nest-logger-example-api`                                      | `service.name` + OTel resource `service.name`                            |
+| `RELEASE_SHA`             | all          | `$(git rev-parse --short HEAD)`                                | `service.version` + OTel resource `service.version`                      |
+| `OTLP_TRACE_ENDPOINT`     | all          | `http://localhost:4318/v1/traces`                              | Where the OTLP exporter ships spans (the Collector)                      |
+| `LOG_EXTRA_REDACT_PATHS`  | api          | `*.webhookSignature,payload.creditCard.*`                      | Comma-split → merged into `redactPaths`                                  |
+| `LOKI_URL`                | api          | `http://localhost:3100/loki/api/v1/push`                       | `LokiDestination` push endpoint                                          |
+| `LOKI_QUERY_URL`          | api          | `http://localhost:3100`                                        | Base URL the `logs/loki` proxy queries (`query_range`, `labels`, `tail`) |
+| `DATABASE_URL`            | api          | `postgresql://postgres:postgres@localhost:5432/logger_example` | Prisma connection (domain + `PrismaLogDestination`)                      |
+| `LOG_DB_MIN_LEVEL`        | api          | `warn`                                                         | `PrismaLogDestination.minLevel` — the durable Postgres tier              |
+| `RETENTION_DAYS`          | api          | `30`                                                           | TTL sweep over `application_logs` (Maintenance page)                     |
+| `OTEL_FIELD_FORMAT`       | all          | `camelCase` \| `snake_case`                                    | `otel.fieldFormat`                                                       |
+| `SENTRY_DSN`              | api          | _(unset)_                                                      | Optional — enables the Sentry + OTel integration                         |
+| `NEXT_PUBLIC_API_URL`     | web          | `http://localhost:3000`                                        | Dashboard → `apps/api` `logs/` API base (queries, SSE, aggregates)       |
+| `NEXT_PUBLIC_GRAFANA_URL` | web          | `http://localhost:3000` (Grafana)                              | "View trace" deep-links to Tempo via Grafana                             |
 
 > **Env-name note.** The library README/spec reference both `OTEL_SERVICE_NAME`/`RELEASE_SHA` and `SERVICE_NAME`/`GIT_SHA` in different examples. This example standardizes on the **OTel-aligned names** (`OTEL_SERVICE_NAME`, `RELEASE_SHA`) so the same variables feed both the logger's `service` block and the OTel SDK `Resource`. The mapping lives in `apps/api/src/logger/logger.config.ts`.
 
@@ -682,13 +682,19 @@ export function buildLoggerOptions(
       // apps/worker config sets `traceIdField: 'trace_id'` explicitly to demonstrate them (§14).
     },
     destinations: [
-      new LokiDestination({ url: config.getOrThrow<string>('LOKI_URL'), batchSize: 50, flushIntervalMs: 3_000 }),
+      new LokiDestination({
+        url: config.getOrThrow<string>('LOKI_URL'),
+        batchSize: 50,
+        flushIntervalMs: 3_000,
+      }),
       new PrismaLogDestination(prisma, {
         minLevel: config.get('LOG_DB_MIN_LEVEL') ?? 'warn', // durable tier; Loki keeps info+
         batchSize: 50,
         flushIntervalMs: 2_000,
       }),
-      ...(isProd ? [] : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
+      ...(isProd
+        ? []
+        : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
     ],
   }
 }
@@ -700,20 +706,20 @@ export function buildLoggerOptions(
 
 To produce **realistic** logs (not `logger.info('hello')`), the example ships a small toy domain, a `logs/` read-API, and a first-class **observability dashboard** (`apps/web`) that fires those logs and visualizes them in real time. The domain is intentionally generic so the logging patterns transfer to any real app.
 
-| Module       | Endpoint(s)                              | What it demonstrates                                                                 |
-| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| `orders`     | `POST /orders`, `GET /orders/:id`        | Hot-path structured logging; `requestId`/`tenantId` auto-propagation; URL `:id` norm |
-| `orders`     | `GET /orders/slow`                       | `@LogPerformance(ms)` → `METHOD_SLOW_EXECUTION` slow-method flag                     |
-| `payments`   | `POST /payments`                         | `@LogPerformance`, `errorStructured`, `HttpException` → `HTTP_EXCEPTION_HANDLED`     |
-| `pii-demo`   | `POST /pii-demo/signup`                  | Default redaction of `password`/`email`/`cpf`/`cardNumber`/`cardCvv`                 |
-| `pii-demo`   | `POST /pii-demo/nested`                  | Wildcard depth 1–4 coverage (and the depth-5 boundary)                              |
-| `pii-demo`   | `GET /pii-demo/echo-headers`             | Header redaction (`authorization`, `x-api-key`, `set-cookie`)                       |
-| `pii-demo`   | `POST /pii-demo/huge`                    | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                                        |
-| `downstream` | `POST /downstream/dispatch`              | Calls `apps/worker` → cross-service `traceId` correlation + `@LogContext(name)` class label |
-| `admin`      | `PATCH /admin/log-level`                 | `getRawLogger().level` runtime level change                                          |
-| `trigger`    | `POST /trigger/level`, `/trigger/status/:code`, `/trigger/fault/loki`, `/trigger/burst` | Dashboard **Playground** hooks — fire any level, HTTP status, destination fault, or a load burst |
+| Module       | Endpoint(s)                                                                                                         | What it demonstrates                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `orders`     | `POST /orders`, `GET /orders/:id`                                                                                   | Hot-path structured logging; `requestId`/`tenantId` auto-propagation; URL `:id` norm                                        |
+| `orders`     | `GET /orders/slow`                                                                                                  | `@LogPerformance(ms)` → `METHOD_SLOW_EXECUTION` slow-method flag                                                            |
+| `payments`   | `POST /payments`                                                                                                    | `@LogPerformance`, `errorStructured`, `HttpException` → `HTTP_EXCEPTION_HANDLED`                                            |
+| `pii-demo`   | `POST /pii-demo/signup`                                                                                             | Default redaction of `password`/`email`/`cpf`/`cardNumber`/`cardCvv`                                                        |
+| `pii-demo`   | `POST /pii-demo/nested`                                                                                             | Wildcard depth 1–4 coverage (and the depth-5 boundary)                                                                      |
+| `pii-demo`   | `GET /pii-demo/echo-headers`                                                                                        | Header redaction (`authorization`, `x-api-key`, `set-cookie`)                                                               |
+| `pii-demo`   | `POST /pii-demo/huge`                                                                                               | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                                                                              |
+| `downstream` | `POST /downstream/dispatch`                                                                                         | Calls `apps/worker` → cross-service `traceId` correlation + `@LogContext(name)` class label                                 |
+| `admin`      | `PATCH /admin/log-level`                                                                                            | `getRawLogger().level` runtime level change                                                                                 |
+| `trigger`    | `POST /trigger/level`, `/trigger/status/:code`, `/trigger/fault/loki`, `/trigger/burst`                             | Dashboard **Playground** hooks — fire any level, HTTP status, destination fault, or a load burst                            |
 | `logs`       | `GET /logs`, `/logs/aggregate`, `/logs/facets`, `/logs/context`, `/logs/stream` (SSE), `/logs/loki`, `/logs/export` | **Read-API** powering the dashboard — keyset paging, chart aggregations, facets, live tail, Loki proxy (`DASHBOARD.md` §12) |
-| `health`     | `GET /health`, `GET /metrics`            | Excluded from HTTP logging via `http.excludePaths`                                  |
+| `health`     | `GET /health`, `GET /metrics`                                                                                       | Excluded from HTTP logging via `http.excludePaths`                                                                          |
 
 ### Database schema (Prisma)
 
@@ -762,7 +768,7 @@ model Payment {
 
 ### The observability dashboard (`apps/web`)
 
-The example does not stop at emitting logs — it ships a **real, production-grade observability console** so a newcomer can *see* the library working without touching Grafana. It is the logging-world analog of how `nest-auth-example`'s UI exercises every auth feature. Full design (pages, charts, SSE live-tail, query API, tech stack, ASCII wireframes, and best-practice rationale with citations) is in **[`docs/DASHBOARD.md`](DASHBOARD.md)**. In brief, `apps/web` provides:
+The example does not stop at emitting logs — it ships a **real, production-grade observability console** so a newcomer can _see_ the library working without touching Grafana. It is the logging-world analog of how `nest-auth-example`'s UI exercises every auth feature. Full design (pages, charts, SSE live-tail, query API, tech stack, ASCII wireframes, and best-practice rationale with citations) is in **[`docs/DASHBOARD.md`](DASHBOARD.md)**. In brief, `apps/web` provides:
 
 - **Overview** — golden-signal health strip + **RED** (Rate/Errors/Duration from `HTTP_REQUEST_*` + `durationMs`), a brushable stacked-by-level **log-volume** timeseries, breakdowns (level donut, top `logKey`s/services/errors/tenants, status mix), an **SLO/error-budget** gauge, and a **pipeline-health** panel (the library's `LOGGER_DESTINATION_*` / `LOGGER_ENTRY_TRUNCATED` fail-soft signals).
 - **Log Explorer** — faceted rail, a query bar (compiled to **both** SQL and LogQL, shown), a **virtualized** table (TanStack Virtual, 50k rows @60fps, keyset infinite-scroll), a detail drawer with the full **redacted** JSON, and `traceId` **deep-links** to Tempo + "all logs for this trace" across `api` + `worker`.
@@ -823,23 +829,23 @@ A **destination** is any object implementing `ILogDestination` — the contract 
 
 ```typescript
 interface ILogDestination {
-  readonly name: string                       // identifier used in error logs
-  readonly minLevel?: LogLevel                // entries below this are filtered out (undefined = accept all)
+  readonly name: string // identifier used in error logs
+  readonly minLevel?: LogLevel // entries below this are filtered out (undefined = accept all)
   write(payload: string): void | Promise<void> // receives the already-serialized JSON line (+ newline)
-  onInit?(): void | Promise<void>             // bootstrap: open connections, start flush timers
-  onShutdown?(): void | Promise<void>         // graceful shutdown: flush + close (reverse-order)
+  onInit?(): void | Promise<void> // bootstrap: open connections, start flush timers
+  onShutdown?(): void | Promise<void> // graceful shutdown: flush + close (reverse-order)
 }
 ```
 
 The example ships these implementations under `apps/api/src/destinations/` (each with its own unit tests):
 
-| Destination               | `minLevel` | Strategy                                            | Demonstrates                                            |
-| ------------------------- | ---------- | --------------------------------------------------- | ------------------------------------------------------- |
-| `DefaultStdoutDestination`| (all)      | sync `process.stdout.write` (from the library)      | the always-on base stream                               |
-| `PrettyDevDestination`    | (all)      | `pino-pretty` (from the library, dev only)          | human-readable colorized output                         |
-| `LokiDestination`         | `info`     | buffer → `POST /loki/api/v1/push` on timer/batch    | HTTP batching, labels, fail-soft, `onInit`/`onShutdown` |
-| `PrismaLogDestination`    | `warn`     | buffer → `prisma.applicationLog.createMany`         | DB persistence, `minLevel` filtering, JSON-parse guard  |
-| `RollingFileDestination`  | (all)      | `pino-roll` (async `onInit`), daily/size rotation   | async lifecycle, file rotation                          |
+| Destination                | `minLevel` | Strategy                                          | Demonstrates                                            |
+| -------------------------- | ---------- | ------------------------------------------------- | ------------------------------------------------------- |
+| `DefaultStdoutDestination` | (all)      | sync `process.stdout.write` (from the library)    | the always-on base stream                               |
+| `PrettyDevDestination`     | (all)      | `pino-pretty` (from the library, dev only)        | human-readable colorized output                         |
+| `LokiDestination`          | `info`     | buffer → `POST /loki/api/v1/push` on timer/batch  | HTTP batching, labels, fail-soft, `onInit`/`onShutdown` |
+| `PrismaLogDestination`     | `warn`     | buffer → `prisma.applicationLog.createMany`       | DB persistence, `minLevel` filtering, JSON-parse guard  |
+| `RollingFileDestination`   | (all)      | `pino-roll` (async `onInit`), daily/size rotation | async lifecycle, file rotation                          |
 
 **`LokiDestination` (the canonical custom destination):**
 
@@ -853,7 +859,9 @@ export class LokiDestination implements ILogDestination {
   private buffer: string[] = []
   private flushTimer?: NodeJS.Timeout
 
-  constructor(private readonly opts: { url: string; batchSize?: number; flushIntervalMs?: number }) {}
+  constructor(
+    private readonly opts: { url: string; batchSize?: number; flushIntervalMs?: number },
+  ) {}
 
   onInit(): void {
     this.flushTimer = setInterval(() => void this.flush(), this.opts.flushIntervalMs ?? 5_000)
@@ -889,7 +897,9 @@ export class LokiDestination implements ILogDestination {
       })
     } catch {
       // Fail soft — log delivery MUST NOT crash the app. Report to stderr, not the logger.
-      process.stderr.write(`{"level":"warn","logKey":"LOGGER_DESTINATION_WRITE_FAILED","destination":"loki"}\n`)
+      process.stderr.write(
+        `{"level":"warn","logKey":"LOGGER_DESTINATION_WRITE_FAILED","destination":"loki"}\n`,
+      )
     }
   }
 }
@@ -913,17 +923,17 @@ The library auto-applies **97 default redact paths** compiled into a single `fas
 
 `23 common fields × 4 wildcard depths + 5 absolute header paths = 97`.
 
-| Category                  | Fields                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| Passwords (5)             | `password`, `passwordHash`, `passwordConfirm`, `newPassword`, `oldPassword`     |
-| Tokens (6)                | `token`, `accessToken`, `refreshToken`, `idToken`, `apiKey`, `apiSecret`        |
-| MFA (3)                   | `mfaSecret`, `mfaRecoveryCodes`, `totpSecret`                                    |
-| Payment / PCI DSS (5)     | `cardNumber`, `cardCvv`, `cvv`, `cvc`, `cardExpiry`                              |
-| BR documents / LGPD (3)   | `cpf`, `cnpj`, `rg`                                                              |
-| Conservative PII (1)      | `email`                                                                          |
+| Category                  | Fields                                                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Passwords (5)             | `password`, `passwordHash`, `passwordConfirm`, `newPassword`, `oldPassword`                                                               |
+| Tokens (6)                | `token`, `accessToken`, `refreshToken`, `idToken`, `apiKey`, `apiSecret`                                                                  |
+| MFA (3)                   | `mfaSecret`, `mfaRecoveryCodes`, `totpSecret`                                                                                             |
+| Payment / PCI DSS (5)     | `cardNumber`, `cardCvv`, `cvv`, `cvc`, `cardExpiry`                                                                                       |
+| BR documents / LGPD (3)   | `cpf`, `cnpj`, `rg`                                                                                                                       |
+| Conservative PII (1)      | `email`                                                                                                                                   |
 | HTTP headers (5 absolute) | `req.headers.authorization`, `req.headers.cookie`, `req.headers["x-api-key"]`, `req.headers["x-auth-token"]`, `res.headers["set-cookie"]` |
 
-Each common field is listed at depths 1–4 (`*.field`, `*.*.field`, `*.*.*.field`, `*.*.*.*.field`) because **`fast-redact`'s `*` matches a single level only — there is no recursive `**`**. `REDACT_MAX_DEPTH = 4`, so a secret nested **five** levels deep is _not_ redacted by default — the example demonstrates this boundary explicitly (and documents why: the path list trades exhaustiveness for realistic nesting depth).
+Each common field is listed at depths 1–4 (`*.field`, `*.*.field`, `*.*.*.field`, `*.*.*.*.field`) because **`fast-redact`'s `*` matches a single level only — there is no recursive `**`**. `REDACT*MAX_DEPTH = 4`, so a secret nested **five** levels deep is \_not* redacted by default — the example demonstrates this boundary explicitly (and documents why: the path list trades exhaustiveness for realistic nesting depth).
 
 > **LGPD note demonstrated in `docs/REDACTION.md`.** `cpf`/`cnpj`/`rg` and `email` are redacted by default; a person's `nome` (name) **alone** is not personal-data-sensitive enough under LGPD Art. 5 III to redact by default, so it is **not** in the defaults — the example logs a name in cleartext to make this explicit.
 
@@ -958,10 +968,10 @@ redactCensor: '[REDACTED]',
   "cpf": "[REDACTED]",
   "cardNumber": "[REDACTED]",
   "cardCvv": "[REDACTED]",
-  "payment": { "cardNumber": "[REDACTED]" },   // redacted at depth 2
+  "payment": { "cardNumber": "[REDACTED]" }, // redacted at depth 2
   "requestId": "r_7f3a9b",
   "tenantId": "t_acme",
-  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
 }
 ```
 
@@ -981,7 +991,13 @@ import {
 
 // The e2e gate asserts every entry here is effectively redacted by emitting a payload with
 // these fields and checking the serialized output is [REDACTED].
-export const EXPECTED_REDACTED_FIELDS = ['password', 'email', 'cpf', 'cardNumber', 'authorization'] as const
+export const EXPECTED_REDACTED_FIELDS = [
+  'password',
+  'email',
+  'cpf',
+  'cardNumber',
+  'authorization',
+] as const
 
 @Injectable()
 export class LogAuditService {
@@ -1018,14 +1034,14 @@ This is the feature that elevates the example from "nice JSON logs" to "producti
 
 ### What the library does vs. what the consumer does
 
-| Responsibility                         | Owner        | Where in this repo                               |
-| -------------------------------------- | ------------ | ------------------------------------------------ |
-| Initialize `NodeSDK`, exporters, resource | **Consumer** | `apps/api/src/instrumentation.ts`               |
-| Enable auto-instrumentation + W3C propagation | **Consumer** | `getNodeAutoInstrumentations()`             |
-| Graceful `sdk.shutdown()` on `SIGTERM` | **Consumer** | `instrumentation.ts`                            |
-| Detect `@opentelemetry/api`, read `getActiveSpan()` | **Library** | `TraceContextMixin` (automatic)         |
-| Inject `traceId`/`spanId`/`traceFlags` into every log | **Library** | composed mixin (automatic)               |
-| Field-name format (`camelCase`/`snake_case`) | **Library** | `otel.fieldFormat`                          |
+| Responsibility                                        | Owner        | Where in this repo                |
+| ----------------------------------------------------- | ------------ | --------------------------------- |
+| Initialize `NodeSDK`, exporters, resource             | **Consumer** | `apps/api/src/instrumentation.ts` |
+| Enable auto-instrumentation + W3C propagation         | **Consumer** | `getNodeAutoInstrumentations()`   |
+| Graceful `sdk.shutdown()` on `SIGTERM`                | **Consumer** | `instrumentation.ts`              |
+| Detect `@opentelemetry/api`, read `getActiveSpan()`   | **Library**  | `TraceContextMixin` (automatic)   |
+| Inject `traceId`/`spanId`/`traceFlags` into every log | **Library**  | composed mixin (automatic)        |
+| Field-name format (`camelCase`/`snake_case`)          | **Library**  | `otel.fieldFormat`                |
 
 The library never touches the SDK — it only **reads** the ambient span. If `@opentelemetry/api` is not installed, logs simply omit the trace fields with **no error** (graceful degradation, asserted by a test that runs without the OTel peer).
 
@@ -1045,7 +1061,7 @@ Both services then log lines carrying the **same `traceId`**. In Grafana Explore
 
 ### Field format contrast (a teaching device)
 
-`apps/api` uses the default `camelCase` (`traceId`/`spanId`/`traceFlags`); `apps/worker` is configured with `otel.fieldFormat: 'snake_case'` (`trace_id`/`span_id`/`trace_flags`, the OTel Logs Data Model). This contrast lets the docs explain *when* you'd choose each (camelCase for Pino-native tooling; snake_case when your backend expects the OTel Logs Data Model or you also run `@opentelemetry/instrumentation-pino`).
+`apps/api` uses the default `camelCase` (`traceId`/`spanId`/`traceFlags`); `apps/worker` is configured with `otel.fieldFormat: 'snake_case'` (`trace_id`/`span_id`/`trace_flags`, the OTel Logs Data Model). This contrast lets the docs explain _when_ you'd choose each (camelCase for Pino-native tooling; snake_case when your backend expects the OTel Logs Data Model or you also run `@opentelemetry/instrumentation-pino`).
 
 > **Do not double-inject.** Running both the library's mixin **and** `@opentelemetry/instrumentation-pino` on the same logger duplicates the trace fields. Disable one — the example keeps the library's mixin and does **not** add the Pino instrumentation.
 
@@ -1077,25 +1093,28 @@ Gated behind `SENTRY_DSN`. When set, `instrumentation.ts` calls `Sentry.init({ d
 
 The example holds itself to the **same shipped quality bar as `nest-auth-example`** — **100% test coverage** (statements/branches/functions/lines, both apps) **and 100% Stryker mutation score** (`break: 100`), plus the export-usage and log-key audits — enforced by four GitHub Actions workflows (`ci.yml`, `mutation.yml`, `mutation-nightly.yml`, `release.yml`). The exact thresholds, jobs, and which phase each gate lands in are specified in **[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)** (§Appendix C — Quality Gates; testing = Phase 14, mutation = Phase 15, CI/CD = Phase 17, audit = Phase 18).
 
-| Layer            | Tool               | Scope                                                                              |
-| ---------------- | ------------------ | ---------------------------------------------------------------------------------- |
-| `apps/api`       | Jest               | Destination implementations, `logger.config`, `LogAuditService`, guards/decorators |
-| `apps/api`       | Jest + supertest   | HTTP logging e2e — **assert on captured stdout JSON** (spy `process.stdout.write`) |
-| `apps/api`       | Stryker            | Mutation testing (jest-runner + ts-checker) — **`break: 100`**; per-PR incremental + Monday nightly full |
-| `apps/api`       | Jest + supertest   | `logs/` read-API — keyset paging, `/logs/aggregate` math, facets, SSE stream emits |
-| `apps/worker`    | Jest + supertest   | Cross-service propagation: assert the worker's logs carry the inbound `traceId`    |
-| Integration      | Testcontainers     | Spin a real Loki container; assert end-to-end log delivery + Loki proxy queries     |
-| `apps/web`       | Vitest             | `/shared` log-key validation, filter↔URL (`nuqs`), severity mapping, SSE hook buffer |
-| `apps/web`       | Playwright         | Journeys: fire from Trigger Center → row appears in live Explorer; brush chart → filter; open detail → "view trace"; RBAC tenant scoping |
-| Repo-wide        | `audit-library-exports.mjs` | CI gate: every library export is referenced here (§6 coverage rule)        |
-| Repo-wide        | `audit-log-keys.mjs`        | CI gate: every app log key matches `LOG_KEYS_CONVENTION_REGEX` and reuses no `RESERVED_LOG_KEYS` |
+| Layer         | Tool                        | Scope                                                                                                                                    |
+| ------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`    | Jest                        | Destination implementations, `logger.config`, `LogAuditService`, guards/decorators                                                       |
+| `apps/api`    | Jest + supertest            | HTTP logging e2e — **assert on captured stdout JSON** (spy `process.stdout.write`)                                                       |
+| `apps/api`    | Stryker                     | Mutation testing (jest-runner + ts-checker) — **`break: 100`**; per-PR incremental + Monday nightly full                                 |
+| `apps/api`    | Jest + supertest            | `logs/` read-API — keyset paging, `/logs/aggregate` math, facets, SSE stream emits                                                       |
+| `apps/worker` | Jest + supertest            | Cross-service propagation: assert the worker's logs carry the inbound `traceId`                                                          |
+| Integration   | Testcontainers              | Spin a real Loki container; assert end-to-end log delivery + Loki proxy queries                                                          |
+| `apps/web`    | Vitest                      | `/shared` log-key validation, filter↔URL (`nuqs`), severity mapping, SSE hook buffer                                                     |
+| `apps/web`    | Playwright                  | Journeys: fire from Trigger Center → row appears in live Explorer; brush chart → filter; open detail → "view trace"; RBAC tenant scoping |
+| Repo-wide     | `audit-library-exports.mjs` | CI gate: every library export is referenced here (§6 coverage rule)                                                                      |
+| Repo-wide     | `audit-log-keys.mjs`        | CI gate: every app log key matches `LOG_KEYS_CONVENTION_REGEX` and reuses no `RESERVED_LOG_KEYS`                                         |
 
 Two complementary log-assertion techniques: for **unit** tests prefer **`pino-test`** (the official Pino helper — attach a sink stream and assert structured entries deterministically, no global stdout spying); for **e2e** use **stdout capture** — spy on `process.stdout.write`, perform a request with supertest, then assert the emitted JSON contains the expected `logKey`, the normalized `url`, the propagated `requestId`, and **no** un-redacted PII. The e2e fixture (`test/fixtures/`) mirrors the library's own e2e harness.
 
 ```typescript
 it('logs HTTP_REQUEST_START + HTTP_REQUEST_SUCCESS and redacts the body', async () => {
   const stdout = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
-  await request(app.getHttpServer()).post('/pii-demo/signup').send({ email: 'a@b.com', password: 'p@ss' }).expect(201)
+  await request(app.getHttpServer())
+    .post('/pii-demo/signup')
+    .send({ email: 'a@b.com', password: 'p@ss' })
+    .expect(201)
   const logs = stdout.mock.calls.map((c) => String(c[0])).join('')
   expect(logs).toContain('"logKey":"HTTP_REQUEST_START"')
   expect(logs).toContain('"logKey":"HTTP_REQUEST_SUCCESS"')
@@ -1133,10 +1152,10 @@ The API and worker each ship a multi-stage `Dockerfile` (Node 24 alpine) that ru
 
 Because the library is pre-1.0, branch tracking is explicit:
 
-| Branch   | Tracks library version | Notes                                                          |
-| -------- | ---------------------- | -------------------------------------------------------------- |
-| `main`   | `^0.1.0` (pre-1.0)       | Current — local `link:` until first publish, then the published `^0.1.0` |
-| `next`   | `^1.0.0` (when out)    | Pre-release tracking the GA library; expect breaking changes    |
+| Branch | Tracks library version | Notes                                                                    |
+| ------ | ---------------------- | ------------------------------------------------------------------------ |
+| `main` | `^0.1.0` (pre-1.0)     | Current — local `link:` until first publish, then the published `^0.1.0` |
+| `next` | `^1.0.0` (when out)    | Pre-release tracking the GA library; expect breaking changes             |
 
 Every commit on `main` records the exact `@bymax-one/nest-logger` version it was tested against in `docs/RELEASES.md`. When the library reaches `1.0.0`, `main` flips its range to `^1.0.0`, the 0.x branch is archived, and the matrix in §6 is re-audited against the GA export surface. Each future **major** of the library gets its own long-lived branch here.
 

@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID   | Task                                                                  | Status | Priority | Size | Depends on             |
-| ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P9-1 | Verify `traceId`/`spanId`/`traceFlags` injected on every log          | 🔴     | High     | M    | —                      |
-| P9-2 | Grafana derived field — Loki `traceId` → Tempo trace click-through    | 🔴     | High     | S    | P9-1                   |
-| P9-3 | Scaffold `apps/worker` (2nd NestJS svc, `snake_case` field format)    | 🔴     | High     | L    | P9-1                   |
-| P9-4 | Worker extracts inbound W3C `traceparent` → same `traceId`            | 🔴     | High     | M    | P9-3                   |
-| P9-5 | `apps/api/downstream` → worker hop (auto + manual `propagation.inject`)| 🔴     | High     | M    | P9-3, P9-4             |
-| P9-6 | Verification — interleaved api+worker logs share a `traceId` in Grafana| 🔴     | High     | M    | P9-1..P9-5             |
+| ID   | Task                                                                    | Status | Priority | Size | Depends on |
+| ---- | ----------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
+| P9-1 | Verify `traceId`/`spanId`/`traceFlags` injected on every log            | 🔴     | High     | M    | —          |
+| P9-2 | Grafana derived field — Loki `traceId` → Tempo trace click-through      | 🔴     | High     | S    | P9-1       |
+| P9-3 | Scaffold `apps/worker` (2nd NestJS svc, `snake_case` field format)      | 🔴     | High     | L    | P9-1       |
+| P9-4 | Worker extracts inbound W3C `traceparent` → same `traceId`              | 🔴     | High     | M    | P9-3       |
+| P9-5 | `apps/api/downstream` → worker hop (auto + manual `propagation.inject`) | 🔴     | High     | M    | P9-3, P9-4 |
+| P9-6 | Verification — interleaved api+worker logs share a `traceId` in Grafana | 🔴     | High     | M    | P9-1..P9-5 |
 
 ---
 
@@ -96,7 +96,6 @@ Prove the library's automatic trace-context injection works on `apps/api`. With 
 > - Do NOT add `@opentelemetry/instrumentation-pino` — the library already injects; adding it double-injects the trace fields (see §14 "Do not double-inject").
 > - This task does NOT touch the worker or downstream — it only hardens `apps/api`.
 >   Verification:
->
 > - `pnpm --filter api test -- otel-correlation` — expected: the e2e spec passes (fields present, single traceId per request).
 > - `pnpm --filter api test:cov` — expected: 100% coverage, exit 0.
 > - `pnpm --filter api typecheck` — expected: exit 0.
@@ -171,7 +170,6 @@ Verify the Grafana **derived field** provisioned in Phase 1 turns the `traceId` 
 > - Do NOT redesign the Phase 1 provisioning — only fix the derived field regex / datasource UID if broken. Preserve every other datasource setting.
 > - Do NOT hardcode a host port into the Tempo link — use `datasourceUid` so Grafana resolves it internally.
 >   Verification:
->
 > - `pnpm infra:up` — expected: Grafana healthy; `docker compose logs grafana` shows Loki + Tempo provisioned, no derived-field errors.
 > - `grep -R "derivedFields" docker/grafana/provisioning` — expected: the Loki datasource matches `traceId`.
 > - Manual (documented): in Grafana Explore → Loki → expand a log line → the `traceId` shows a "tempo" link that opens the trace. (Full end-to-end click is re-checked in P9-6.)
@@ -240,7 +238,7 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >        "typecheck": "tsc --noEmit",
 >        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
 >        "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
->        "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json"
+>        "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
 >      },
 >      "dependencies": {
 >        "@bymax-one/nest-logger": "link:../../../nest-logger",
@@ -254,15 +252,16 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >        "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
 >        "@opentelemetry/auto-instrumentations-node": "^0.76.0",
 >        "@opentelemetry/resources": "^2.0.0",
->        "@opentelemetry/semantic-conventions": "^1.30.0"
+>        "@opentelemetry/semantic-conventions": "^1.30.0",
 >      },
 >      "optionalDependencies": {
->        "@opentelemetry/api": "^1.9.0"
->      }
+>        "@opentelemetry/api": "^1.9.0",
+>      },
 >    }
 >    ```
 >    (Match the exact versions `apps/api` resolved; the `@opentelemetry/api` cap is `<1.10` per §4.)
 > 2. Create `apps/worker/src/instrumentation.ts` — a trimmed copy of `apps/api`'s. It MUST start the SDK and export it, with NO `process.exit`:
+>
 >    ```typescript
 >    import { NodeSDK } from '@opentelemetry/sdk-node'
 >    import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
@@ -286,7 +285,9 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >
 >    otelSdk.start()
 >    ```
+>
 > 3. Create `apps/worker/src/main.ts` — `./instrumentation` MUST be the first import (the hard rule from §14):
+>
 >    ```typescript
 >    import './instrumentation'
 >    import { otelSdk } from './instrumentation'
@@ -309,7 +310,9 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >
 >    void bootstrap()
 >    ```
+>
 > 4. Create `apps/worker/src/app.module.ts` — register the logger **synchronously** with `forRoot`, snake_case OTel fields, and the explicit per-field override:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { BymaxLoggerModule } from '@bymax-one/nest-logger'
@@ -337,6 +340,7 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >    })
 >    export class AppModule {}
 >    ```
+>
 > 5. Create `src/health/` (`GET /health` → `{ status: 'ok' }`) and a `src/tasks/` stub: `POST /tasks/process` for now just logs one structured line (a valid `MODULE_ACTION_RESULT` key, e.g. `WORKER_TASK_RECEIVED`, via the injected `PinoLoggerService`) and returns `202`. The actual `traceparent` extraction is P9-4 — leave a `// P9-4: extract inbound traceparent here` marker.
 > 6. Create `apps/worker/tsconfig.json` (extends `../../tsconfig.base.json`; add `emitDecoratorMetadata` + `experimentalDecorators` which the base deliberately omits) and `nest-cli.json`. Confirm the worker is picked up by the root `pnpm -r` fan-out (it lives under `apps/*`, already globbed in `pnpm-workspace.yaml`).
 > 7. Add `apps/worker/test/worker.e2e-spec.ts`: boot the app, assert `GET /health` is 200, then spy `process.stdout.write`, hit `POST /tasks/process`, and assert the captured line carries **snake_case** `trace_id` (32 hex) / `span_id` (16 hex) / `trace_flags` — NOT the camelCase names:
@@ -354,7 +358,6 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 > - `forRoot` here is deliberate (sync registration demo, Feature Matrix row 1); do NOT convert it to `forRootAsync`.
 > - Keep the worker minimal — no Prisma, no destinations beyond stdout. Its job is trace propagation, not the full pipeline.
 >   Verification:
->
 > - `pnpm install` — expected: exit 0; the `link:` to the library resolves.
 > - `pnpm --filter worker build` — expected: exit 0.
 > - `pnpm --filter worker test:cov` — expected: 100% coverage; the snake_case assertion passes.
@@ -417,6 +420,7 @@ Make the worker continue the **caller's** trace. When `apps/api` calls the worke
 >    ```
 >    Because the HTTP server auto-instrumentation already activated the extracted span, these lines carry the caller's `trace_id` with no extra code. Remove the `// P9-4: extract inbound traceparent here` marker from P9-3.
 > 2. Add the **manual** extraction example (for non-instrumented entry points) in `trace-extract.util.ts`:
+>
 >    ```typescript
 >    import { propagation, context, trace } from '@opentelemetry/api'
 >
@@ -426,14 +430,22 @@ Make the worker continue the **caller's** trace. When `apps/api` calls the worke
 >      return context.with(ctx, fn)
 >    }
 >    ```
+>
 >    (Use `trace.getSpan(ctx)` in the test to read back the extracted `traceId` if needed.)
+>
 > 3. Create `apps/worker/test/worker-traceparent.e2e-spec.ts`. Build a valid header and assert the worker echoes the same trace id into its logs:
 >    ```typescript
 >    const traceId = 'a1b2c3d4e5f6071829304a5b6c7d8e9f'
 >    const traceparent = `00-${traceId}-00f067aa0ba902b7-01`
 >    const writes: string[] = []
->    jest.spyOn(process.stdout, 'write').mockImplementation((c: any) => (writes.push(String(c)), true))
->    await request(app.getHttpServer()).post('/tasks/process').set('traceparent', traceparent).send({}).expect(202)
+>    jest
+>      .spyOn(process.stdout, 'write')
+>      .mockImplementation((c: any) => (writes.push(String(c)), true))
+>    await request(app.getHttpServer())
+>      .post('/tasks/process')
+>      .set('traceparent', traceparent)
+>      .send({})
+>      .expect(202)
 >    const line = writes.map((w) => JSON.parse(w)).find((l) => l.logKey === 'WORKER_TASK_RECEIVED')
 >    expect(line.trace_id).toBe(traceId) // SAME trace as the caller
 >    ```
@@ -451,7 +463,6 @@ Make the worker continue the **caller's** trace. When `apps/api` calls the worke
 > - Log keys MUST match `LOG_KEYS_CONVENTION_REGEX` (`MODULE_ACTION_RESULT`) and must NOT reuse a `RESERVED_LOG_KEYS` value.
 > - Do NOT manually parse the `traceparent` string with a regex in production code — let auto-instrumentation / `propagation.extract` own that. (A regex is fine in the TEST only, to build the header.)
 >   Verification:
->
 > - `pnpm --filter worker test -- worker-traceparent` — expected: same-`trace_id` + no-header cases pass.
 > - `pnpm --filter worker test:cov` — expected: 100%, exit 0.
 > - `pnpm --filter worker typecheck` — expected: exit 0.
@@ -509,6 +520,7 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 >
 > 1. Add `WORKER_URL` to `apps/api/src/config/env.schema.ts` (Zod): `WORKER_URL: z.string().url().default('http://localhost:3001')`. Document it in `.env.example` (`WORKER_URL=http://localhost:3001  # apps/api → apps/worker hop`).
 > 2. In `apps/api/src/downstream/downstream.service.ts`, decorate the class and set context in the ctor (Feature Matrix rows 10/12):
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, PinoLoggerService, LogContext } from '@bymax-one/nest-logger'
@@ -517,11 +529,14 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 >    @Injectable()
 >    @LogContext('DownstreamService')
 >    export class DownstreamService {
->      constructor(@InjectLogger(DownstreamService.name) private readonly logger: PinoLoggerService) {
+>      constructor(
+>        @InjectLogger(DownstreamService.name) private readonly logger: PinoLoggerService,
+>      ) {
 >        this.logger.setContext('DownstreamService')
 >      }
 >    }
 >    ```
+>
 > 3. **Auto path** — a plain outbound call. Auto-instrumentation patches the HTTP client, so just sending injects `traceparent` automatically (no manual header):
 >    ```typescript
 >    this.logger.info('DOWNSTREAM_DISPATCH_START', 'Calling worker (auto-instrumented)')
@@ -537,7 +552,11 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 >    const headers: Record<string, string> = { 'content-type': 'application/json' }
 >    propagation.inject(context.active(), headers) // adds `traceparent` (+ `tracestate`)
 >    this.logger.info('DOWNSTREAM_DISPATCH_MANUAL', 'Calling worker (manual propagation.inject)')
->    await fetch(`${this.workerUrl}/tasks/process`, { method: 'POST', headers, body: JSON.stringify({ mode: 'manual' }) })
+>    await fetch(`${this.workerUrl}/tasks/process`, {
+>      method: 'POST',
+>      headers,
+>      body: JSON.stringify({ mode: 'manual' }),
+>    })
 >    ```
 >    Expose both via `POST /downstream/dispatch` (e.g. a `?mode=auto|manual` query, default runs both).
 > 5. In `downstream.controller.ts`, log a line and delegate to the service; ensure `DownstreamModule` is imported by `AppModule`.
@@ -555,7 +574,6 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 > - Log keys MUST match `LOG_KEYS_CONVENTION_REGEX`; never reuse a `RESERVED_LOG_KEYS`.
 > - The real api→worker integration (both services live, shared id end to end) is asserted in P9-6 — here, unit-test the header shape with `fetch` mocked.
 >   Verification:
->
 > - `pnpm --filter api test -- downstream` — expected: manual-inject header-shape test passes.
 > - `pnpm --filter api test:cov` — expected: 100%, exit 0.
 > - `pnpm --filter api typecheck` — expected: exit 0 (`WORKER_URL` typed in the env schema).
@@ -634,6 +652,7 @@ Phase 9 "Definition of done" gate (`DEVELOPMENT_PLAN.md` §Phase 9): **one reque
 > 4. Document the **optional Sentry integration** in `docs/OTEL.md` (append "Optional: Sentry + OpenTelemetry"). State exactly (from §14):
 >    - Gated behind `SENTRY_DSN` (unset → fully no-op).
 >    - In `instrumentation.ts`, BEFORE `new NodeSDK(...)`:
+>
 >      ```typescript
 >      import * as Sentry from '@sentry/node'
 >      import { SentryPropagator } from '@sentry/opentelemetry'
@@ -646,8 +665,11 @@ Phase 9 "Definition of done" gate (`DEVELOPMENT_PLAN.md` §Phase 9): **one reque
 >        })
 >      }
 >      ```
+>
 >      and pass `textMapPropagator: new SentryPropagator()` in the `NodeSDK` options when the DSN is set.
+>
 >    - Requires `@sentry/node` ≥ 10.18 + `@sentry/opentelemetry`. The capture mechanism is the **built-in `Sentry.pinoIntegration()`** exported from `@sentry/node` — there is **no** separate `@sentry/pino` package, and the legacy `@sentry/opentelemetry-node` is NOT used.
+>
 > 5. Confirm `.env.example` lists `SENTRY_DSN=` (commented/empty) with a one-line "optional — enables Sentry + OTel" note.
 > 6. Run the verification commands. Re-confirm P9-1..P9-5 acceptance criteria are still green, then execute this file's Completion Protocol and flip the Phase 9 row in `DEVELOPMENT_PLAN.md` to 🟢.
 >    Constraints:
@@ -657,7 +679,6 @@ Phase 9 "Definition of done" gate (`DEVELOPMENT_PLAN.md` §Phase 9): **one reque
 > - Sentry is DOCUMENTATION-only in this task (gated, optional). Do NOT make `@sentry/*` a hard dependency of the apps or break boot when `SENTRY_DSN` is unset.
 > - If the cross-service e2e is flaky in CI (two live servers), gate it behind the e2e target / a tag rather than the unit run — but it MUST pass locally and in the e2e job; do not delete it to go green.
 >   Verification:
->
 > - `pnpm --filter api test:e2e -- cross-service-trace` — expected: api+worker share one trace id; the spec passes.
 > - `pnpm --filter api test:cov` and `pnpm --filter worker test:cov` — expected: 100% in both.
 > - `pnpm typecheck && pnpm lint` — expected: exit 0.

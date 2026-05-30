@@ -8,17 +8,17 @@
 
 ## Task index
 
-| ID     | Task                                                                  | Status | Priority | Size | Depends on               |
-| ------ | --------------------------------------------------------------------- | ------ | -------- | ---- | ------------------------ |
-| P10-1  | `LogQuery` DTO (Zod) — `logs/dto/log-query.dto.ts`                    | 🔴     | High     | M    | Phase 5, Phase 7         |
-| P10-2  | `LogsService` — `LogQuery` → Prisma `where` **+** LogQL              | 🔴     | High     | L    | P10-1                    |
-| P10-3  | `GET /logs` — keyset cursor `(time,id)`, 410 on stale cursor         | 🔴     | High     | M    | P10-2                    |
-| P10-4  | `GET /logs/aggregate` — time-bucketed counts (zero-filled)          | 🔴     | High     | L    | P10-2                    |
-| P10-5  | `GET /logs/facets` + `GET /logs/context` (+N/-N)                     | 🔴     | High     | M    | P10-2                    |
-| P10-6  | `GET /logs/export` — JSON/CSV, 100k cap                             | 🔴     | Medium   | M    | P10-3                    |
-| P10-7  | `LogsSseController` — `GET /logs/stream` (`@Sse()`)                  | 🔴     | High     | L    | P10-2, P10-3             |
-| P10-8  | `LokiProxyController` — `GET /logs/loki` (LogQL)                     | 🔴     | High     | M    | P10-2                    |
-| P10-9  | `alerts/` + `governance/` (RBAC, retention, audit, views)           | 🔴     | High     | L    | P10-3, P10-4, P10-5      |
+| ID    | Task                                                         | Status | Priority | Size | Depends on          |
+| ----- | ------------------------------------------------------------ | ------ | -------- | ---- | ------------------- |
+| P10-1 | `LogQuery` DTO (Zod) — `logs/dto/log-query.dto.ts`           | 🔴     | High     | M    | Phase 5, Phase 7    |
+| P10-2 | `LogsService` — `LogQuery` → Prisma `where` **+** LogQL      | 🔴     | High     | L    | P10-1               |
+| P10-3 | `GET /logs` — keyset cursor `(time,id)`, 410 on stale cursor | 🔴     | High     | M    | P10-2               |
+| P10-4 | `GET /logs/aggregate` — time-bucketed counts (zero-filled)   | 🔴     | High     | L    | P10-2               |
+| P10-5 | `GET /logs/facets` + `GET /logs/context` (+N/-N)             | 🔴     | High     | M    | P10-2               |
+| P10-6 | `GET /logs/export` — JSON/CSV, 100k cap                      | 🔴     | Medium   | M    | P10-3               |
+| P10-7 | `LogsSseController` — `GET /logs/stream` (`@Sse()`)          | 🔴     | High     | L    | P10-2, P10-3        |
+| P10-8 | `LokiProxyController` — `GET /logs/loki` (LogQL)             | 🔴     | High     | M    | P10-2               |
+| P10-9 | `alerts/` + `governance/` (RBAC, retention, audit, views)    | 🔴     | High     | L    | P10-3, P10-4, P10-5 |
 
 ---
 
@@ -66,11 +66,12 @@ Create the single filter DTO every read endpoint shares (`/logs`, `/logs/aggrega
 >    ```typescript
 >    export const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
 >    // Compile-time guard: the Zod enum values MUST equal the library union.
->    type _LevelParity = z.infer<typeof logLevelSchema> extends LogLevel
->      ? LogLevel extends z.infer<typeof logLevelSchema>
->        ? true
+>    type _LevelParity =
+>      z.infer<typeof logLevelSchema> extends LogLevel
+>        ? LogLevel extends z.infer<typeof logLevelSchema>
+>          ? true
+>          : never
 >        : never
->      : never
 >    const _levelParity: _LevelParity = true
 >    void _levelParity
 >    ```
@@ -110,7 +111,6 @@ Create the single filter DTO every read endpoint shares (`/logs`, `/logs/aggrega
 > - Do NOT use `class-validator`/`class-transformer` for this DTO — Zod is the source of truth here.
 > - Keep the DTO pure data + validation; query compilation belongs to P10-2.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0 (the `_LevelParity` guard compiles).
 > - `pnpm --filter api test -- log-query.dto` — expected: all DTO unit tests pass.
 > - `pnpm lint` — expected: exit 0.
@@ -170,7 +170,14 @@ The compiler at the heart of the read-API. `LogsService` turns one validated `Lo
 > 1. Define the level ordering once and derive the `gte` set:
 >    ```typescript
 >    import type { LogLevel } from '@bymax-one/nest-logger/shared'
->    const LEVEL_RANK: Record<LogLevel, number> = { fatal: 60, error: 50, warn: 40, info: 30, debug: 20, trace: 10 }
+>    const LEVEL_RANK: Record<LogLevel, number> = {
+>      fatal: 60,
+>      error: 50,
+>      warn: 40,
+>      info: 30,
+>      debug: 20,
+>      trace: 10,
+>    }
 >    const levelsAtOrAbove = (min: LogLevel): LogLevel[] =>
 >      (Object.keys(LEVEL_RANK) as LogLevel[]).filter((l) => LEVEL_RANK[l] >= LEVEL_RANK[min])
 >    ```
@@ -245,7 +252,6 @@ The compiler at the heart of the read-API. `LogsService` turns one validated `Lo
 > - Do NOT execute queries here — this task is the pure compiler + codec only; endpoints (P10-3..P10-8) run them.
 > - Escape user free-text safely in LogQL (no unescaped quotes); rely on Prisma parameterization for SQL.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- logs.service` — expected: all `where`/LogQL/cursor tests pass.
 > - `pnpm lint` — expected: exit 0.
@@ -343,7 +349,6 @@ The paged log query — the Explorer's table data source. Pagination is **keyset
 > - The tuple comparison must be expressed correctly (`time < t OR (time = t AND id < id)`); a naive `time < t AND id < id` is WRONG.
 > - Do NOT leak raw Prisma errors; the 410 body must be actionable.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- logs.controller` — expected: pass.
 > - `pnpm --filter api test:e2e -- logs` — expected: paging + 410 + 400 cases green.
@@ -441,7 +446,6 @@ The server-side aggregation endpoint that feeds **every chart** on the Overview 
 > - All SQL MUST be parameterized; no string interpolation of user values.
 > - Always zero-fill via `generate_series` so charts never gap.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- logs.aggregate` — expected: zero-fill + percentile + error-rate tests pass.
 > - `pnpm lint` — expected: exit 0.
@@ -529,7 +533,6 @@ Two drill-down endpoints. **`/logs/facets`** powers the Explorer's faceted left 
 > - The tuple keyset comparison for context must be correct (`time </> t OR (time = t AND id </> id)`).
 > - Reuse `buildPrismaWhere`; do NOT duplicate filter logic.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- "logs.facets|logs.context"` — expected: pass.
 > - `pnpm lint` — expected: exit 0.
@@ -622,7 +625,6 @@ Download the **current filtered result set** as JSON or CSV — the Explorer's E
 > - CSV MUST be RFC-4180 safe (escape `"`, `,`, `\n`, `\r`).
 > - Honor the `tenantId` restriction and the 100k cap exactly.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- logs.export` — expected: escaping + cap tests pass.
 > - `pnpm lint` — expected: exit 0.
@@ -680,6 +682,7 @@ The real-time live-tail endpoint — the headline "watch logs in real time" feat
 > Steps:
 >
 > 1. Implement the controller exactly per `DASHBOARD.md` §14:
+>
 >    ```typescript
 >    @Controller('logs')
 >    export class LogsSseController {
@@ -693,25 +696,37 @@ The real-time live-tail endpoint — the headline "watch logs in real time" feat
 >        const replay$ = this.bus.replaySince(lastId, filter) // keyset replay of missed rows
 >        const live$ = fromEvent(this.bus.emitter, 'log').pipe(
 >          filter((e: LogEntry) => matches(e, filter)),
->          map((e: LogEntry) => ({ data: JSON.stringify(e), id: e.cursor } as MessageEvent)),
+>          map((e: LogEntry) => ({ data: JSON.stringify(e), id: e.cursor }) as MessageEvent),
 >        )
->        const keepAlive$ = interval(15_000).pipe(map(() => ({ data: '', type: 'ping' } as MessageEvent)))
+>        const keepAlive$ = interval(15_000).pipe(
+>          map(() => ({ data: '', type: 'ping' }) as MessageEvent),
+>        )
 >        return merge(replay$, live$, keepAlive$)
 >      }
 >    }
 >    ```
+>
 > 2. Set the anti-buffering headers. Because `@Sse()` owns the response, set them via an interceptor or `@Header()` decorators: `@Header('X-Accel-Buffering', 'no')` and `@Header('Cache-Control', 'no-cache')` on the handler.
 > 3. `LogEventBus` — wrap a Node `EventEmitter`:
 >    ```typescript
 >    @Injectable()
 >    export class LogEventBus {
 >      readonly emitter = new EventEmitter()
->      constructor(private readonly logs: LogsService, private readonly prisma: PrismaService) {}
->      emit(entry: LogEntry & { cursor: string }): void { this.emitter.emit('log', entry) }
+>      constructor(
+>        private readonly logs: LogsService,
+>        private readonly prisma: PrismaService,
+>      ) {}
+>      emit(entry: LogEntry & { cursor: string }): void {
+>        this.emitter.emit('log', entry)
+>      }
 >      replaySince(lastId: string | undefined, filter: LogQueryDto): Observable<MessageEvent> {
 >        if (!lastId) return EMPTY
 >        let from: { time: Date; id: string }
->        try { from = this.logs.decodeCursor(lastId) } catch { return EMPTY } // malformed → skip replay, keep live
+>        try {
+>          from = this.logs.decodeCursor(lastId)
+>        } catch {
+>          return EMPTY
+>        } // malformed → skip replay, keep live
 >        // query rows newer than `from` matching the filter, ordered ASC, map to MessageEvent with id=cursor
 >        return from$(this.fetchSince(from, filter))
 >      }
@@ -727,7 +742,6 @@ The real-time live-tail endpoint — the headline "watch logs in real time" feat
 > - Keep-alive interval is exactly 15s; `X-Accel-Buffering: no` + `Cache-Control: no-cache` MUST be set.
 > - Replay MUST be keyset-based (reuse the P10-2 codec) so no line is missed or duplicated.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- logs.sse` — expected: merge/keep-alive/replay unit tests pass.
 > - `pnpm --filter api test:e2e -- logs-sse` — expected: ping + live-frame + replay e2e green.
@@ -817,7 +831,6 @@ The other half of the **source toggle**: when the dashboard is set to Loki, the 
 > - Live tail is consumed via SSE (P10-7); this endpoint does NOT stream the Loki WebSocket straight to the browser.
 > - A Loki outage MUST surface as 502, never crash the API.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- loki-proxy` — expected: URL/LogQL + 502 tests pass.
 > - `pnpm lint` — expected: exit 0.
@@ -903,7 +916,6 @@ The "operate it like a real platform" backend — small, real, clearly-labeled s
 > - Channels MUST be offline-safe (mock/log delivery); no real network calls in tests.
 > - Label every scoped feature honestly with the `🎓 Scoped demo` callout (`DASHBOARD.md` §1, §9, §10).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- "alerts|governance|incidents|retention|rbac"` — expected: pass.
 > - `pnpm --filter api test:e2e -- "alerts|governance"` — expected: rule→incident, RBAC scoping, retention, and audit e2e green.

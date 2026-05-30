@@ -8,15 +8,15 @@
 
 ## Task index
 
-| ID    | Task                                                                | Status | Priority | Size | Depends on             |
-| ----- | ------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P7-1  | `LokiDestination` — batched HTTP push + flush timer + fail-soft     | 🔴     | High     | M    | P4 (Logger Wiring)     |
-| P7-2  | `PrismaLogDestination` — `warn`+ durable tier, batched `createMany` | 🔴     | High     | M    | P5 (Prisma), P7-1      |
-| P7-3  | `RollingFileDestination` — `pino-roll`, async `onInit`, rotation    | 🔴     | Medium   | M    | P7-1                   |
-| P7-4  | Wire all three into `logger.config.ts` `destinations[]`             | 🔴     | High     | S    | P7-1, P7-2, P7-3       |
-| P7-5  | Lifecycle — `enableShutdownHooks()` + reverse drain + `_SHUTDOWN_OK`| 🔴     | High     | S    | P7-4                   |
-| P7-6  | Fail-soft proof — bad `LOKI_URL` → `_WRITE_FAILED`, app keeps serving| 🔴    | High     | S    | P7-4                   |
-| P7-7  | Verification — stdout + Loki + Postgres `warn` row + debug minLevel | 🔴     | High     | M    | P7-1..P7-6             |
+| ID   | Task                                                                  | Status | Priority | Size | Depends on         |
+| ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ------------------ |
+| P7-1 | `LokiDestination` — batched HTTP push + flush timer + fail-soft       | 🔴     | High     | M    | P4 (Logger Wiring) |
+| P7-2 | `PrismaLogDestination` — `warn`+ durable tier, batched `createMany`   | 🔴     | High     | M    | P5 (Prisma), P7-1  |
+| P7-3 | `RollingFileDestination` — `pino-roll`, async `onInit`, rotation      | 🔴     | Medium   | M    | P7-1               |
+| P7-4 | Wire all three into `logger.config.ts` `destinations[]`               | 🔴     | High     | S    | P7-1, P7-2, P7-3   |
+| P7-5 | Lifecycle — `enableShutdownHooks()` + reverse drain + `_SHUTDOWN_OK`  | 🔴     | High     | S    | P7-4               |
+| P7-6 | Fail-soft proof — bad `LOKI_URL` → `_WRITE_FAILED`, app keeps serving | 🔴     | High     | S    | P7-4               |
+| P7-7 | Verification — stdout + Loki + Postgres `warn` row + debug minLevel   | 🔴     | High     | M    | P7-1..P7-6         |
 
 ---
 
@@ -54,6 +54,7 @@ Implement the canonical custom `ILogDestination` that buffers serialized log lin
 > Steps:
 >
 > 1. Create `apps/api/src/destinations/loki.destination.ts`:
+>
 >    ```typescript
 >    import type { ILogDestination, LogLevel } from '@bymax-one/nest-logger'
 >
@@ -121,6 +122,7 @@ Implement the canonical custom `ILogDestination` that buffers serialized log lin
 >      }
 >    }
 >    ```
+>
 > 2. The push endpoint passed via `opts.url` MUST be the full `/loki/api/v1/push` path (wired from `LOKI_URL` in P7-4) — do NOT append `/push` yourself.
 >    Constraints:
 >
@@ -130,7 +132,6 @@ Implement the canonical custom `ILogDestination` that buffers serialized log lin
 > - Do NOT mutate the `payload` string — it is shared across destinations.
 > - Emit exactly `LOGGER_DESTINATION_WRITE_FAILED` on a write failure (the library convention).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0 (the file type-resolves against the library types).
 > - `pnpm --filter api lint` — expected: exit 0.
 
@@ -184,6 +185,7 @@ Implement the durable persistence destination: it filters to `warn`+ via `minLev
 > Steps:
 >
 > 1. Create `apps/api/src/destinations/prisma-log.destination.ts`:
+>
 >    ```typescript
 >    import type { ILogDestination, LogLevel } from '@bymax-one/nest-logger'
 >    import type { PrismaService } from '../prisma/prisma.service'
@@ -271,7 +273,7 @@ Implement the durable persistence destination: it filters to `warn`+ via `minLev
 >          level: entry.level ?? 'info',
 >          logKey: entry.logKey ?? 'UNKNOWN',
 >          message: entry.message ?? entry.msg ?? '',
->          service: entry.service ?? (process.env.OTEL_SERVICE_NAME ?? 'nest-logger-example'),
+>          service: entry.service ?? process.env.OTEL_SERVICE_NAME ?? 'nest-logger-example',
 >          requestId: entry.requestId ?? null,
 >          traceId: entry.traceId ?? null,
 >          payload: entry, // already-redacted full entry — stored verbatim
@@ -279,6 +281,7 @@ Implement the durable persistence destination: it filters to `warn`+ via `minLev
 >      }
 >    }
 >    ```
+>
 > 2. Do NOT add a runtime level-comparison here — the library filters by `minLevel` before fan-out; this destination only sees entries at or above `minLevel`. (P7-7 separately proves the parent Pino level is lowered enough — see the multistream note.)
 >    Constraints:
 >
@@ -288,7 +291,6 @@ Implement the durable persistence destination: it filters to `warn`+ via `minLev
 > - Store the **already-redacted** parsed entry in `payload`; do NOT re-serialize a different shape and do NOT mutate the incoming string.
 > - The JSON-parse guard is mandatory — a single malformed line must never crash a batch.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0 (`createMany` data shape matches the Prisma client).
 > - `pnpm --filter api lint` — expected: exit 0.
 
@@ -343,6 +345,7 @@ Implement the file destination using `pino-roll` (an **example-only** dependency
 >
 > 1. Add the example-only dependency: `pnpm add pino-roll --filter api` (record it; it is NOT a library peer).
 > 2. Create `apps/api/src/destinations/rolling-file.destination.ts`:
+>
 >    ```typescript
 >    import type { Writable } from 'node:stream'
 >    import { once } from 'node:events'
@@ -398,6 +401,7 @@ Implement the file destination using `pino-roll` (an **example-only** dependency
 >      }
 >    }
 >    ```
+>
 > 3. If the installed `pino-roll` typings differ from the call above, narrow at the boundary (the `as unknown as Writable` cast) rather than reaching for `@ts-ignore`.
 >    Constraints:
 >
@@ -407,7 +411,6 @@ Implement the file destination using `pino-roll` (an **example-only** dependency
 > - The stream MUST be opened in `onInit()` (async), not the constructor; `write()` MUST guard a missing stream and MUST NOT mutate the payload.
 > - Fail-soft: report `LOGGER_DESTINATION_INIT_FAILED` to `process.stderr`; never throw out of `onInit()`/`write()`; never log through the logger.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `node -p "require('./apps/api/package.json').dependencies['pino-roll'] || require('./apps/api/package.json').optionalDependencies['pino-roll']"` — expected: a version range (dep present).
@@ -494,7 +497,6 @@ Register the three destinations on `BymaxLoggerModuleOptions.destinations[]` ins
 > - `LOKI_URL` MUST already be the `/loki/api/v1/push` endpoint; do NOT append `/push` in the destination.
 > - Keep every other field of the existing factory intact (do not regress Phase 4 wiring).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `pnpm --filter api build` — expected: exit 0 (the three destinations resolve and compile into the options).
@@ -578,7 +580,6 @@ Prove the destination lifecycle drains cleanly on shutdown. `app.enableShutdownH
 > - Do NOT use `--no-verify`. Use ONLY `@bymax-one/nest-logger@0.1.0` + NestJS public APIs.
 > - The drain order is the library's contract (reverse) — assert it, do not re-implement it.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api test -- destinations.lifecycle` — expected: the reverse-order + `LOGGER_SHUTDOWN_OK` assertions pass.
 
@@ -654,7 +655,6 @@ Prove the fail-soft contract end to end: when `LOKI_URL` points at a dead host, 
 > - Do NOT swallow the assertion by catching errors yourself; the destination must already be fail-soft (P7-1).
 > - Tie the fault to `POST /trigger/fault/loki` (the Playground hook) — do not invent a second trigger path.
 >   Verification:
->
 > - `pnpm --filter api test -- destinations.fail-soft` — expected: the stderr-signal + still-serving assertions pass.
 > - `pnpm --filter api typecheck` — expected: exit 0.
 
@@ -709,7 +709,9 @@ Phase 7 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: one request lands *
 >    ```typescript
 >    it('fans one warn request out to stdout, Loki, and a Postgres warn row', async () => {
 >      const out = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
->      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 204 }))
+>      const fetchSpy = jest
+>        .spyOn(globalThis, 'fetch')
+>        .mockResolvedValue(new Response('', { status: 204 }))
 >      // Fire a request that logs at warn (e.g. a retryable payment warn / a /trigger/level=warn):
 >      await request(app.getHttpServer()).post('/trigger/level').send({ level: 'warn' }).expect(200)
 >      await new Promise((r) => setTimeout(r, 50)) // let batched flushes settle
@@ -721,7 +723,10 @@ Phase 7 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: one request lands *
 >      const body = JSON.parse(String((init as RequestInit).body))
 >      expect(typeof body.streams[0].values[0][0]).toBe('string') // ns epoch as a STRING
 >      // (c) Postgres durable tier:
->      const row = await prisma.applicationLog.findFirst({ where: { level: 'warn' }, orderBy: { createdAt: 'desc' } })
+>      const row = await prisma.applicationLog.findFirst({
+>        where: { level: 'warn' },
+>        orderBy: { createdAt: 'desc' },
+>      })
 >      expect(row).not.toBeNull()
 >      expect(JSON.stringify(row?.payload)).not.toContain('p@ss') // already redacted
 >      out.mockRestore()
@@ -748,7 +753,6 @@ Phase 7 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: one request lands *
 > - Confirm Postgres holds the already-redacted payload (no raw PII) — cross-check the redaction proofs.
 > - Do NOT use `--no-verify`; do NOT skip hooks.
 >   Verification:
->
 > - `pnpm --filter api test -- destinations.fanout` — expected: the three-sink + debug-reception assertions pass.
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.

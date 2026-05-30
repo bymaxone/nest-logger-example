@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID    | Task                                                                | Status | Priority | Size | Depends on             |
-| ----- | ------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P4-1  | `logger.config.ts` — `buildLoggerOptions(config, prisma)` factory   | 🔴     | High     | M    | —                      |
-| P4-2  | Wire `BymaxLoggerModule.forRootAsync` in `app.module.ts`            | 🔴     | High     | S    | P4-1                   |
-| P4-3  | `RequestIdMiddleware` in `AppModule.configure()` (ALS scope)        | 🔴     | High     | S    | P4-2                   |
-| P4-4  | `log-audit.service.ts` (`@Inject(LOGGER_OPTIONS_TOKEN)`)            | 🔴     | High     | S    | P4-1, P4-2             |
-| P4-5  | Wire `HttpLoggingInterceptor` + `HttpExceptionFilter` (global)      | 🔴     | High     | M    | P4-2, P4-3             |
-| P4-6  | Verification gate (requestId/tenantId, interceptor+filter, bootstrap)| 🔴     | High     | S    | P4-1..P4-5             |
+| ID   | Task                                                                  | Status | Priority | Size | Depends on |
+| ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
+| P4-1 | `logger.config.ts` — `buildLoggerOptions(config, prisma)` factory     | 🔴     | High     | M    | —          |
+| P4-2 | Wire `BymaxLoggerModule.forRootAsync` in `app.module.ts`              | 🔴     | High     | S    | P4-1       |
+| P4-3 | `RequestIdMiddleware` in `AppModule.configure()` (ALS scope)          | 🔴     | High     | S    | P4-2       |
+| P4-4 | `log-audit.service.ts` (`@Inject(LOGGER_OPTIONS_TOKEN)`)              | 🔴     | High     | S    | P4-1, P4-2 |
+| P4-5 | Wire `HttpLoggingInterceptor` + `HttpExceptionFilter` (global)        | 🔴     | High     | M    | P4-2, P4-3 |
+| P4-6 | Verification gate (requestId/tenantId, interceptor+filter, bootstrap) | 🔴     | High     | S    | P4-1..P4-5 |
 
 ---
 
@@ -62,6 +62,7 @@ Create `apps/api/src/logger/logger.config.ts`, the **single source of truth** fo
 >    ```
 >    (`PrismaService` does not exist until Phase 5 — if its file is absent, create a minimal placeholder `apps/api/src/prisma/prisma.service.ts` exporting an empty `@Injectable() class PrismaService {}` ONLY to satisfy the type import, and leave a `// TODO(Phase 5)` note. Do NOT implement Prisma here.)
 > 2. Parse the extra redact paths and the prod flag, then return the options object EXACTLY as the reconciled `OVERVIEW.md` §9 block specifies:
+>
 >    ```typescript
 >    export function buildLoggerOptions(
 >      config: ConfigService,
@@ -109,6 +110,7 @@ Create `apps/api/src/logger/logger.config.ts`, the **single source of truth** fo
 >      }
 >    }
 >    ```
+>
 > 3. The `prisma` parameter is intentionally unused this phase. Do NOT delete it (Phase 7 needs it for `new PrismaLogDestination(prisma, …)`). If ESLint `no-unused-vars` trips, prefix the JSDoc with an explanatory line — do NOT add `eslint-disable`; instead reference it harmlessly, e.g. `void prisma` with a `// retained for Phase 7 PrismaLogDestination` comment, or rely on the `args: 'after-used'` default (a used `config` before an unused trailing `prisma` is allowed by the default `@typescript-eslint/no-unused-vars`).
 >    Constraints:
 >
@@ -117,7 +119,6 @@ Create `apps/api/src/logger/logger.config.ts`, the **single source of truth** fo
 > - English-only comments; boolean-ish keys keep the library's `is`/`should` prefixes.
 > - Do NOT wire `destinations` here, and do NOT implement Prisma — those are Phases 7 and 5.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0 (the object satisfies `BymaxLoggerModuleOptions`).
 > - `pnpm --filter api lint` — expected: exit 0 (no `eslint-disable`, no `@ts-ignore`).
 
@@ -169,6 +170,7 @@ Register the logger in `apps/api/src/app.module.ts` via `BymaxLoggerModule.forRo
 > Steps:
 >
 > 1. Ensure `ConfigModule.forRoot({ isGlobal: true })` is present (from Phase 3). Add the logger registration:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { ConfigModule, ConfigService } from '@nestjs/config'
@@ -192,7 +194,9 @@ Register the logger in `apps/api/src/app.module.ts` via `BymaxLoggerModule.forRo
 >    })
 >    export class AppModule {}
 >    ```
+>
 >    (If the Phase-5 `PrismaService` placeholder created in P4-1 is an empty `@Injectable()`, `new PrismaService()` is a harmless no-op stub. When Phase 5 lands, change `inject` to `[ConfigService, PrismaService]` and `useFactory` to `(config, prisma) => buildLoggerOptions(config, prisma)`.)
+>
 > 2. The `NestModule`/`configure()` middleware wiring is added in P4-3 — do NOT add it here; keep this task focused on the module registration.
 >    Constraints:
 >
@@ -200,7 +204,6 @@ Register the logger in `apps/api/src/app.module.ts` via `BymaxLoggerModule.forRo
 > - Do NOT introduce `PrismaService` into the `inject` array this phase (it isn't provided yet — that would break DI). Leave the documented TODO.
 > - Do NOT register `RequestIdMiddleware`, the interceptor, or the filter here (P4-3 / P4-5).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api dev` — expected: boots; Nest logs the module init with no "Nest can't resolve dependencies of the LOGGER…" error.
 
@@ -251,6 +254,7 @@ Open the per-request `AsyncLocalStorage` scope by applying the library's `Reques
 > Steps:
 >
 > 1. Extend the `app.module.ts` from P4-2 to implement `NestModule`:
+>
 >    ```typescript
 >    import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common'
 >    import { ConfigModule, ConfigService } from '@nestjs/config'
@@ -278,14 +282,14 @@ Open the per-request `AsyncLocalStorage` scope by applying the library's `Reques
 >      }
 >    }
 >    ```
+>
 > 2. Keep everything else from P4-2 intact (the `forRootAsync` block + the Phase-5 TODO).
 >    Constraints:
 >
 > - Use `RequestIdMiddleware` exactly as exported by `@bymax-one/nest-logger@0.1.0`. Do NOT hand-roll a request-id middleware.
-> - `forRoutes('*')` (all routes) — the `http.excludePaths` regexes from P4-1 govern which routes are *access-logged*, not which open an ALS scope; every route still gets a `requestId`.
+> - `forRoutes('*')` (all routes) — the `http.excludePaths` regexes from P4-1 govern which routes are _access-logged_, not which open an ALS scope; every route still gets a `requestId`.
 > - Do NOT set `shouldGenerateRequestId: true` (that would double-wire request-id generation).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api dev` then `curl -s -D - http://localhost:3000/health -o /dev/null` — expected: 200 (later phases assert the propagated `requestId` on a logged route; `/health` is excluded from access logs but still scoped).
 
@@ -341,6 +345,7 @@ Create `apps/api/src/logger/log-audit.service.ts`, an injectable that reads the 
 > Steps:
 >
 > 1. Create the service exactly as the `OVERVIEW.md` §13 block:
+>
 >    ```typescript
 >    import { Inject, Injectable } from '@nestjs/common'
 >    import {
@@ -351,9 +356,7 @@ Create `apps/api/src/logger/log-audit.service.ts`, an injectable that reads the 
 >
 >    @Injectable()
 >    export class LogAuditService {
->      constructor(
->        @Inject(LOGGER_OPTIONS_TOKEN) private readonly opts: BymaxLoggerModuleOptions,
->      ) {}
+>      constructor(@Inject(LOGGER_OPTIONS_TOKEN) private readonly opts: BymaxLoggerModuleOptions) {}
 >
 >      /** Effective redact paths = the library's exported defaults + the app-supplied extensions. */
 >      listEffectiveRedactPaths(): readonly string[] {
@@ -371,6 +374,7 @@ Create `apps/api/src/logger/log-audit.service.ts`, an injectable that reads the 
 >      }
 >    }
 >    ```
+>
 > 2. Register it so `LOGGER_OPTIONS_TOKEN` resolves. Because `BymaxLoggerModule` is global (`isGlobal: true`, P4-1) the token is available app-wide, so the simplest path is adding `LogAuditService` to `AppModule`'s `providers`. Optionally create `apps/api/src/logger/logger.module.ts` that `providers: [LogAuditService]` + `exports: [LogAuditService]`, imported by `AppModule` — pick one and keep it consistent.
 > 3. Do NOT add the Phase-8 assertions/e2e here; just make the service injectable and resolvable.
 >    Constraints:
@@ -379,7 +383,6 @@ Create `apps/api/src/logger/log-audit.service.ts`, an injectable that reads the 
 > - `DEFAULT_REDACT_PATHS` MUST be imported from the `.` subpath (it is a public export in `0.1.0`); referencing it is required by the export-usage audit.
 > - English-only JSDoc; no `eslint-disable`.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api dev` — expected: boots; resolving `LogAuditService` does not raise "Nest can't resolve dependencies … LOGGER_OPTIONS_TOKEN". (A quick way: temporarily inject it into an existing controller's ctor and hit a route, or rely on Phase 8's test — do NOT leave debug wiring behind.)
 
@@ -432,10 +435,12 @@ Activate the library's HTTP observability pair globally: the `HttpLoggingInterce
 > Steps:
 >
 > 1. Determine `@bymax-one/nest-logger@0.1.0`'s registration model for the HTTP interceptor/filter by inspecting the installed package types:
+>
 >    ```bash
 >    grep -RnoE "Http(Logging|Exception)|APP_(INTERCEPTOR|FILTER)|isEnabled|shouldCaptureExceptions" \
 >      node_modules/@bymax-one/nest-logger/dist/server/index.d.ts
 >    ```
+>
 >    - If `BymaxLoggerModule` auto-registers them when `http.isEnabled` / `http.shouldCaptureExceptions` are true (most likely, given the option names), then NO extra wiring is needed — assert they fire and STOP. Add a brief comment in `app.module.ts` noting they are enabled via the `http` options in `logger.config.ts`.
 >    - If the library instead exports `HttpLoggingInterceptor` / `HttpExceptionFilter` classes intended to be bound by the consumer, register them once, app-wide:
 >      ```typescript
@@ -446,6 +451,7 @@ Activate the library's HTTP observability pair globally: the `HttpLoggingInterce
 >      { provide: APP_FILTER, useClass: HttpExceptionFilter },
 >      ```
 >      Use ONLY whichever single mechanism the package actually requires — never both at once (that double-binds and double-logs).
+>
 > 2. Smoke-test double-log avoidance WITHOUT leaving test code behind: spy on stdout in a throwaway e2e or a scratch script — fire a route that throws an `HttpException`, capture stdout, and assert `HTTP_EXCEPTION_HANDLED` appears exactly once and the matching `HTTP_REQUEST_*_ERROR` is consistent (the canonical assertion pattern is in `OVERVIEW.md` §16). Remove the scratch code afterward; the durable e2e lands in Phase 14.
 > 3. Confirm `/health` + `/metrics` emit no access logs (driven by `excludePaths` in P4-1).
 >    Constraints:
@@ -455,7 +461,6 @@ Activate the library's HTTP observability pair globally: the `HttpLoggingInterce
 > - Do NOT weaken `http.excludePaths`. English-only comments; no `@ts-ignore`.
 > - Remove any temporary smoke route/handler/script before marking done (no debug wiring on `main`).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - Throwaway stdout-capture check — expected: a logged route shows `"logKey":"HTTP_REQUEST_START"` + a terminal `HTTP_REQUEST_*` key; an `HttpException` shows `"logKey":"HTTP_EXCEPTION_HANDLED"` exactly once.
 > - `curl -s http://localhost:3000/health` while spying stdout — expected: no `HTTP_REQUEST_*` line for `/health`.
@@ -535,7 +540,6 @@ Phase 4 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the wired log
 > - Do NOT author the full Phase-14 e2e suite here; keep this verification minimal and remove any scratch routes/specs you add for the check.
 > - English-only.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `pnpm --filter api build` — expected: exit 0.

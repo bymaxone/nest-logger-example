@@ -29,29 +29,29 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 0 / 133 tasks done (0%)**
+> **Overall progress: 8 / 133 tasks done (6%)**
 
-| #   | Phase                                   | Tasks file                               | Done / Total | %   | Status |
-| --- | --------------------------------------- | ---------------------------------------- | ------------ | --- | ------ |
-| 0   | Repository Foundation & Tooling         | `phase-00-repo-foundation.md`            | 0 / 8        | 0%  | 🔴     |
-| 1   | Local Observability Stack               | `phase-01-observability-stack.md`        | 0 / 6        | 0%  | 🔴     |
-| 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md`      | 0 / 4        | 0%  | 🔴     |
-| 3   | `apps/api` Skeleton + OTel Bootstrap    | `phase-03-api-skeleton.md`               | 0 / 6        | 0%  | 🔴     |
-| 4   | Logger Wiring                           | `phase-04-logger-wiring.md`              | 0 / 6        | 0%  | 🔴     |
-| 5   | Prisma & Persistence                    | `phase-05-prisma-persistence.md`         | 0 / 6        | 0%  | 🔴     |
-| 6   | Demo Domain                             | `phase-06-demo-domain.md`                | 0 / 8        | 0%  | 🔴     |
-| 7   | Destinations                            | `phase-07-destinations.md`               | 0 / 7        | 0%  | 🔴     |
-| 8   | PII Redaction Proofs                    | `phase-08-redaction.md`                  | 0 / 5        | 0%  | 🔴     |
-| 9   | OpenTelemetry Correlation + `apps/worker` | `phase-09-otel-correlation.md`         | 0 / 6        | 0%  | 🔴     |
-| 10  | `logs/` Read-API                        | `phase-10-logs-api.md`                   | 0 / 9        | 0%  | 🔴     |
-| 11  | `apps/web` Skeleton + Design System     | `phase-11-web-skeleton.md`               | 0 / 7        | 0%  | 🔴     |
-| 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`           | 0 / 9        | 0%  | 🔴     |
-| 13  | Dashboard — Trigger, Alerts, Maintenance | `phase-13-dashboard-ops.md`             | 0 / 9        | 0%  | 🔴     |
-| 14  | Testing — Unit + E2E (**100% coverage**) | `phase-14-testing.md`                   | 0 / 10       | 0%  | 🔴     |
-| 15  | Mutation Testing (**Stryker 100%**)     | `phase-15-mutation.md`                   | 0 / 6        | 0%  | 🔴     |
-| 16  | Documentation                           | `phase-16-documentation.md`              | 0 / 8        | 0%  | 🔴     |
-| 17  | CI/CD & Release Automation              | `phase-17-cicd.md`                       | 0 / 7        | 0%  | 🔴     |
-| 18  | Audit & Hardening + v1.0.0              | `phase-18-audit-hardening.md`            | 0 / 6        | 0%  | 🔴     |
+| #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
+| --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
+| 0   | Repository Foundation & Tooling           | `phase-00-repo-foundation.md`     | 8 / 8        | 100% | 🟢     |
+| 1   | Local Observability Stack                 | `phase-01-observability-stack.md` | 0 / 6        | 0%   | 🔴     |
+| 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md` | 0 / 4        | 0%   | 🔴     |
+| 3   | `apps/api` Skeleton + OTel Bootstrap      | `phase-03-api-skeleton.md`        | 0 / 6        | 0%   | 🔴     |
+| 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 0 / 6        | 0%   | 🔴     |
+| 5   | Prisma & Persistence                      | `phase-05-prisma-persistence.md`  | 0 / 6        | 0%   | 🔴     |
+| 6   | Demo Domain                               | `phase-06-demo-domain.md`         | 0 / 8        | 0%   | 🔴     |
+| 7   | Destinations                              | `phase-07-destinations.md`        | 0 / 7        | 0%   | 🔴     |
+| 8   | PII Redaction Proofs                      | `phase-08-redaction.md`           | 0 / 5        | 0%   | 🔴     |
+| 9   | OpenTelemetry Correlation + `apps/worker` | `phase-09-otel-correlation.md`    | 0 / 6        | 0%   | 🔴     |
+| 10  | `logs/` Read-API                          | `phase-10-logs-api.md`            | 0 / 9        | 0%   | 🔴     |
+| 11  | `apps/web` Skeleton + Design System       | `phase-11-web-skeleton.md`        | 0 / 7        | 0%   | 🔴     |
+| 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`      | 0 / 9        | 0%   | 🔴     |
+| 13  | Dashboard — Trigger, Alerts, Maintenance  | `phase-13-dashboard-ops.md`       | 0 / 9        | 0%   | 🔴     |
+| 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 0 / 10       | 0%   | 🔴     |
+| 15  | Mutation Testing (**Stryker 100%**)       | `phase-15-mutation.md`            | 0 / 6        | 0%   | 🔴     |
+| 16  | Documentation                             | `phase-16-documentation.md`       | 0 / 8        | 0%   | 🔴     |
+| 17  | CI/CD & Release Automation                | `phase-17-cicd.md`                | 0 / 7        | 0%   | 🔴     |
+| 18  | Audit & Hardening + v1.0.0                | `phase-18-audit-hardening.md`     | 0 / 6        | 0%   | 🔴     |
 
 ### How to update this dashboard
 
@@ -96,28 +96,28 @@ test  mutation docs  ci/cd audit+v1.0.0
 (100%) (Stryker)            (export audit, hardening, tag)
 ```
 
-**Parallelization.** Backend (0–10) is mostly linear. Once the `logs/` API (Phase 10) exists, the frontend track (11–13) can proceed in parallel with backend polish. The quality track (14–18) starts after both apps are feature-complete — **but coverage/mutation are written alongside each feature** (every phase's DoD requires its own tests to exist and pass at 100%); Phases 14–15 are the *consolidation + gate-hardening* phases, not "write all tests at the end."
+**Parallelization.** Backend (0–10) is mostly linear. Once the `logs/` API (Phase 10) exists, the frontend track (11–13) can proceed in parallel with backend polish. The quality track (14–18) starts after both apps are feature-complete — **but coverage/mutation are written alongside each feature** (every phase's DoD requires its own tests to exist and pass at 100%); Phases 14–15 are the _consolidation + gate-hardening_ phases, not "write all tests at the end."
 
 ---
 
 ## 2. Global Conventions
 
-| Concern             | Convention                                                                                          |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| Package manager     | `pnpm@10.8.0` (pinned in `packageManager` + every CI `pnpm/action-setup@v4`), workspaces `apps/*`    |
-| Runtime             | Node `>=24` (`.nvmrc` = `24`, `engines.node >=24`, setup-node `node-version: '24'`, `cache: pnpm`)  |
-| Install             | `pnpm install --frozen-lockfile` everywhere; `.npmrc` → `frozen-lockfile=true`                       |
-| Language            | TypeScript 5.9 strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`; ESM everywhere    |
-| Lint / format       | ESLint 9 flat config (`recommendedTypeChecked`) + Prettier 3 (`printWidth 100`, `singleQuote`)       |
-| Pre-commit          | husky `prepare: husky`; `.husky/pre-commit` → `pnpm exec lint-staged` (prettier + eslint --fix)      |
-| Commits             | Conventional Commits (commitlint config present; enable in `commit-msg` for this repo)              |
+| Concern             | Convention                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| Package manager     | `pnpm@10.8.0` (pinned in `packageManager` + every CI `pnpm/action-setup@v4`), workspaces `apps/*`       |
+| Runtime             | Node `>=24` (`.nvmrc` = `24`, `engines.node >=24`, setup-node `node-version: '24'`, `cache: pnpm`)      |
+| Install             | `pnpm install --frozen-lockfile` everywhere; `.npmrc` → `frozen-lockfile=true`                          |
+| Language            | TypeScript 5.9 strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`; ESM everywhere       |
+| Lint / format       | ESLint 9 flat config (`recommendedTypeChecked`) + Prettier 3 (`printWidth 100`, `singleQuote`)          |
+| Pre-commit          | husky `prepare: husky`; `.husky/pre-commit` → `pnpm exec lint-staged` (prettier + eslint --fix)         |
+| Commits             | Conventional Commits (commitlint config present; enable in `commit-msg` for this repo)                  |
 | Boolean naming      | prefix `is` / `has` / `should` / `can` (matches the library: `isEnabled`, `shouldDisableDefaultRedact`) |
-| Log keys            | `MODULE_ACTION_RESULT`; validated vs `LOG_KEYS_CONVENTION_REGEX`; never reuse a `RESERVED_LOG_KEYS`  |
-| **Test coverage**   | **100%** statements/branches/functions/lines — Jest (api) + Vitest (web). Gate in CI (Phase 14/17)   |
+| Log keys            | `MODULE_ACTION_RESULT`; validated vs `LOG_KEYS_CONVENTION_REGEX`; never reuse a `RESERVED_LOG_KEYS`     |
+| **Test coverage**   | **100%** statements/branches/functions/lines — Jest (api) + Vitest (web). Gate in CI (Phase 14/17)      |
 | **Mutation score**  | **Stryker thresholds `{ high: 100, low: 100, break: 100 }}`** — api (jest-runner) + web (vitest-runner) |
-| **Export audit**    | `scripts/audit-library-exports.mjs` + `.audit-ignore.json` — every lib export referenced in `apps/`  |
-| Dep automation      | `renovate.json` (weekend schedule; pin `@bymax-one/nest-logger`, group docker/actions)              |
-| Deps in the library | `@bymax-one/nest-logger` via local `link:`/`file:` until published (not on npm yet), then `^0.1.0` |
+| **Export audit**    | `scripts/audit-library-exports.mjs` + `.audit-ignore.json` — every lib export referenced in `apps/`     |
+| Dep automation      | `renovate.json` (weekend schedule; pin `@bymax-one/nest-logger`, group docker/actions)                  |
+| Deps in the library | `@bymax-one/nest-logger` via local `link:`/`file:` until published (not on npm yet), then `^0.1.0`      |
 
 ---
 
@@ -423,26 +423,27 @@ Maintained by `scripts/audit-library-exports.mjs` and surfaced as the [§6 Featu
 
 The non-negotiable bar, mirroring `nest-auth-example`'s **shipped** configuration. (Note: `nest-auth-example`'s planning docs predated the hardening to 100% + Stryker; this plan bakes the **final** gates in from the start.)
 
-| Gate                | Tool / config                                                       | Threshold                         | Enforced in            |
-| ------------------- | ------------------------------------------------------------------- | --------------------------------- | ---------------------- |
-| Lint                | ESLint 9 flat (`eslint .`)                                          | zero errors                       | CI `lint` (Phase 17)   |
-| Typecheck           | `tsc --noEmit` per package                                          | zero errors                       | CI `typecheck`         |
-| Unit coverage (api) | Jest `coverageThreshold.global`                                     | **100%** b/l/f/s                  | CI `unit` (Phase 14)   |
-| Unit coverage (web) | Vitest v8 `coverage.thresholds`                                     | **100%** b/l/f/s                  | CI `unit`              |
-| E2E                 | supertest (api, stdout-capture) + Playwright (web)                  | all pass                          | CI `e2e-api`/`e2e-web` |
-| Mutation (api)      | Stryker jest-runner + typescript-checker                            | **`break: 100`**                  | `mutation.yml` (PR)    |
-| Mutation (web)      | Stryker vitest-runner                                               | **`break: 100`**                  | `mutation.yml` (PR)    |
-| Mutation drift      | Stryker full cold run                                               | report; issue on regression       | `mutation-nightly.yml` |
-| Export usage        | `scripts/audit-library-exports.mjs`                                 | every export used (or ignored)    | CI `export-usage-check`|
-| Log-key convention  | `scripts/audit-log-keys.mjs`                                        | all match regex; no reserved reuse | CI (Phase 18)         |
-| Pre-commit          | husky + lint-staged                                                 | prettier + eslint --fix on staged | local                  |
+| Gate                | Tool / config                                      | Threshold                          | Enforced in             |
+| ------------------- | -------------------------------------------------- | ---------------------------------- | ----------------------- |
+| Lint                | ESLint 9 flat (`eslint .`)                         | zero errors                        | CI `lint` (Phase 17)    |
+| Typecheck           | `tsc --noEmit` per package                         | zero errors                        | CI `typecheck`          |
+| Unit coverage (api) | Jest `coverageThreshold.global`                    | **100%** b/l/f/s                   | CI `unit` (Phase 14)    |
+| Unit coverage (web) | Vitest v8 `coverage.thresholds`                    | **100%** b/l/f/s                   | CI `unit`               |
+| E2E                 | supertest (api, stdout-capture) + Playwright (web) | all pass                           | CI `e2e-api`/`e2e-web`  |
+| Mutation (api)      | Stryker jest-runner + typescript-checker           | **`break: 100`**                   | `mutation.yml` (PR)     |
+| Mutation (web)      | Stryker vitest-runner                              | **`break: 100`**                   | `mutation.yml` (PR)     |
+| Mutation drift      | Stryker full cold run                              | report; issue on regression        | `mutation-nightly.yml`  |
+| Export usage        | `scripts/audit-library-exports.mjs`                | every export used (or ignored)     | CI `export-usage-check` |
+| Log-key convention  | `scripts/audit-log-keys.mjs`                       | all match regex; no reserved reuse | CI (Phase 18)           |
+| Pre-commit          | husky + lint-staged                                | prettier + eslint --fix on staged  | local                   |
 
 > **Coverage-shim note.** The "uncovered branch" that NestJS `emitDecoratorMetadata` injects is a **known ts-jest issue** with a built-in fix: set **`ignoreCoverageForAllDecorators: true`** in the ts-jest transform options — prefer that over `nest-auth-example`'s bespoke `jest-ts-transform.cjs`. If the logger API has `emitDecoratorMetadata` off entirely, the standard ts-jest transform suffices and no shim is needed.
 >
-> **Mutation-bar note.** The example's `break: 100` matches the **`nest-auth-example` app** (whose shipped Stryker config is 100/100/100). The **`@bymax-one/nest-logger` library itself** targets ≥99 with `break: 95` — so "100% mutation" is the *example-app* bar, not the library's. For the **web/UI** workspace, 100% mutation can be over-engineered; a pragmatic `break` (e.g. 90) on `components/**` while keeping `lib/**` at 100 is a defensible alternative — keep the export/log-key audits regardless.
+> **Mutation-bar note.** The example's `break: 100` matches the **`nest-auth-example` app** (whose shipped Stryker config is 100/100/100). The **`@bymax-one/nest-logger` library itself** targets ≥99 with `break: 95` — so "100% mutation" is the _example-app_ bar, not the library's. For the **web/UI** workspace, 100% mutation can be over-engineered; a pragmatic `break` (e.g. 90) on `components/**` while keeping `lib/**` at 100 is a defensible alternative — keep the export/log-key audits regardless.
 >
 > **Toolchain caveats (audit).**
+>
 > - **CI action order:** run `pnpm/action-setup@v4` **before** `actions/setup-node@v5` when using `cache: pnpm` (setup-node v5 errors if pnpm isn't on PATH yet — `actions/setup-node#1357`). The `install` job order already reflects this.
-> - **Jest native ESM** (`NODE_OPTIONS=--experimental-vm-modules`) is still flagged *experimental* as of Jest 30.4 — keep a documented CJS-transform fallback in case an upstream change breaks it.
+> - **Jest native ESM** (`NODE_OPTIONS=--experimental-vm-modules`) is still flagged _experimental_ as of Jest 30.4 — keep a documented CJS-transform fallback in case an upstream change breaks it.
 > - **Pin a Vitest major** (e.g. `vitest@^3`) rather than `latest` — Stryker 9's `@stryker-mutator/vitest-runner` requires Vitest ≥ 2.
 > - **Stryker pure-ESM config** needs Node ≥ 20; a JSON `stryker.config.json` avoids ESM-loader friction.
