@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID    | Task                                                                       | Status | Priority | Size | Depends on             |
-| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P18-1 | Export-usage audit (`scripts/audit-library-exports.mjs` + `.audit-ignore.json`) | 🔴     | High     | M    | Phase 17               |
-| P18-2 | Regenerate OVERVIEW §6 Feature Coverage Matrix from the audit               | 🔴     | High     | S    | P18-1                  |
-| P18-3 | Log-key audit (`scripts/audit-log-keys.mjs`)                               | 🔴     | High     | M    | P18-1                  |
-| P18-4 | Security pass — `helmet` + dependency/security review                      | 🔴     | High     | M    | P18-1, P18-3           |
-| P18-5 | `CHANGELOG.md` `1.0.0` entry + local annotated `v1.0.0` tag                | 🔴     | Medium   | S    | P18-1..P18-4           |
-| P18-6 | Verification gate — `audit:exports` green, all CI gates, §6 100%           | 🔴     | High     | S    | P18-1..P18-5           |
+| ID    | Task                                                                            | Status | Priority | Size | Depends on   |
+| ----- | ------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P18-1 | Export-usage audit (`scripts/audit-library-exports.mjs` + `.audit-ignore.json`) | 🔴     | High     | M    | Phase 17     |
+| P18-2 | Regenerate OVERVIEW §6 Feature Coverage Matrix from the audit                   | 🔴     | High     | S    | P18-1        |
+| P18-3 | Log-key audit (`scripts/audit-log-keys.mjs`)                                    | 🔴     | High     | M    | P18-1        |
+| P18-4 | Security pass — `helmet` + dependency/security review                           | 🔴     | High     | M    | P18-1, P18-3 |
+| P18-5 | `CHANGELOG.md` `1.0.0` entry + local annotated `v1.0.0` tag                     | 🔴     | Medium   | S    | P18-1..P18-4 |
+| P18-6 | Verification gate — `audit:exports` green, all CI gates, §6 100%                | 🔴     | High     | S    | P18-1..P18-5 |
 
 ---
 
@@ -55,6 +55,7 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 > Steps:
 >
 > 1. Create `/scripts/audit-library-exports.mjs`. Resolve the two declaration files and read them as text:
+>
 >    ```js
 >    #!/usr/bin/env node
 >    import { readFileSync, existsSync } from 'node:fs'
@@ -70,6 +71,7 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 >    const SKIP_DIRS = new Set(['node_modules', 'dist', '.next', 'coverage'])
 >    const SRC_EXT = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs'])
 >    ```
+>
 > 2. Extract exported symbols from a `.d.ts` string. Handle `export declare …`, `export { A, B as C }`, `export type { … }`, and `export type X =`. Strip `import(...)` paths first so they don't pollute the name set:
 >    ```js
 >    function extractExports(dts) {
@@ -86,7 +88,10 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 >      for (const block of dts.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)) {
 >        for (const part of block[1].split(',')) {
 >          const seg = part.trim().replace(/^type\s+/, '')
->          const exported = seg.split(/\s+as\s+/).pop().trim() // the OUTWARD name
+>          const exported = seg
+>            .split(/\s+as\s+/)
+>            .pop()
+>            .trim() // the OUTWARD name
 >          add(exported)
 >        }
 >      }
@@ -109,7 +114,10 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 >      if (existsSync(root)) walk(root)
 >      return files
 >    }
->    const corpus = APP_ROOTS.flatMap(collectSources).map((f) => ({ f, text: readFileSync(f, 'utf8') }))
+>    const corpus = APP_ROOTS.flatMap(collectSources).map((f) => ({
+>      f,
+>      text: readFileSync(f, 'utf8'),
+>    }))
 >    const isUsed = (name) => {
 >      const re = new RegExp(`\\b${name}\\b`)
 >      return corpus.some(({ text }) => re.test(text))
@@ -137,7 +145,9 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 >        }
 >      }
 >    }
->    console.log(`\n${unused === 0 ? '✓ all exports referenced in apps/' : `✗ ${unused} unused export(s)`}`)
+>    console.log(
+>      `\n${unused === 0 ? '✓ all exports referenced in apps/' : `✗ ${unused} unused export(s)`}`,
+>    )
 >    process.exit(unused === 0 ? 0 : 1)
 >    ```
 > 5. Create `/.audit-ignore.json`:
@@ -157,7 +167,6 @@ Build the **export-usage audit** — the CI-enforced proof that every public exp
 > - Do NOT relax the gate by ignoring a real export — `.audit-ignore.json` is for genuinely-internal leaked symbols only, never to make CI green.
 > - Do NOT parse `apps/web` JSX as anything special; plain text search over `.tsx` is correct (it finds the `/shared` type/const imports).
 >   Verification:
->
 > - `node scripts/audit-library-exports.mjs` — expected: prints both subpath reports; exits 0 once every listed export is referenced.
 > - `pnpm audit:exports` — expected: exit 0.
 > - `node -e "JSON.parse(require('fs').readFileSync('.audit-ignore.json','utf8'))"` — expected: parses without error.
@@ -188,7 +197,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ### Description
 
-Reconcile the §6 **Feature Coverage Matrix** in `docs/OVERVIEW.md` with the live output of `pnpm audit:exports` (P18-1). The coverage rule (`OVERVIEW.md` §6, final blockquote) states the matrix is *regenerated from that script* and that every public export — server `.` + `./shared` — is referenced from at least one file. This task makes the doc match reality: every export the auditor reports as `✓ used` has a matrix row pointing at the real `apps/**` file that references it, and the "Demonstrated in" column uses accurate, current paths. No export may be `✗ UNUSED`, and no matrix row may point at a file/symbol that no longer exists.
+Reconcile the §6 **Feature Coverage Matrix** in `docs/OVERVIEW.md` with the live output of `pnpm audit:exports` (P18-1). The coverage rule (`OVERVIEW.md` §6, final blockquote) states the matrix is _regenerated from that script_ and that every public export — server `.` + `./shared` — is referenced from at least one file. This task makes the doc match reality: every export the auditor reports as `✓ used` has a matrix row pointing at the real `apps/**` file that references it, and the "Demonstrated in" column uses accurate, current paths. No export may be `✗ UNUSED`, and no matrix row may point at a file/symbol that no longer exists.
 
 ### Acceptance Criteria
 
@@ -222,7 +231,6 @@ Reconcile the §6 **Feature Coverage Matrix** in `docs/OVERVIEW.md` with the liv
 > - Do NOT invent coverage — every row must correspond to a real reference the auditor found. If the auditor says an export is unused, the fix is a real demonstration in `apps/` (loop back to the owning feature phase), NOT a fabricated matrix row.
 > - English only; preserve the existing table structure and surrounding prose.
 >   Verification:
->
 > - `pnpm audit:exports` — expected: exit 0, zero `✗ UNUSED`.
 > - For each §6 "Demonstrated in" path: `test -f <path>` — expected: exit 0.
 > - `markdown-link-check docs/OVERVIEW.md` — expected: no dead links.
@@ -260,7 +268,7 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 - [ ] It imports the **live** `LOG_KEYS_CONVENTION_REGEX` and `RESERVED_LOG_KEYS` from `@bymax-one/nest-logger/shared` (single source of truth — never re-declares them).
 - [ ] It extracts each app-defined `logKey` literal — the first string arg of `.info(` / `.warnStructured(` / `.errorStructured(` / `.fatal(` calls and any `const … = 'MODULE_ACTION_RESULT'` log-key constants — across `apps/api` + `apps/worker`.
 - [ ] Every discovered app key matches `LOG_KEYS_CONVENTION_REGEX.test(key)`.
-- [ ] No discovered app key is a member of `RESERVED_LOG_KEYS` (the 16 reserved values, e.g. the `HTTP_REQUEST_*` / `LOGGER_*` framework keys) — reserved keys may be *referenced* (the framework emits them) but never *re-defined* by app code as a new business key.
+- [ ] No discovered app key is a member of `RESERVED_LOG_KEYS` (the 16 reserved values, e.g. the `HTTP_REQUEST_*` / `LOGGER_*` framework keys) — reserved keys may be _referenced_ (the framework emits them) but never _re-defined_ by app code as a new business key.
 - [ ] It prints a report (`✓ <key>` / `✗ <key> — fails regex` / `✗ <key> — reserved`) and a summary, exiting `0` only when all app keys are valid and non-reserved.
 - [ ] Root `package.json` gains `"audit:log-keys": "node scripts/audit-log-keys.mjs"`; `pnpm audit:log-keys` exits 0.
 - [ ] `.github/workflows/ci.yml` runs `pnpm audit:log-keys` (the Appendix C "Log-key convention" gate).
@@ -279,6 +287,7 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 > Steps:
 >
 > 1. Create `/scripts/audit-log-keys.mjs`. Import the live convention surface from the `/shared` subpath and set up the corpus walk (reuse the same dir/ext filters as P18-1):
+>
 >    ```js
 >    #!/usr/bin/env node
 >    import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
@@ -290,10 +299,13 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 >    const SRC_EXT = new Set(['.ts', '.mts', '.cts'])
 >    const reserved = new Set(RESERVED_LOG_KEYS)
 >    ```
+>
 > 2. Collect candidate log keys. Match the first string literal passed to the structured methods, plus `MODULE_ACTION_RESULT`-shaped constant declarations:
+>
 >    ```js
 >    const CALL_KEY = /\.(?:info|warnStructured|errorStructured|fatal)\(\s*['"]([A-Z0-9_]+)['"]/g
->    const CONST_KEY = /\b(?:const|readonly)\s+[A-Za-z_$][\w$]*\s*[:=]\s*['"]([A-Z][A-Z0-9_]*_[A-Z0-9_]+)['"]/g
+>    const CONST_KEY =
+>      /\b(?:const|readonly)\s+[A-Za-z_$][\w$]*\s*[:=]\s*['"]([A-Z][A-Z0-9_]*_[A-Z0-9_]+)['"]/g
 >
 >    function collect(root, keys) {
 >      const walk = (dir) => {
@@ -313,6 +325,7 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 >    const keys = new Map()
 >    for (const r of APP_ROOTS) collect(r, keys)
 >    ```
+>
 > 3. Validate every discovered key against the imported regex + reserved set, report, and exit:
 >    ```js
 >    let bad = 0
@@ -327,7 +340,9 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 >        console.log(`  ✓ ${key}`)
 >      }
 >    }
->    console.log(`\n${keys.size} app log key(s); ${bad === 0 ? 'all valid + non-reserved' : `${bad} violation(s)`}`)
+>    console.log(
+>      `\n${keys.size} app log key(s); ${bad === 0 ? 'all valid + non-reserved' : `${bad} violation(s)`}`,
+>    )
 >    process.exit(bad === 0 ? 0 : 1)
 >    ```
 > 4. Add to root `package.json` scripts: `"audit:log-keys": "node scripts/audit-log-keys.mjs"`.
@@ -336,11 +351,10 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 >
 > - Follow `docs/DEVELOPMENT_PLAN.md` §2 + Appendix C.
 > - Import the regex + reserved list from `/shared` — **never** hard-code the 16 reserved keys or the regex source (they must track the library).
-> - Distinguish *reference* from *redefinition*: an app may pass a framework `HTTP_REQUEST_*` constant through (the interceptor emits it) — the script targets **app-authored** keys, so a bare reserved-string literal used as the *defined* key of an `.info(...)` call is the violation to catch.
+> - Distinguish _reference_ from _redefinition_: an app may pass a framework `HTTP_REQUEST_*` constant through (the interceptor emits it) — the script targets **app-authored** keys, so a bare reserved-string literal used as the _defined_ key of an `.info(...)` call is the violation to catch.
 > - This script imports an ESM-only package subpath — it must run under Node ≥24 with `"type": "module"` resolution (the repo is ESM-only per §2).
 > - Do NOT lower or special-case the gate to pass; fix the offending log key in its feature module instead.
 >   Verification:
->
 > - `pnpm audit:log-keys` — expected: exit 0; every app key printed `✓`.
 > - Temporarily add `this.logger.info('badkey', 'x')` in a service → expected: `✗ badkey — fails LOG_KEYS_CONVENTION_REGEX` and exit 1 (remove afterwards).
 > - Temporarily define a key equal to a reserved value → expected: `✗ … — RESERVED` and exit 1 (remove afterwards).
@@ -414,14 +428,13 @@ Harden the API and run a dependency/security review before tagging. Add `helmet`
 >    - `pnpm --filter api test:cov` → must report 100% on all four metrics. If helmet wiring added an uncovered branch, add the test.
 >    - `pnpm --filter api mutation` → must stay `break: 100`. Kill any survivor.
 >    - `pnpm --filter api test:e2e` → redaction (`[REDACTED]`) + double-log-avoidance assertions still green.
->    Constraints:
+>      Constraints:
 >
 > - Follow `docs/DEVELOPMENT_PLAN.md` §2 + §0 Guiding Principle #6 (no `@ts-ignore`, no `eslint-disable`, no `--no-verify`, no lowering a threshold).
 > - Do NOT weaken helmet beyond the documented minimum; every relaxation is commented with a concrete reason.
 > - Do NOT mask an audit advisory with an ignore flag to make the command exit 0 — remediate or record with justification.
 > - Keep the change small and within `apps/api` (and `apps/worker` only if it serves HTTP).
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: security-header assertion + redaction/double-log assertions all pass.
 > - `pnpm --filter api test:cov` — expected: 100% statements/branches/functions/lines.
 > - `pnpm --filter api mutation` — expected: passes at `break: 100` (zero survivors).
@@ -476,6 +489,7 @@ Cut the first release of the example. Convert the `CHANGELOG.md` `## [Unreleased
 > Steps:
 >
 > 1. Edit `/CHANGELOG.md`: rename the existing `## [Unreleased]` to `## [1.0.0] - <today>` and flesh out `### Added` with the shipped surface, e.g.:
+>
 >    ```markdown
 >    ## [Unreleased]
 >
@@ -493,6 +507,7 @@ Cut the first release of the example. Convert the `CHANGELOG.md` `## [Unreleased
 >
 >    > **Library status:** consumes `@bymax-one/nest-logger@^0.1.0` via local `link:` (pre-GA, not yet on npm). The `v1.0.0` tag is created locally and **not pushed** until the library publishes.
 >    ```
+>
 > 2. Verify the working tree is committed (this task assumes the prior P18 tasks are merged). Create the annotated tag:
 >    ```bash
 >    git tag -a v1.0.0 -m "nest-logger-example v1.0.0 — reference app for @bymax-one/nest-logger (pre-GA, local link)"
@@ -509,7 +524,6 @@ Cut the first release of the example. Convert the `CHANGELOG.md` `## [Unreleased
 > - Do NOT change the dependency range to a published npm version — the repo still consumes the local `link:` / `^0.1.0`.
 > - Annotated tag only (`-a`); a lightweight tag is not acceptable.
 >   Verification:
->
 > - `git cat-file -t v1.0.0` — expected: `tag` (annotated).
 > - `git tag --list v1.0.0` — expected: `v1.0.0`.
 > - `git ls-remote --tags origin` — expected: does **not** contain `v1.0.0`.
@@ -585,7 +599,6 @@ Phase 18 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove `pnpm audit:
 > - Do NOT push the `v1.0.0` tag (it stays local until the library GAs — P18-5).
 > - Do NOT mark done with any failing check.
 >   Verification:
->
 > - `pnpm audit:exports` — expected: exit 0.
 > - `pnpm audit:log-keys` — expected: exit 0.
 > - `pnpm test:cov` — expected: 100% coverage, exit 0.

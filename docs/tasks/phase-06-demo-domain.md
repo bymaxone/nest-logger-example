@@ -8,16 +8,16 @@
 
 ## Task index
 
-| ID    | Task                                                                  | Status | Priority | Size | Depends on             |
-| ----- | --------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P6-1  | `orders/` module (hot-path `info`, `:id` norm, slow path)            | 🔴     | High     | M    | Phase 4, Phase 5       |
-| P6-2  | `payments/` module (`@LogPerformance`, `errorStructured`, throw)     | 🔴     | High     | M    | P6-1                   |
-| P6-3  | `pii-demo/` module (signup/nested/echo-headers/huge surfaces)       | 🔴     | High     | M    | P6-1                   |
-| P6-4  | `downstream/` module (`@LogContext` + ctor `setContext`, worker stub) | 🔴     | High     | M    | P6-1                   |
-| P6-5  | `trigger/` module (level/status/fault/burst Playground hooks)       | 🔴     | High     | M    | P6-1                   |
-| P6-6  | `admin/` module (`PATCH /admin/log-level` → `getRawLogger().level`)  | 🔴     | Medium   | S    | P6-1                   |
-| P6-7  | Shared demo wiring (DTOs, error helpers, AppModule registration)    | 🔴     | High     | S    | P6-1..P6-6             |
-| P6-8  | Verification gate (each endpoint emits expected `logKey`s + context) | 🔴     | High     | M    | P6-1..P6-7             |
+| ID   | Task                                                                  | Status | Priority | Size | Depends on       |
+| ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ---------------- |
+| P6-1 | `orders/` module (hot-path `info`, `:id` norm, slow path)             | 🔴     | High     | M    | Phase 4, Phase 5 |
+| P6-2 | `payments/` module (`@LogPerformance`, `errorStructured`, throw)      | 🔴     | High     | M    | P6-1             |
+| P6-3 | `pii-demo/` module (signup/nested/echo-headers/huge surfaces)         | 🔴     | High     | M    | P6-1             |
+| P6-4 | `downstream/` module (`@LogContext` + ctor `setContext`, worker stub) | 🔴     | High     | M    | P6-1             |
+| P6-5 | `trigger/` module (level/status/fault/burst Playground hooks)         | 🔴     | High     | M    | P6-1             |
+| P6-6 | `admin/` module (`PATCH /admin/log-level` → `getRawLogger().level`)   | 🔴     | Medium   | S    | P6-1             |
+| P6-7 | Shared demo wiring (DTOs, error helpers, AppModule registration)      | 🔴     | High     | S    | P6-1..P6-6       |
+| P6-8 | Verification gate (each endpoint emits expected `logKey`s + context)  | 🔴     | High     | M    | P6-1..P6-7       |
 
 ---
 
@@ -58,6 +58,7 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 > Steps:
 >
 > 1. Create `apps/api/src/orders/dto/create-order.dto.ts` — a Zod schema (matching the Phase 3 `config` Zod convention) for the request body:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -69,7 +70,9 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >
 >    export type CreateOrderDto = z.infer<typeof createOrderSchema>
 >    ```
+>
 > 2. Create `apps/api/src/orders/orders.service.ts`. Inject the child logger into a field **named `logger`** (required: `@LogPerformance` reads `this.logger`) and the `PrismaService`:
+>
 >    ```typescript
 >    import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 >    import { InjectLogger, LogPerformance, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -99,7 +102,9 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >      async findOne(id: string): Promise<{ id: string; amount: number; status: string }> {
 >        const order = await this.prisma.order.findUnique({ where: { id } })
 >        if (!order) {
->          this.logger.warnStructured('ORDER_LOOKUP_MISS', 'Order not found', undefined, { orderId: id })
+>          this.logger.warnStructured('ORDER_LOOKUP_MISS', 'Order not found', undefined, {
+>            orderId: id,
+>          })
 >          throw new HttpException('Order not found', HttpStatus.NOT_FOUND)
 >        }
 >        this.logger.info('ORDER_LOOKUP_SUCCESS', 'Order fetched', undefined, { orderId: order.id })
@@ -115,7 +120,9 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/orders/orders.controller.ts`. Place the static `slow` route **before** the `:id` route so it is not captured as an id:
+>
 >    ```typescript
 >    import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 >    import { OrdersService } from './orders.service'
@@ -141,7 +148,9 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >      }
 >    }
 >    ```
+>
 > 4. Create `apps/api/src/orders/orders.module.ts` (import the `PrismaModule`/`PrismaService` per the Phase 5 wiring):
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { OrdersController } from './orders.controller'
@@ -155,6 +164,7 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >    })
 >    export class OrdersModule {}
 >    ```
+>
 > 5. Register `OrdersModule` in `apps/api/src/app.module.ts` `imports` (P6-7 consolidates the final module list).
 >    Constraints:
 >
@@ -164,7 +174,6 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 > - Do NOT reuse any `RESERVED_LOG_KEYS` value (`HTTP_REQUEST_*`, `LOGGER_*`, `METHOD_EXECUTION`, `METHOD_SLOW_EXECUTION`, etc.) as an app log key.
 > - Do NOT use `fatalStructured` (it does not exist) or any `http.slowThresholdMs` option (use `@LogPerformance(ms)`).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - With the stack up (`pnpm infra:up`) and the API running, `curl -s -XPOST localhost:3000/orders -H 'content-type: application/json' -d '{"amount":1299,"tenantId":"t_acme","userId":"u_1"}'` — expected: the stdout JSON contains `"logKey":"ORDER_CREATE_SUCCESS"` plus a propagated `requestId`.
@@ -224,6 +233,7 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 > Steps:
 >
 > 1. Create `apps/api/src/payments/dto/create-payment.dto.ts`:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -235,7 +245,9 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 >
 >    export type CreatePaymentDto = z.infer<typeof createPaymentSchema>
 >    ```
+>
 > 2. Create `apps/api/src/payments/payments.service.ts`. Decorate the handler with `@LogPerformance()` (no threshold = always emits `METHOD_EXECUTION`), and in the catch block call `errorStructured` with the caught `Error`:
+>
 >    ```typescript
 >    import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 >    import { InjectLogger, LogPerformance, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -268,7 +280,9 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/payments/payments.controller.ts`:
+>
 >    ```typescript
 >    import { Body, Controller, Post } from '@nestjs/common'
 >    import { PaymentsService } from './payments.service'
@@ -284,7 +298,9 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 >      }
 >    }
 >    ```
+>
 > 4. Create `apps/api/src/payments/payments.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { PaymentsController } from './payments.controller'
@@ -293,6 +309,7 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 >    @Module({ controllers: [PaymentsController], providers: [PaymentsService] })
 >    export class PaymentsModule {}
 >    ```
+>
 > 5. Register `PaymentsModule` in `app.module.ts` (final list in P6-7).
 >    Constraints:
 >
@@ -302,7 +319,6 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 > - Do NOT use `fatalStructured` (absent) — for a truly fatal path use variadic `fatal()` or `errorStructured`.
 > - The child-logger host property MUST be named `logger`.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `curl -s -XPOST localhost:3000/payments -H 'content-type: application/json' -d '{"orderId":"o_1","amount":500,"userId":"u_1"}'` returns 502; stdout contains `"logKey":"PAYMENT_CHARGE_FAILED"`, `"logKey":"METHOD_EXECUTION"`, and exactly **one** `"logKey":"HTTP_EXCEPTION_HANDLED"`.
@@ -360,6 +376,7 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 > Steps:
 >
 > 1. Create `apps/api/src/pii-demo/dto/signup.dto.ts`:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -373,7 +390,9 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >
 >    export type SignupDto = z.infer<typeof signupSchema>
 >    ```
+>
 > 2. Create `apps/api/src/pii-demo/pii-demo.service.ts`. Each method logs a payload designed to exercise a redaction surface:
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -381,9 +400,7 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >
 >    @Injectable()
 >    export class PiiDemoService {
->      constructor(
->        @InjectLogger(PiiDemoService.name) private readonly logger: PinoLoggerService,
->      ) {}
+>      constructor(@InjectLogger(PiiDemoService.name) private readonly logger: PinoLoggerService) {}
 >
 >      signup(dto: SignupDto): { ok: true } {
 >        // All of password/email/cpf/cardNumber/cardCvv are default redact paths (Phase 8 asserts).
@@ -424,7 +441,9 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/pii-demo/pii-demo.controller.ts`:
+>
 >    ```typescript
 >    import { Body, Controller, Get, Headers, Post } from '@nestjs/common'
 >    import { PiiDemoService } from './pii-demo.service'
@@ -455,7 +474,9 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >      }
 >    }
 >    ```
+>
 > 4. Create `apps/api/src/pii-demo/pii-demo.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { PiiDemoController } from './pii-demo.controller'
@@ -464,6 +485,7 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >    @Module({ controllers: [PiiDemoController], providers: [PiiDemoService] })
 >    export class PiiDemoModule {}
 >    ```
+>
 > 5. Register `PiiDemoModule` in `app.module.ts` (final list in P6-7).
 >    Constraints:
 >
@@ -473,7 +495,6 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 > - Field NAMES matter: use the exact default-path field names (`password`, `email`, `cpf`, `cardNumber`, `cardCvv`) so Phase 8's assertions line up.
 > - `LOGGER_ENTRY_TRUNCATED` is emitted by the library — do not author a log key with that name.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `curl -s -XPOST localhost:3000/pii-demo/signup -H 'content-type: application/json' -d '{"email":"a@b.com","password":"p@ss","cpf":"000","cardNumber":"4111","cardCvv":"123"}'` — expected: a `"logKey":"USER_SIGNUP_ATTEMPT"` line on stdout (Phase 8 asserts the values are `[REDACTED]`).
@@ -531,6 +552,7 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 > Steps:
 >
 > 1. Create `apps/api/src/downstream/downstream.service.ts`. Apply the class label AND set the real context in the constructor:
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, LogContext, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -558,20 +580,32 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 >            headers: { 'content-type': 'application/json' },
 >            body: JSON.stringify({ kind: 'demo' }),
 >          })
->          this.logger.info('DOWNSTREAM_DISPATCH_SUCCESS', 'Worker accepted dispatch', undefined, {})
+>          this.logger.info(
+>            'DOWNSTREAM_DISPATCH_SUCCESS',
+>            'Worker accepted dispatch',
+>            undefined,
+>            {},
+>          )
 >          return { ok: true }
 >        } catch (error) {
 >          // Worker not up yet (Phase 9) → degrade gracefully, never crash the request.
->          this.logger.warnStructured('DOWNSTREAM_DISPATCH_DEGRADED', 'Worker unreachable (stub)', undefined, {
->            workerUrl,
->            reason: (error as Error).message,
->          })
+>          this.logger.warnStructured(
+>            'DOWNSTREAM_DISPATCH_DEGRADED',
+>            'Worker unreachable (stub)',
+>            undefined,
+>            {
+>              workerUrl,
+>              reason: (error as Error).message,
+>            },
+>          )
 >          return { ok: false }
 >        }
 >      }
 >    }
 >    ```
+>
 > 2. Create `apps/api/src/downstream/downstream.controller.ts`:
+>
 >    ```typescript
 >    import { Controller, Post } from '@nestjs/common'
 >    import { DownstreamService } from './downstream.service'
@@ -586,7 +620,9 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/downstream/downstream.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { DownstreamController } from './downstream.controller'
@@ -595,6 +631,7 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 >    @Module({ controllers: [DownstreamController], providers: [DownstreamService] })
 >    export class DownstreamModule {}
 >    ```
+>
 > 4. Register `DownstreamModule` in `app.module.ts` (final list in P6-7). Add `WORKER_URL` to the env registry / `.env.example` as an **optional** variable (the worker is Phase 9).
 >    Constraints:
 >
@@ -604,7 +641,6 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 > - Do NOT manually inject `traceparent` here — auto-instrumentation + the manual `propagation.inject` example are Phase 9 deliverables.
 > - The child-logger host property MUST be named `logger`.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - With the worker NOT running, `curl -s -XPOST localhost:3000/downstream/dispatch` — expected: HTTP 2xx; stdout shows `"logKey":"DOWNSTREAM_DISPATCH_ATTEMPT"` and `"logKey":"DOWNSTREAM_DISPATCH_DEGRADED"` (proving fail-soft) without crashing the API.
@@ -662,6 +698,7 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 > Steps:
 >
 > 1. Create `apps/api/src/trigger/dto/trigger.dto.ts`:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -676,7 +713,9 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >    })
 >    export type TriggerBurstDto = z.infer<typeof triggerBurstSchema>
 >    ```
+>
 > 2. Create `apps/api/src/trigger/trigger.service.ts`:
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -684,18 +723,23 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >
 >    @Injectable()
 >    export class TriggerService {
->      constructor(
->        @InjectLogger(TriggerService.name) private readonly logger: PinoLoggerService,
->      ) {}
+>      constructor(@InjectLogger(TriggerService.name) private readonly logger: PinoLoggerService) {}
 >
 >      fireLevel(dto: TriggerLevelDto): { fired: number } {
 >        for (let i = 0; i < dto.count; i += 1) {
 >          if (dto.level === 'info') {
 >            this.logger.info('TRIGGER_LEVEL_FIRED', 'Triggered info log', undefined, { i })
 >          } else if (dto.level === 'warn') {
->            this.logger.warnStructured('TRIGGER_LEVEL_FIRED', 'Triggered warn log', undefined, { i })
+>            this.logger.warnStructured('TRIGGER_LEVEL_FIRED', 'Triggered warn log', undefined, {
+>              i,
+>            })
 >          } else {
->            this.logger.errorStructured('TRIGGER_LEVEL_FIRED', new Error('Triggered error log'), undefined, { i })
+>            this.logger.errorStructured(
+>              'TRIGGER_LEVEL_FIRED',
+>              new Error('Triggered error log'),
+>              undefined,
+>              { i },
+>            )
 >          }
 >        }
 >        return { fired: dto.count }
@@ -703,9 +747,14 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >
 >      requestFault(): { requested: true } {
 >        // Hook only — the real LOGGER_DESTINATION_WRITE_FAILED proof is Phase 7 (Loki destination).
->        this.logger.warnStructured('TRIGGER_FAULT_REQUESTED', 'Destination fault requested', undefined, {
->          destination: 'loki',
->        })
+>        this.logger.warnStructured(
+>          'TRIGGER_FAULT_REQUESTED',
+>          'Destination fault requested',
+>          undefined,
+>          {
+>            destination: 'loki',
+>          },
+>        )
 >        return { requested: true }
 >      }
 >
@@ -717,7 +766,9 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/trigger/trigger.controller.ts`. For `/status/:code`, set the response status explicitly so the library access log records the right `HTTP_REQUEST_*` key:
+>
 >    ```typescript
 >    import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common'
 >    import type { Response } from 'express'
@@ -751,7 +802,9 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >      }
 >    }
 >    ```
+>
 > 4. Create `apps/api/src/trigger/trigger.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { TriggerController } from './trigger.controller'
@@ -760,6 +813,7 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >    @Module({ controllers: [TriggerController], providers: [TriggerService] })
 >    export class TriggerModule {}
 >    ```
+>
 > 5. Register `TriggerModule` in `app.module.ts` (final list in P6-7).
 >    Constraints:
 >
@@ -769,7 +823,6 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 > - Reuse the same `TRIGGER_LEVEL_FIRED` key across levels (the level field disambiguates) — but do NOT reuse any `RESERVED_LOG_KEYS` value.
 > - The child-logger host property MUST be named `logger`.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `curl -s -XPOST localhost:3000/trigger/level -H 'content-type: application/json' -d '{"level":"warn","count":3}'` — expected: three `"logKey":"TRIGGER_LEVEL_FIRED"` warn lines on stdout.
@@ -827,6 +880,7 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 > Steps:
 >
 > 1. Create `apps/api/src/admin/dto/log-level.dto.ts`:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -835,7 +889,9 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >    })
 >    export type LogLevelDto = z.infer<typeof logLevelSchema>
 >    ```
+>
 > 2. Create `apps/api/src/admin/admin.service.ts`. Read the current level, assign the new one on the raw Pino instance, and log the transition:
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -843,9 +899,7 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >
 >    @Injectable()
 >    export class AdminService {
->      constructor(
->        @InjectLogger(AdminService.name) private readonly logger: PinoLoggerService,
->      ) {}
+>      constructor(@InjectLogger(AdminService.name) private readonly logger: PinoLoggerService) {}
 >
 >      setLogLevel(dto: LogLevelDto): { previous: string; current: string } {
 >        const raw = this.logger.getRawLogger()
@@ -859,7 +913,9 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >      }
 >    }
 >    ```
+>
 > 3. Create `apps/api/src/admin/admin.controller.ts`:
+>
 >    ```typescript
 >    import { Body, Controller, Patch } from '@nestjs/common'
 >    import { AdminService } from './admin.service'
@@ -875,7 +931,9 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >      }
 >    }
 >    ```
+>
 > 4. Create `apps/api/src/admin/admin.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { AdminController } from './admin.controller'
@@ -884,6 +942,7 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >    @Module({ controllers: [AdminController], providers: [AdminService] })
 >    export class AdminModule {}
 >    ```
+>
 > 5. Register `AdminModule` in `app.module.ts` (final list in P6-7).
 >    Constraints:
 >
@@ -892,7 +951,6 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 > - Use `getRawLogger().level = …` for the change — do NOT invent a `setLevel()` method (it does not exist; the escape hatch is the sanctioned path).
 > - The child-logger host property MUST be named `logger`.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `curl -s -XPATCH localhost:3000/admin/log-level -H 'content-type: application/json' -d '{"level":"debug"}'` — expected: `{"previous":"info","current":"debug"}` and an `ADMIN_LOG_LEVEL_CHANGED` line; subsequent `debug` logs now appear.
@@ -950,6 +1008,7 @@ Tie the six demo modules into `AppModule` and factor out the small amount of sha
 > Steps:
 >
 > 1. Create `apps/api/src/common/app-log-keys.ts` — the single source of truth for app log keys (the audit script + redaction tests import it):
+>
 >    ```typescript
 >    /** Every application log key emitted by the Phase 6 demo domain. MODULE_ACTION_RESULT format. */
 >    export const APP_LOG_KEYS = [
@@ -975,7 +1034,9 @@ Tie the six demo modules into `AppModule` and factor out the small amount of sha
 >
 >    export type AppLogKey = (typeof APP_LOG_KEYS)[number]
 >    ```
+>
 > 2. Create `apps/api/src/common/app-log-keys.spec.ts` asserting convention + no reserved reuse (this is the local mirror of the Phase 18 CI gate):
+>
 >    ```typescript
 >    import { LOG_KEYS_CONVENTION_REGEX, RESERVED_LOG_KEYS } from '@bymax-one/nest-logger/shared'
 >    import { APP_LOG_KEYS } from './app-log-keys'
@@ -993,6 +1054,7 @@ Tie the six demo modules into `AppModule` and factor out the small amount of sha
 >      })
 >    })
 >    ```
+>
 > 3. Create `apps/api/src/common/zod-validation.pipe.ts` — a shared pipe (or a `parseOrThrow(schema, body, logger)` helper) that catches `ZodError`, logs `DOMAIN_VALIDATION_FAILED` via the injected logger, and throws `new BadRequestException(...)`. Wire it into the six demo controllers in place of the inline `schema.parse(body)` calls (keep the schemas where they are).
 > 4. Edit `apps/api/src/app.module.ts` to register every demo module in `imports`, preserving the Phase 3/4 wiring (`ConfigModule.forRoot`, `BymaxLoggerModule.forRootAsync`, `PrismaModule`, and `configure(consumer)` applying `RequestIdMiddleware`):
 >    ```typescript
@@ -1015,7 +1077,6 @@ Tie the six demo modules into `AppModule` and factor out the small amount of sha
 > - `app-log-keys.ts` MUST list exactly the keys the six modules emit — keep it in sync (the Phase 18 audit reads it). Do NOT add reserved keys to it.
 > - Import `LOG_KEYS_CONVENTION_REGEX` / `RESERVED_LOG_KEYS` from the `@bymax-one/nest-logger/shared` subpath (not the server subpath).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `pnpm --filter api test -- app-log-keys` — expected: the convention + reserved-reuse specs pass.
@@ -1099,7 +1160,6 @@ Phase 6 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove that hitting 
 > - Do NOT assert `[REDACTED]` values (Phase 8) or a cross-service shared `traceId` (Phase 9) — only the keys + same-service requestId/tenantId/traceId presence.
 > - Do NOT add `@ts-ignore` / `eslint-disable` or lower any threshold to make a test pass.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
 > - `pnpm --filter api test:e2e -- demo-domain` — expected: all Phase 6 endpoint assertions pass.

@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID   | Task                                                                        | Status | Priority | Size | Depends on             |
-| ---- | --------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P3-1 | `apps/api` NestJS 11 app (Express adapter) + `nest-cli.json` + tsconfig(s)  | 🔴     | High     | M    | —                      |
-| P3-2 | `src/instrumentation.ts` — OTel `NodeSDK` bootstrap (`export const otelSdk`)| 🔴     | High     | M    | P3-1                   |
-| P3-3 | `src/main.ts` — instrumentation-first, `bufferLogs`, bridge, ordered SIGTERM| 🔴     | High     | M    | P3-1, P3-2             |
-| P3-4 | `src/app.module.ts` — minimal (`ConfigModule.forRoot` global)               | 🔴     | High     | S    | P3-1                   |
-| P3-5 | `src/config/env.schema.ts` — Zod-validated env + ConfigModule integration   | 🔴     | High     | S    | P3-4                   |
-| P3-6 | `src/health/` (`/health`, `/metrics`) + boot/health/trace verification gate | 🔴     | High     | M    | P3-1, P3-2, P3-3, P3-4, P3-5 |
+| ID   | Task                                                                         | Status | Priority | Size | Depends on                   |
+| ---- | ---------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------------- |
+| P3-1 | `apps/api` NestJS 11 app (Express adapter) + `nest-cli.json` + tsconfig(s)   | 🔴     | High     | M    | —                            |
+| P3-2 | `src/instrumentation.ts` — OTel `NodeSDK` bootstrap (`export const otelSdk`) | 🔴     | High     | M    | P3-1                         |
+| P3-3 | `src/main.ts` — instrumentation-first, `bufferLogs`, bridge, ordered SIGTERM | 🔴     | High     | M    | P3-1, P3-2                   |
+| P3-4 | `src/app.module.ts` — minimal (`ConfigModule.forRoot` global)                | 🔴     | High     | S    | P3-1                         |
+| P3-5 | `src/config/env.schema.ts` — Zod-validated env + ConfigModule integration    | 🔴     | High     | S    | P3-4                         |
+| P3-6 | `src/health/` (`/health`, `/metrics`) + boot/health/trace verification gate  | 🔴     | High     | M    | P3-1, P3-2, P3-3, P3-4, P3-5 |
 
 ---
 
@@ -64,7 +64,7 @@ Scaffold the `apps/api` package as a NestJS 11 service on the **Express** HTTP a
 >        "dev": "nest start --watch",
 >        "build": "nest build",
 >        "start": "node dist/main.js",
->        "typecheck": "tsc --noEmit"
+>        "typecheck": "tsc --noEmit",
 >      },
 >      "dependencies": {
 >        "@nestjs/common": "^11.0.0",
@@ -73,13 +73,13 @@ Scaffold the `apps/api` package as a NestJS 11 service on the **Express** HTTP a
 >        "@nestjs/platform-express": "^11.0.0",
 >        "express": "^5.0.0",
 >        "reflect-metadata": "^0.2.0",
->        "rxjs": "^7.8.0"
+>        "rxjs": "^7.8.0",
 >      },
 >      "devDependencies": {
 >        "@nestjs/cli": "^11.0.0",
 >        "@types/express": "^5.0.0",
->        "@types/node": "^24.0.0"
->      }
+>        "@types/node": "^24.0.0",
+>      },
 >    }
 >    ```
 >    Keep the `@bymax-one/nest-logger` + OTel/`pino` entries that Phase 2 added — do NOT remove them; merge the blocks above into the existing `dependencies`/`optionalDependencies`.
@@ -124,7 +124,6 @@ Scaffold the `apps/api` package as a NestJS 11 service on the **Express** HTTP a
 > - Do NOT add `emitDecoratorMetadata`/`experimentalDecorators` to `/tsconfig.base.json` — they belong to this app's tsconfig only.
 > - Do NOT create `src/main.ts`, `src/instrumentation.ts`, `src/app.module.ts`, or any feature module here; those are P3-2..P3-6.
 >   Verification:
->
 > - `pnpm install` — expected: exits 0, links `@nest-logger-example/api` into the workspace.
 > - `node -p "require('./apps/api/package.json').name"` — expected: `@nest-logger-example/api`.
 > - `pnpm --filter api typecheck` — expected: exits 0 (no source files yet → clean).
@@ -181,6 +180,7 @@ Create `apps/api/src/instrumentation.ts`, the side-effecting OTel bootstrap that
 > Steps:
 >
 > 1. Create `apps/api/src/instrumentation.ts`:
+>
 >    ```typescript
 >    // instrumentation.ts — the FIRST import in main.ts (side-effecting)
 >    import { NodeSDK } from '@opentelemetry/sdk-node'
@@ -209,6 +209,7 @@ Create `apps/api/src/instrumentation.ts`, the side-effecting OTel bootstrap that
 >    // A standalone process.exit(0) here would race app shutdown and cut off the final
 >    // LokiDestination flush.
 >    ```
+>
 > 2. Run `pnpm --filter api typecheck`.
 >    Constraints:
 >
@@ -218,7 +219,6 @@ Create `apps/api/src/instrumentation.ts`, the side-effecting OTel bootstrap that
 > - Do NOT enable `@opentelemetry/instrumentation-fs` (keep it `{ enabled: false }`).
 > - Do NOT invent OTel options beyond those shown.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exits 0.
 > - `grep -c "process.exit" apps/api/src/instrumentation.ts` — expected: `0`.
 > - `grep -c "SIGTERM\|sdk.shutdown\|otelSdk.shutdown" apps/api/src/instrumentation.ts` — expected: `0`.
@@ -276,6 +276,7 @@ Create `apps/api/src/main.ts`, the application entrypoint. `import './instrument
 > Steps:
 >
 > 1. Create `apps/api/src/main.ts`:
+>
 >    ```typescript
 >    import './instrumentation' // MUST be first — starts the OTel SDK before NestJS loads
 >    import { otelSdk } from './instrumentation'
@@ -308,6 +309,7 @@ Create `apps/api/src/main.ts`, the application entrypoint. `import './instrument
 >
 >    void bootstrap()
 >    ```
+>
 > 2. Run `pnpm --filter api typecheck`.
 >    Constraints:
 >
@@ -316,7 +318,6 @@ Create `apps/api/src/main.ts`, the application entrypoint. `import './instrument
 > - Keep exactly ONE `SIGTERM` handler and ONE `process.exit(0)`, in the order `app.close()` → `otelSdk.shutdown()` → exit. Do NOT add a second handler in `instrumentation.ts`.
 > - Do NOT call `app.useGlobalPipes`/interceptors/filters here — logger interceptor + exception filter wiring lands in Phase 4.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exits 0.
 > - `head -1 apps/api/src/main.ts` — expected: `import './instrumentation' // MUST be first — starts the OTel SDK before NestJS loads`.
 > - `grep -c "process.once('SIGTERM'" apps/api/src/main.ts` — expected: `1`.
@@ -370,6 +371,7 @@ Create a **minimal** `apps/api/src/app.module.ts` that imports `ConfigModule.for
 > Steps:
 >
 > 1. Create `apps/api/src/app.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { ConfigModule } from '@nestjs/config'
@@ -379,13 +381,11 @@ Create a **minimal** `apps/api/src/app.module.ts` that imports `ConfigModule.for
 >    // NOTE: minimal Phase-3 skeleton. The full BymaxLoggerModule.forRootAsync({ ... })
 >    // wiring + RequestIdMiddleware `configure()` hook land in Phase 4 (see OVERVIEW.md §9).
 >    @Module({
->      imports: [
->        ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
->        HealthModule,
->      ],
+>      imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }), HealthModule],
 >    })
 >    export class AppModule {}
 >    ```
+>
 > 2. Run `pnpm --filter api typecheck` (it will fail until P3-5 + P3-6 exist; that's expected — finish those, then re-run as part of P3-6's gate).
 >    Constraints:
 >
@@ -393,7 +393,6 @@ Create a **minimal** `apps/api/src/app.module.ts` that imports `ConfigModule.for
 > - `ConfigModule.forRoot` MUST be `isGlobal: true` and use the `validate` hook from `./config/env.schema` (P3-5).
 > - Do NOT implement `NestModule`/`configure()` in this task (that is the Phase-4 request-id middleware step).
 >   Verification:
->
 > - `grep -c "BymaxLoggerModule\|RequestIdMiddleware" apps/api/src/app.module.ts` — expected: `0`.
 > - `grep -c "isGlobal: true" apps/api/src/app.module.ts` — expected: `1`.
 > - `pnpm --filter api typecheck` — expected: exits 0 once P3-5 + P3-6 are present.
@@ -448,6 +447,7 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 >
 > 1. Add `zod` to `apps/api/package.json` dependencies: `pnpm --filter api add zod`.
 > 2. Create `apps/api/src/config/env.schema.ts`:
+>
 >    ```typescript
 >    import { z } from 'zod'
 >
@@ -477,6 +477,7 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 >      return parsed.data
 >    }
 >    ```
+>
 > 3. Run `pnpm --filter api typecheck`.
 >    Constraints:
 >
@@ -485,7 +486,6 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 > - `validateEnv` MUST throw on invalid input (do NOT swallow + return defaults) so startup fails loudly.
 > - Use the `zod` API as written; do NOT pull in `@nestjs/config`'s `Joi` path.
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exits 0.
 > - `node --input-type=module -e "const {validateEnv}=await import('./apps/api/dist/config/env.schema.js'); console.log(validateEnv({}).PORT)"` (after `pnpm --filter api build`) — expected: prints `3000` (defaults applied).
 > - `node --input-type=module -e "const {validateEnv}=await import('./apps/api/dist/config/env.schema.js'); try{validateEnv({PORT:'-1'})}catch(e){console.log('threw')}"` — expected: prints `threw`.
@@ -540,6 +540,7 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 > Steps:
 >
 > 1. Create `apps/api/src/health/health.controller.ts`:
+>
 >    ```typescript
 >    import { Controller, Get } from '@nestjs/common'
 >
@@ -558,7 +559,9 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 >      }
 >    }
 >    ```
+>
 > 2. Create `apps/api/src/health/health.module.ts`:
+>
 >    ```typescript
 >    import { Module } from '@nestjs/common'
 >    import { HealthController } from './health.controller'
@@ -566,6 +569,7 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 >    @Module({ controllers: [HealthController] })
 >    export class HealthModule {}
 >    ```
+>
 > 3. Confirm `AppModule` (P3-4) imports `HealthModule`. Then `pnpm --filter api build` and `pnpm --filter api typecheck`.
 > 4. Bring up the stack and boot the app:
 >    - `pnpm infra:up` (Phase 1 — Postgres/Loki/Tempo/OTel-Collector/Grafana).
@@ -573,14 +577,13 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 > 5. Verify the route + the trace:
 >    - `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health` → expect `200`.
 >    - Hit `/health` a few times, then open Grafana (`http://localhost:3000` Grafana, NOT the API) → Explore → **Tempo** → search by `service.name = nest-logger-example-api` and confirm a span for `GET /health` exists. (Equivalently query the Tempo API: `curl -s "http://localhost:3200/api/search?tags=service.name%3Dnest-logger-example-api" | head`.)
->    Constraints:
+>      Constraints:
 >
 > - Follow `docs/OVERVIEW.md` §9/§10. Keep the controller minimal — no logger injection (Phase 4 wires the logger; these routes must respond without it).
 > - Do NOT register these routes under a global prefix that would break the `http.excludePaths` regexes (`/^\/health$/`, `/^\/metrics$/`) Phase 4 relies on — keep them at `/health` and `/metrics`.
 > - Do NOT add `@nestjs/terminus` or any health-check library; a plain controller is sufficient for this skeleton.
 > - If the span does NOT appear, the most likely cause is import order — confirm `import './instrumentation'` is the literal first line of `main.ts` (P3-3) before debugging the Collector.
 >   Verification:
->
 > - `pnpm --filter api build` — expected: exits 0.
 > - `pnpm --filter api typecheck` — expected: exits 0.
 > - `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/health` — expected: `200`.

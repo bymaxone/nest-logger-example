@@ -8,15 +8,15 @@
 
 ## Task index
 
-| ID    | Task                                                                          | Status | Priority | Size | Depends on             |
-| ----- | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P11-1 | Scaffold `apps/web` (Next.js ^16.2 + React ^19.2 + Tailwind v4 + shadcn)       | 🔴     | High     | M    | Phase 0                |
-| P11-2 | `app/globals.css` — verbatim v4 token block (DASHBOARD §15)                    | 🔴     | High     | S    | P11-1                  |
-| P11-3 | `app/layout.tsx` + `app/providers.tsx` — Geist, forced dark, NuqsAdapter       | 🔴     | High     | S    | P11-1, P11-2           |
-| P11-4 | `lib/utils.ts` (`cn`) + scaffold the shadcn `new-york` component set           | 🔴     | High     | M    | P11-1, P11-2           |
-| P11-5 | `components/layout/` — Topbar (64px) + Sidebar (250px) app shell + logger nav  | 🔴     | High     | M    | P11-3, P11-4           |
-| P11-6 | `lib/log-keys.ts` (`LOG_KEYS_CONVENTION_REGEX`) + `lib/severity.ts`            | 🔴     | High     | S    | P11-1, P11-4           |
-| P11-7 | Verification gate — shell renders the orange/glass dark theme; `web build` ok  | 🔴     | High     | S    | P11-1..P11-6           |
+| ID    | Task                                                                          | Status | Priority | Size | Depends on   |
+| ----- | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P11-1 | Scaffold `apps/web` (Next.js ^16.2 + React ^19.2 + Tailwind v4 + shadcn)      | 🔴     | High     | M    | Phase 0      |
+| P11-2 | `app/globals.css` — verbatim v4 token block (DASHBOARD §15)                   | 🔴     | High     | S    | P11-1        |
+| P11-3 | `app/layout.tsx` + `app/providers.tsx` — Geist, forced dark, NuqsAdapter      | 🔴     | High     | S    | P11-1, P11-2 |
+| P11-4 | `lib/utils.ts` (`cn`) + scaffold the shadcn `new-york` component set          | 🔴     | High     | M    | P11-1, P11-2 |
+| P11-5 | `components/layout/` — Topbar (64px) + Sidebar (250px) app shell + logger nav | 🔴     | High     | M    | P11-3, P11-4 |
+| P11-6 | `lib/log-keys.ts` (`LOG_KEYS_CONVENTION_REGEX`) + `lib/severity.ts`           | 🔴     | High     | S    | P11-1, P11-4 |
+| P11-7 | Verification gate — shell renders the orange/glass dark theme; `web build` ok | 🔴     | High     | S    | P11-1..P11-6 |
 
 ---
 
@@ -73,7 +73,7 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >        "build": "next build",
 >        "start": "next start",
 >        "typecheck": "tsc --noEmit",
->        "lint": "eslint app components lib"
+>        "lint": "eslint app components lib",
 >      },
 >      "dependencies": {
 >        // pnpm symlink to the sibling checkout (≈ `npm link`); switch to "^0.1.0" after publish.
@@ -93,7 +93,7 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >        "react-dom": "^19.2.5",
 >        "recharts": "^3",
 >        "sonner": "^2.0.7",
->        "tailwind-merge": "^3.5.0"
+>        "tailwind-merge": "^3.5.0",
 >      },
 >      "devDependencies": {
 >        "@tailwindcss/postcss": "^4.2.2",
@@ -101,8 +101,8 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >        "@types/react": "^19.2.14",
 >        "@types/react-dom": "^19.2.3",
 >        "eslint-config-next": "^16.2.4",
->        "tailwindcss": "^4.2.2"
->      }
+>        "tailwindcss": "^4.2.2",
+>      },
 >    }
 >    ```
 > 2. Create `apps/web/components.json` (shadcn `new-york`, copied 1:1 from `nest-auth-example`):
@@ -130,6 +130,7 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >    }
 >    ```
 > 3. Create `apps/web/postcss.config.mjs` — **only** the v4 plugin (NO `autoprefixer`; v4 auto-prefixes):
+>
 >    ```js
 >    /** @type {import('postcss').Config} */
 >    const config = {
@@ -140,7 +141,9 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >
 >    export default config
 >    ```
+>
 > 4. Create `apps/web/tailwind.config.ts` — optional in v4; keep it ONLY for `keyframes`/`animation` (bridged into `globals.css` via `@config` in P11-2). Brand/radius/font tokens are NOT put here (v4 does not auto-load this file — they live in the `@theme inline` block in P11-2):
+>
 >    ```ts
 >    import type { Config } from 'tailwindcss'
 >
@@ -174,6 +177,7 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >
 >    export default config
 >    ```
+>
 > 5. Create `apps/web/tsconfig.json` (extends the base; adds Next/JSX/DOM — never the Nest decorator pair):
 >    ```json
 >    {
@@ -193,12 +197,14 @@ Create the third workspace package — `apps/web` — the first-class observabil
 >    }
 >    ```
 > 6. Create `apps/web/next.config.mjs` (minimal ESM default export):
+>
 >    ```js
 >    /** @type {import('next').NextConfig} */
 >    const nextConfig = {}
 >
 >    export default nextConfig
 >    ```
+>
 > 7. Run `pnpm install` from the repo root to link the workspace + materialise the lockfile. Do NOT create `app/globals.css`, `app/layout.tsx`, `lib/`, or `components/` yet — those are P11-2..P11-6.
 >    Constraints:
 >
@@ -207,7 +213,6 @@ Create the third workspace package — `apps/web` — the first-class observabil
 > - Consume `@bymax-one/nest-logger` via `link:../../../nest-logger` (NOT a `workspace:` protocol — the library is a separate sibling repo). In the browser import ONLY from the `/shared` subpath.
 > - Do NOT add `paths` aliases beyond `@/*`; do NOT add the Nest decorator options to this tsconfig (P0-3 keeps them out of the base for exactly this reason).
 >   Verification:
->
 > - `node -p "require('./apps/web/package.json').name"` — expected: `web`.
 > - `node -p "require('./apps/web/package.json').dependencies['@bymax-one/nest-logger']"` — expected: `link:../../../nest-logger`.
 > - `node -e "const p=require('./apps/web/package.json'); if (p.dependencies.autoprefixer||p.devDependencies.autoprefixer||p.dependencies['next-themes']) throw new Error('banned dep present')"` — expected: exits 0 (no banned deps).
@@ -266,6 +271,7 @@ Author `apps/web/app/globals.css` — the **single source of design truth**. It 
 > Steps:
 >
 > 1. Create `apps/web/app/globals.css`:
+>
 >    ```css
 >    @import 'tailwindcss';
 >
@@ -419,13 +425,13 @@ Author `apps/web/app/globals.css` — the **single source of design truth**. It 
 >      }
 >    }
 >    ```
+>
 >    Constraints:
 >
 > - Reproduce the [`../DASHBOARD.md`](../DASHBOARD.md#15-frontend-tech-stack--design-system) §15 token values **exactly** (`#ff6224` → `--primary`/`--ring` = `20.5 90.2% 57.8%`; `--shadow-primary: 0 0 24px rgba(255,98,36,0.4)`). If a value ever diverges, the `nest-auth-example` token VALUES win — but the v4 STRUCTURE (`@theme inline`, `@custom-variant`, top-level `:root`/`.dark`) is mandatory here.
 > - Keep `:root`/`.dark` at top level (NOT in `@layer base`); declare the dark variant with `@custom-variant`; bridge keyframes with `@config`.
 > - Do NOT hand-write vendor prefixes and do NOT add `autoprefixer` — Tailwind v4 prefixes automatically.
 >   Verification:
->
 > - `grep -c "@custom-variant dark" apps/web/app/globals.css` — expected: `1`.
 > - `grep -c "@theme inline" apps/web/app/globals.css` — expected: `1`.
 > - `grep "20.5 90.2% 57.8%" apps/web/app/globals.css` — expected: matches (brand orange on `--primary`/`--ring`).
@@ -463,7 +469,7 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 
 - [ ] `apps/web/app/layout.tsx` is a Server Component (no `'use client'`).
 - [ ] Imports `GeistSans` from `geist/font/sans` and `GeistMono` from `geist/font/mono`.
-- [ ] `<html lang="en" className={\`${GeistSans.variable} ${GeistMono.variable} dark\`} suppressHydrationWarning>` — the `dark` class is hard-coded (forced dark).
+- [ ] `<html lang="en" className={\`${GeistSans.variable} ${GeistMono.variable} dark\`} suppressHydrationWarning>`— the`dark` class is hard-coded (forced dark).
 - [ ] Imports `./globals.css`.
 - [ ] Wraps children in `<NuqsAdapter>` (from `nuqs/adapters/next/app`) → `<Providers>`.
 - [ ] Exports `metadata` (title/description for the logger dashboard).
@@ -484,6 +490,7 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 > Steps:
 >
 > 1. Create `apps/web/app/layout.tsx`:
+>
 >    ```tsx
 >    import type { Metadata } from 'next'
 >    import { GeistSans } from 'geist/font/sans'
@@ -516,7 +523,9 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 >      )
 >    }
 >    ```
+>
 > 2. Create `apps/web/app/providers.tsx` (the only `'use client'` boundary in the layout tree):
+>
 >    ```tsx
 >    'use client'
 >
@@ -551,6 +560,7 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 >      )
 >    }
 >    ```
+>
 >    Constraints:
 >
 > - Follow [`../DASHBOARD.md`](../DASHBOARD.md#15-frontend-tech-stack--design-system) §15 + [`../design_system.html`](../design_system.html) §10 step 3 exactly: Geist Sans/Mono, `dark` hard-coded on `<html>`, `<NuqsAdapter>` wrapping `<Providers>`.
@@ -558,9 +568,8 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 > - Do NOT add `next-themes` or any theme toggle — the system is dark-only.
 > - The `@/components/ui/sonner` import is a forward reference to the P11-4 primitive; it resolves once P11-4 runs.
 >   Verification:
->
 > - `grep -L "use client" apps/web/app/layout.tsx` — expected: prints the path (layout.tsx is NOT a client component).
-> - `grep -c "} dark\`" apps/web/app/layout.tsx` — expected: `1` (forced dark on `<html>`).
+> - `grep -c "} dark\`" apps/web/app/layout.tsx`— expected:`1`(forced dark on`<html>`).
 > - `grep -c "NuqsAdapter" apps/web/app/layout.tsx` — expected: `2` (import + usage).
 > - `grep -c "next-themes" apps/web/app/layout.tsx apps/web/app/providers.tsx` — expected: `0`.
 > - `pnpm --filter web exec tsc --noEmit` — expected: exits 0 once P11-4's `sonner.tsx` exists (run after P11-4 if needed).
@@ -618,6 +627,7 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 > Steps:
 >
 > 1. Create `apps/web/lib/utils.ts`:
+>
 >    ```ts
 >    import { type ClassValue, clsx } from 'clsx'
 >    import { twMerge } from 'tailwind-merge'
@@ -632,8 +642,10 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 >      return twMerge(clsx(inputs))
 >    }
 >    ```
+>
 > 2. Scaffold the shadcn `new-york` set. Either run the CLI (`pnpm dlx shadcn@latest add alert-dialog avatar badge button card dialog dropdown-menu form input label select sonner table tabs tooltip popover scroll-area skeleton command`) or copy the matching files from `nest-auth-example/apps/web/components/ui/` for the 14 it already ships and add the remaining four (`popover, scroll-area, skeleton, command`). Install the Radix/cmdk/form peers the CLI reports (or that the copied files import).
 > 3. Override `apps/web/components/ui/button.tsx` to the pill + brand-gradient CVA (base `rounded-full`, brand-gradient `default`, glow-on-hover):
+>
 >    ```tsx
 >    import * as React from 'react'
 >    import { Slot } from '@radix-ui/react-slot'
@@ -647,8 +659,7 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 >          variant: {
 >            default:
 >              'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm hover:shadow-(--shadow-primary) hover:scale-[1.02] active:scale-[0.98]',
->            outline:
->              'border border-(--glass-border) bg-(--glass-bg) hover:bg-(--glass-bg-hover)',
+>            outline: 'border border-(--glass-border) bg-(--glass-bg) hover:bg-(--glass-bg-hover)',
 >            ghost: 'hover:bg-(--glass-bg-hover)',
 >            destructive: 'bg-destructive text-destructive-foreground hover:opacity-90',
 >          },
@@ -677,9 +688,11 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 >
 >    export { Button, buttonVariants }
 >    ```
+>
 > 4. Override `apps/web/components/ui/card.tsx` to the glass variant — root `border-(--glass-border) bg-(--glass-card-bg) rounded-2xl border shadow-sm backdrop-blur-md`, and `CardTitle` → `font-mono text-xl font-bold`.
 > 5. Ensure `apps/web/components/ui/badge.tsx` exposes a brand pill variant (`bg-brand-500 text-white rounded-full`) for the `logKey` badge + level chips.
 > 6. Override `apps/web/components/ui/sonner.tsx` Toaster to the dark glass style:
+>
 >    ```tsx
 >    'use client'
 >
@@ -707,6 +720,7 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 >
 >    export { Toaster }
 >    ```
+>
 >    Constraints:
 >
 > - Match [`../DASHBOARD.md`](../DASHBOARD.md#15-frontend-tech-stack--design-system) §15 recipes verbatim (pill button, glass card, mono CardTitle, brand badge, glass dark Toaster). Use the v4 token utilities (`from-brand-500`, `bg-(--glass-card-bg)`, `shadow-(--shadow-primary)`) — these resolve because P11-2's `@theme inline` mapped them.
@@ -714,7 +728,6 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 > - Scaffold the FULL 19-component superset; do not skip `popover`/`scroll-area`/`skeleton`/`command` (Phases 12–13 need them for the query bar, facet popovers, skeleton loaders, and the command palette).
 > - This task does NOT build pages or the shell (that is P11-5) — primitives only.
 >   Verification:
->
 > - `cat apps/web/lib/utils.ts | grep -c "twMerge(clsx"` — expected: `1`.
 > - `ls apps/web/components/ui | wc -l` — expected: `>= 19` (the full set).
 > - `grep -c "rounded-full" apps/web/components/ui/button.tsx` — expected: `>= 1` (pill base).
@@ -774,6 +787,7 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 > Steps:
 >
 > 1. Create `apps/web/components/layout/topbar.tsx` (verbatim chrome, logger wordmark, no auth):
+>
 >    ```tsx
 >    'use client'
 >
@@ -826,7 +840,9 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 >      )
 >    }
 >    ```
+>
 > 2. Create `apps/web/components/layout/sidebar.tsx` (verbatim rail classes, logger nav, orange active state, no auth/role gating):
+>
 >    ```tsx
 >    'use client'
 >
@@ -884,7 +900,9 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 >          <div className="flex h-full flex-col gap-0 px-4 py-6">
 >            <div className="flex flex-1 flex-col gap-1">
 >              {NAV_ITEMS.map((item) => {
->                const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+>                const isActive = item.exact
+>                  ? pathname === item.href
+>                  : pathname.startsWith(item.href)
 >                const Icon = item.icon
 >                return (
 >                  <Link
@@ -898,7 +916,10 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 >                    aria-current={isActive ? 'page' : undefined}
 >                  >
 >                    <Icon
->                      className={cn(ICON_BASE_CLASS, isActive ? ICON_ACTIVE_CLASS : ICON_INACTIVE_CLASS)}
+>                      className={cn(
+>                        ICON_BASE_CLASS,
+>                        isActive ? ICON_ACTIVE_CLASS : ICON_INACTIVE_CLASS,
+>                      )}
 >                    />
 >                    {item.label}
 >                  </Link>
@@ -910,7 +931,9 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 >      )
 >    }
 >    ```
+>
 > 3. Create `apps/web/components/layout/app-shell.tsx` (composes the shell around page content; owns the mobile-open state):
+>
 >    ```tsx
 >    'use client'
 >
@@ -934,6 +957,7 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 >      )
 >    }
 >    ```
+>
 >    Constraints:
 >
 > - Reuse the `nest-auth-example` Topbar/Sidebar class strings VERBATIM (per [`../DASHBOARD.md`](../DASHBOARD.md#15-frontend-tech-stack--design-system) §15 + [`../design_system.html`](../design_system.html) §10 step 5); change ONLY the wordmark + nav items. The active arm MUST keep `text-[#ff6224]` (brand orange) — that fragment is the visual signature.
@@ -941,7 +965,6 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 > - Nav items + lucide icons MUST match the §15 logger nav table exactly (Overview/Explorer/Trigger Center/Alerts/Maintenance/Settings).
 > - Use `max-w-7xl` for the content well (chart-heavy Overview/Explorer), per §15.
 >   Verification:
->
 > - `grep -c "h-16" apps/web/components/layout/topbar.tsx` — expected: `>= 1` (64px topbar).
 > - `grep -c "nest-logger-example" apps/web/components/layout/topbar.tsx` — expected: `1` (wordmark swapped).
 > - `grep -c "w-\[250px\]" apps/web/components/layout/sidebar.tsx` — expected: `>= 1` (250px rail).
@@ -999,6 +1022,7 @@ Add the two browser-safe lib helpers that consume the library's **isomorphic `/s
 > Steps:
 >
 > 1. Create `apps/web/lib/log-keys.ts`:
+>
 >    ```ts
 >    // Isomorphic subpath ONLY — never import "@bymax-one/nest-logger" (the server `.` root) in the browser.
 >    import { LOG_KEYS_CONVENTION_REGEX, type LogEntry } from '@bymax-one/nest-logger/shared'
@@ -1020,7 +1044,9 @@ Add the two browser-safe lib helpers that consume the library's **isomorphic `/s
 >      return LOG_KEYS_CONVENTION_REGEX.test(key)
 >    }
 >    ```
+>
 > 2. Create `apps/web/lib/severity.ts` (accessible — colour + icon + text — for all six levels):
+>
 >    ```ts
 >    import {
 >      type LucideIcon,
@@ -1064,6 +1090,7 @@ Add the two browser-safe lib helpers that consume the library's **isomorphic `/s
 >      return SEVERITY[level]
 >    }
 >    ```
+>
 >    Constraints:
 >
 > - Import ONLY from `@bymax-one/nest-logger/shared` (the isomorphic subpath). NEVER import the bare `@bymax-one/nest-logger` root in the browser — it would pull server-only deps into the client bundle and break the build.
@@ -1071,7 +1098,6 @@ Add the two browser-safe lib helpers that consume the library's **isomorphic `/s
 > - If the exact `LogLevel` union differs from the six names above, align the map keys to the union the library exports (the union is the source of truth) — `tsc` will fail on a missing/extra key, which is the intended guardrail.
 > - Keep these as pure browser-safe modules (no `'use client'` needed — they export values/types, not components).
 >   Verification:
->
 > - `grep -c "@bymax-one/nest-logger/shared" apps/web/lib/log-keys.ts apps/web/lib/severity.ts` — expected: `2` (one import each, both from `/shared`).
 > - `grep -c "from '@bymax-one/nest-logger'" apps/web/lib/log-keys.ts apps/web/lib/severity.ts` — expected: `0` (the bare `.` root is never imported).
 > - `grep -c "LOG_KEYS_CONVENTION_REGEX" apps/web/lib/log-keys.ts` — expected: `>= 2` (import + use/export).
@@ -1127,6 +1153,7 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 > Steps:
 >
 > 1. Create `apps/web/app/page.tsx` (mount the shell + a glass placeholder with an action-oriented empty state, per [`../DASHBOARD.md`](../DASHBOARD.md#5-page--overview-health) §5/§9):
+>
 >    ```tsx
 >    import { AppShell } from '@/components/layout/app-shell'
 >    import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -1141,7 +1168,9 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 >            </CardHeader>
 >            <CardContent className="flex flex-col items-start gap-4 text-sm text-[rgba(255,255,255,0.6)]">
 >              <p>Health, RED metrics, and breakdowns arrive in Phase 12.</p>
->              <p>No logs yet — fire one from the Trigger Center to see the dashboard come alive.</p>
+>              <p>
+>                No logs yet — fire one from the Trigger Center to see the dashboard come alive.
+>              </p>
 >              <Button>Go to Trigger Center</Button>
 >            </CardContent>
 >          </Card>
@@ -1149,6 +1178,7 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 >      )
 >    }
 >    ```
+>
 > 2. Run the verification suite below. All must pass.
 > 3. Start `pnpm --filter web dev`, open `http://localhost:3000/`, and confirm visually: forced-dark background, 64px topbar + orange brand mark + `nest-logger-example` gradient wordmark, 250px sidebar with the six logger nav items, orange active state on Overview, glass cards/buttons. Compare side-by-side with a `nest-auth-example` screenshot — the chrome must be indistinguishable.
 > 4. If any check fails, fix it in the corresponding earlier task file (P11-1..P11-6), then return here. Do NOT silence a failure with `@ts-ignore`/`eslint-disable`/`--no-verify` or by lowering a threshold.
@@ -1158,7 +1188,6 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 > - Keep `app/page.tsx` a thin placeholder — real Overview panels (charts, RED, breakdowns) are Phase 12; do NOT build them here.
 > - The acceptance is BOTH `pnpm --filter web build` green AND the shell rendering the orange/glass dark theme + brand + nav.
 >   Verification:
->
 > - `pnpm --filter web exec tsc --noEmit` — expected: exit 0.
 > - `pnpm --filter web lint` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0 (Next 16 production build succeeds).

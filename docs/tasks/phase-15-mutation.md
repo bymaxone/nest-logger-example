@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID    | Task                                                                       | Status | Priority | Size | Depends on             |
-| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P15-1 | `apps/api/jest.stryker.config.ts` (coverage gate removed, Stryker env)     | 🔴     | High     | S    | Phase 14               |
-| P15-2 | `apps/api/stryker.config.json` (jest-runner + ts-checker, `break: 100`)    | 🔴     | High     | M    | P15-1                  |
-| P15-3 | `apps/web/stryker.config.json` (vitest-runner, lib 100 / components 90)    | 🔴     | High     | M    | Phase 14               |
-| P15-4 | Wire `mutation` / `mutation:incremental` / `mutation:dry-run` scripts      | 🔴     | High     | S    | P15-2, P15-3           |
-| P15-5 | `docs/stryker/{BASELINE,HISTORY,IMPLEMENTATION_PLAN}.md` (first baseline)   | 🔴     | High     | M    | P15-4                  |
-| P15-6 | Verification gate — `pnpm mutation` green both workspaces (zero survivors) | 🔴     | High     | L    | P15-1..P15-5           |
+| ID    | Task                                                                       | Status | Priority | Size | Depends on   |
+| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P15-1 | `apps/api/jest.stryker.config.ts` (coverage gate removed, Stryker env)     | 🔴     | High     | S    | Phase 14     |
+| P15-2 | `apps/api/stryker.config.json` (jest-runner + ts-checker, `break: 100`)    | 🔴     | High     | M    | P15-1        |
+| P15-3 | `apps/web/stryker.config.json` (vitest-runner, lib 100 / components 90)    | 🔴     | High     | M    | Phase 14     |
+| P15-4 | Wire `mutation` / `mutation:incremental` / `mutation:dry-run` scripts      | 🔴     | High     | S    | P15-2, P15-3 |
+| P15-5 | `docs/stryker/{BASELINE,HISTORY,IMPLEMENTATION_PLAN}.md` (first baseline)  | 🔴     | High     | M    | P15-4        |
+| P15-6 | Verification gate — `pnpm mutation` green both workspaces (zero survivors) | 🔴     | High     | L    | P15-1..P15-5 |
 
 ---
 
@@ -52,6 +52,7 @@ Stryker's `jest-runner` re-runs the `apps/api` unit suite once per mutant inside
 >
 > 1. Inspect the existing `apps/api/jest.config.ts` (Phase 14). Note its `preset` (e.g. `ts-jest/presets/default-esm` or the ts-jest ESM transform with `ignoreCoverageForAllDecorators: true` per Appendix C's coverage-shim note), `transform`, `moduleNameMapper` (the `@bymax-one/nest-logger` alias + `^(\.{1,2}/.*)\.js$` ESM mapper), `extensionsToTreatAsEsm`, and `testEnvironment: 'node'`.
 > 2. Create `apps/api/jest.stryker.config.ts`:
+>
 >    ```ts
 >    import type { Config } from 'jest'
 >    import baseConfig from './jest.config'
@@ -73,7 +74,9 @@ Stryker's `jest-runner` re-runs the `apps/api` unit suite once per mutant inside
 >
 >    export default config
 >    ```
+>
 >    If `jest.config.ts` does not cleanly spread (e.g. it is a function or uses `createDefaultEsmPreset()`), inline the resolved fields instead of spreading — the runner config MUST stand alone.
+>
 > 3. Sanity-run **outside** Stryker: `pnpm --filter api exec node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.stryker.config.ts` (or the project's documented native-ESM invocation). Expect green with no coverage-threshold error.
 >    Constraints:
 >
@@ -82,7 +85,6 @@ Stryker's `jest-runner` re-runs the `apps/api` unit suite once per mutant inside
 > - Do NOT lower or keep any `coverageThreshold` — remove it entirely (set to `undefined` or delete the key).
 > - Do NOT use `@ts-ignore` / `eslint-disable` to make the config typecheck; type it with `import type { Config } from 'jest'`.
 >   Verification:
->
 > - `pnpm --filter api exec tsc --noEmit -p tsconfig.json` — expected: the new config typechecks.
 > - Running the unit suite with this config — expected: exit 0, **no** coverage-threshold failure printed.
 
@@ -145,10 +147,7 @@ Add the Stryker configuration for `apps/api`. It uses the **jest-runner** (point
 >    {
 >      "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
 >      "packageManager": "pnpm",
->      "plugins": [
->        "@stryker-mutator/jest-runner",
->        "@stryker-mutator/typescript-checker"
->      ],
+>      "plugins": ["@stryker-mutator/jest-runner", "@stryker-mutator/typescript-checker"],
 >      "testRunner": "jest",
 >      "jest": {
 >        "projectType": "custom",
@@ -190,7 +189,6 @@ Add the Stryker configuration for `apps/api`. It uses the **jest-runner** (point
 > - Keep it JSON (no `.mjs`/`.ts` Stryker config) to avoid the pure-ESM loader requirement (Node ≥ 20) noted in Appendix C.
 > - Do NOT lower a threshold to make the gate pass.
 >   Verification:
->
 > - `node -e "JSON.parse(require('fs').readFileSync('apps/api/stryker.config.json','utf8'))"` — expected: parses without error.
 > - `pnpm --filter api exec stryker run --dryRunOnly` — expected: initial run + type-check complete without a configuration error.
 
@@ -286,7 +284,6 @@ Add Stryker for `apps/web` using the **vitest-runner** (the Phase 14 web suite i
 > - Do NOT add the typescript-checker here (vitest-runner path); the web build/typecheck already gates types in CI. Keeping the runner lean avoids ESM-loader friction.
 > - Keep the config JSON; do NOT pin Vitest to `latest`.
 >   Verification:
->
 > - `node -e "JSON.parse(require('fs').readFileSync('apps/web/stryker.config.json','utf8'))"` — expected: parses without error.
 > - `pnpm --filter web exec stryker run --dryRunOnly` — expected: completes without a configuration error.
 
@@ -343,8 +340,8 @@ Expose the three mutation scripts in each app's `package.json` so the root fan-o
 >      "scripts": {
 >        "mutation": "stryker run",
 >        "mutation:incremental": "stryker run --incremental",
->        "mutation:dry-run": "stryker run --dryRunOnly"
->      }
+>        "mutation:dry-run": "stryker run --dryRunOnly",
+>      },
 >    }
 >    ```
 >    (`stryker` resolves to the local `@stryker-mutator/core` bin; `stryker run` auto-loads `stryker.config.json`.)
@@ -355,8 +352,8 @@ Expose the three mutation scripts in each app's `package.json` so the root fan-o
 >      "scripts": {
 >        "mutation": "pnpm -r --if-present run mutation",
 >        "mutation:incremental": "pnpm -r --if-present run mutation:incremental",
->        "mutation:dry-run": "pnpm -r --if-present run mutation:dry-run"
->      }
+>        "mutation:dry-run": "pnpm -r --if-present run mutation:dry-run",
+>      },
 >    }
 >    ```
 >    If any is missing, add it (it was specified in P0-1) — but do NOT change its shape.
@@ -367,7 +364,6 @@ Expose the three mutation scripts in each app's `package.json` so the root fan-o
 > - Do NOT inline Stryker flags that belong in `stryker.config.json` (e.g. thresholds, mutate globs) — the only CLI flags are `--incremental` / `--dryRunOnly`.
 > - Do NOT add a `mutation` script that targets a single file — file-by-file hardening is done ad-hoc with `stryker run --mutate <glob>` during P15-6, not as a committed script.
 >   Verification:
->
 > - `pnpm --filter api run mutation:dry-run` — expected: completes without error.
 > - `pnpm --filter web run mutation:dry-run` — expected: completes without error.
 > - `node -p "require('./apps/api/package.json').scripts.mutation"` — expected: `stryker run`.
@@ -423,6 +419,7 @@ Record the **first** mutation measurement of both workspaces **before** any hard
 > 1. Run the baseline cold runs and keep the `reports/mutation/*.html` + `*.json` artifacts:
 >    `pnpm --filter api run mutation` then `pnpm --filter web run mutation`. (Expect < 100 / < 90 — this is the pre-hardening baseline; do NOT fix survivors in this task.)
 > 2. Create `docs/stryker/BASELINE.md`. Lead with a one-line summary per workspace, then a per-workspace section:
+>
 >    ```md
 >    # Stryker — Baseline (pre-hardening)
 >
@@ -431,36 +428,42 @@ Record the **first** mutation measurement of both workspaces **before** any hard
 >
 >    ## apps/api — YYYY-MM-DD
 >
->    | Metric | Value |
->    | ------ | ----- |
+>    | Metric         | Value  |
+>    | -------------- | ------ |
 >    | Mutation score | NN.NN% |
->    | Killed | … |
->    | Survived | … |
->    | Timeout | … |
->    | No coverage | … |
+>    | Killed         | …      |
+>    | Survived       | …      |
+>    | Timeout        | …      |
+>    | No coverage    | …      |
 >
 >    ### Survivors by file
 >
->    | File | Survived | Mutator(s) |
->    | ---- | -------- | ---------- |
->    | src/… | N | ConditionalExpression, … |
+>    | File  | Survived | Mutator(s)               |
+>    | ----- | -------- | ------------------------ |
+>    | src/… | N        | ConditionalExpression, … |
 >
 >    ## apps/web — YYYY-MM-DD
+>
 >    … (same shape; note lib/** vs components/** separately) …
 >    ```
+>
 >    Fill the numbers from the `reports/mutation/*.json` summary (or the clear-text reporter output).
+>
 > 3. Create `docs/stryker/HISTORY.md` — append-only, newest on top:
+>
 >    ```md
 >    # Stryker — Run History
 >
 >    Append-only. Newest run on top. One row per `pnpm mutation` (or incremental) run.
 >
->    | Date | Workspace | Score | Killed | Survived | Timeout | No-cov | Note |
->    | ---- | --------- | ----- | ------ | -------- | ------- | ------ | ---- |
->    | YYYY-MM-DD | apps/api | NN.NN% | … | … | … | … | baseline (pre-hardening) |
->    | YYYY-MM-DD | apps/web | NN.NN% | … | … | … | … | baseline (pre-hardening) |
+>    | Date       | Workspace | Score  | Killed | Survived | Timeout | No-cov | Note                     |
+>    | ---------- | --------- | ------ | ------ | -------- | ------- | ------ | ------------------------ |
+>    | YYYY-MM-DD | apps/api  | NN.NN% | …      | …        | …       | …      | baseline (pre-hardening) |
+>    | YYYY-MM-DD | apps/web  | NN.NN% | …      | …        | …       | …      | baseline (pre-hardening) |
 >    ```
+>
 > 4. Create `docs/stryker/IMPLEMENTATION_PLAN.md` covering the path to zero survivors, the gotchas, and the CI plan:
+>
 >    ```md
 >    # Stryker — Implementation Plan (path to the gate)
 >
@@ -469,23 +472,28 @@ Record the **first** mutation measurement of both workspaces **before** any hard
 >    [DEVELOPMENT_PLAN Appendix C](./../DEVELOPMENT_PLAN.md#appendix-c--quality-gates).
 >
 >    ## Hardening order (apps/api)
+>
 >    Pure utils → config/validation → services → interceptors/filters (via mocked `ExecutionContext`).
 >
 >    ## Stack gotchas
+>
 >    - Supertest is flaky under Stryker — unit-test interceptors/filters with a mocked `ExecutionContext`; keep supertest in the Phase 14 e2e suite (excluded from Stryker via `jest.stryker.config.ts`).
 >    - Test modules that call `Module.forRoot(...)` at file-load create attribution gaps — move the bootstrap into `beforeAll`.
 >    - Static-mutant survivors (exported `const` / `Symbol` / `as const`) are killed by asserting their values, NOT by `ignoreStatic: true` (the app bar is 100).
 >    - Genuine equivalent mutants are documented HERE (table below), not silenced inline.
 >
 >    ## Equivalent mutants (documented, accepted)
->    | Workspace | File:line | Mutator | Why equivalent |
->    | --------- | --------- | ------- | -------------- |
->    | _(none yet — fill during P15-6)_ | | | |
+>
+>    | Workspace                        | File:line | Mutator | Why equivalent |
+>    | -------------------------------- | --------- | ------- | -------------- |
+>    | _(none yet — fill during P15-6)_ |           |         |                |
 >
 >    ## CI plan (Phase 17)
+>
 >    - `mutation.yml`: per-PR `mutation:incremental`, `dorny/paths-filter` per workspace, `actions/cache` of `reports/stryker-incremental.json`.
 >    - `mutation-nightly.yml`: Monday 03:00 UTC full cold run; open an issue on regression.
 >    ```
+>
 > 5. Run `markdown-link-check docs/stryker/*.md` (or the repo's documented link checker) and fix any dead relative links.
 >    Constraints:
 >
@@ -493,7 +501,6 @@ Record the **first** mutation measurement of both workspaces **before** any hard
 > - Do NOT harden survivors in this task — only **record** the baseline (hardening is P15-6). The point is an honest pre-hardening snapshot.
 > - Do NOT invent numbers — copy them from the actual `reports/mutation/*.json` / clear-text output.
 >   Verification:
->
 > - `ls docs/stryker/BASELINE.md docs/stryker/HISTORY.md docs/stryker/IMPLEMENTATION_PLAN.md` — expected: all three exist.
 > - `markdown-link-check docs/stryker/*.md` — expected: no dead links.
 
@@ -549,7 +556,7 @@ Phase 15 "Definition of done" gate: drive both workspaces to their thresholds wi
 > Steps:
 >
 > 1. Cold-run a workspace and open its report: `pnpm --filter api run mutation` → open `apps/api/reports/mutation/api.html`. Sort by "Survived" descending.
-> 2. For each survivor: read the mutant diff, ask *"which existing test should have failed?"* — if none, write the unit test; if one exists but doesn't detect it, sharpen the assertion (usually a missing `.toBe(x)` / exact-object match). Re-run only that file fast: `pnpm --filter api exec stryker run --mutate "src/path/to/file.ts" --incremental`.
+> 2. For each survivor: read the mutant diff, ask _"which existing test should have failed?"_ — if none, write the unit test; if one exists but doesn't detect it, sharpen the assertion (usually a missing `.toBe(x)` / exact-object match). Re-run only that file fast: `pnpm --filter api exec stryker run --mutate "src/path/to/file.ts" --incremental`.
 >    - Interceptors / filters: test with a **mocked `ExecutionContext`**, not supertest (supertest is flaky under Stryker and excluded from the runner).
 >    - Test modules using `Module.forRoot(...)` at file scope: move the bootstrap into `beforeAll` so the mutant is attributed to a test.
 >    - Static survivors (exported `const` / `Symbol` / `as const`): assert their values directly — do NOT set `ignoreStatic: true` to make them disappear.
@@ -563,7 +570,6 @@ Phase 15 "Definition of done" gate: drive both workspaces to their thresholds wi
 > - Kill survivors by asserting **observable behavior**, not implementation. Reframing a test around output often kills several survivors at once.
 > - `apps/api` must reach exactly `break: 100`; `apps/web` `lib/**` must reach 100 even though the config floor is 90.
 >   Verification:
->
 > - `pnpm --filter api run mutation` — expected: exit 0, score 100%, zero survivors.
 > - `pnpm --filter web run mutation` — expected: exit 0, `lib/**` 100% / `components/**` ≥ 90%.
 > - `pnpm mutation` — expected: exit 0 across both workspaces.

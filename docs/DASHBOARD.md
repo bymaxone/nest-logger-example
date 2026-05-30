@@ -50,18 +50,18 @@ It deliberately mirrors the **common-denominator feature set** of Datadog Log Ma
 
 Every principle below is lifted from a real source and applied to this app.
 
-| # | Principle | What it means here | Source |
-| - | --------- | ------------------ | ------ |
-| 1 | **Overview → drill-down** | Pages flow general→specific: Health strip → RED row → breakdowns → Explorer. Every panel click narrows the Explorer's filters. | Grafana dashboard best-practices |
-| 2 | **RED method** | Derive **R**ate / **E**rrors / **D**uration from the library's `HTTP_REQUEST_*` keys + `durationMs`. RED is the request-oriented specialization of Google's four golden signals. | Tom Wilkie / Grafana "The RED Method" |
-| 3 | **Four golden signals** | The health strip = Latency, Traffic, Errors, Saturation. Separate **successful vs failed** latency ("a slow error is worse than a fast error"). | Google SRE Book |
-| 4 | **Percentiles, never averages** | Latency shown as p50/p95/p99 + a heatmap (reveals bimodal distributions percentiles hide). `[1,1,1,5000]ms` has a misleading 1251ms mean. | Google SRE Book / Grafana histograms |
-| 5 | **Avoid high cardinality** | Aggregate only on **bounded** dimensions: `level` (6), status-class (4), `logKey`, `service.name`, `tenantId` (top-N + "other"). **Never** group-by `requestId`/`traceId`/`userId` — those are for search/drill-down only. | Grafana / Loki query-optimization |
-| 6 | **Logs ↔ traces correlation is the payoff** | Every row's `traceId` is a click-through to the Tempo trace; every row offers "show all logs for this traceId" across `api` + `worker`. | OVERVIEW §14 + Grafana derived fields |
-| 7 | **Accessible severity** | Severity = color **+** icon **+** text (never color alone). Left-border accent + leading icon + level pill. | PatternFly / Astro UXDS |
-| 8 | **Skeletons, not spinners** | Dashboard/feed/table fetches show skeleton screens; spinners only for short blocking actions (submit/save). | NN/g + Onething |
-| 9 | **Action-oriented empty states** | "No logs yet — fire one from the Playground →" with a primary action, never a blank pane. | NN/g empty-state design |
-| 10 | **One global time range + one global source toggle** | Both controls drive every panel and the Explorer simultaneously; time buckets auto-scale to ~60–120 points. | Grafana / Datadog |
+| #   | Principle                                            | What it means here                                                                                                                                                                                                         | Source                                |
+| --- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1   | **Overview → drill-down**                            | Pages flow general→specific: Health strip → RED row → breakdowns → Explorer. Every panel click narrows the Explorer's filters.                                                                                             | Grafana dashboard best-practices      |
+| 2   | **RED method**                                       | Derive **R**ate / **E**rrors / **D**uration from the library's `HTTP_REQUEST_*` keys + `durationMs`. RED is the request-oriented specialization of Google's four golden signals.                                           | Tom Wilkie / Grafana "The RED Method" |
+| 3   | **Four golden signals**                              | The health strip = Latency, Traffic, Errors, Saturation. Separate **successful vs failed** latency ("a slow error is worse than a fast error").                                                                            | Google SRE Book                       |
+| 4   | **Percentiles, never averages**                      | Latency shown as p50/p95/p99 + a heatmap (reveals bimodal distributions percentiles hide). `[1,1,1,5000]ms` has a misleading 1251ms mean.                                                                                  | Google SRE Book / Grafana histograms  |
+| 5   | **Avoid high cardinality**                           | Aggregate only on **bounded** dimensions: `level` (6), status-class (4), `logKey`, `service.name`, `tenantId` (top-N + "other"). **Never** group-by `requestId`/`traceId`/`userId` — those are for search/drill-down only. | Grafana / Loki query-optimization     |
+| 6   | **Logs ↔ traces correlation is the payoff**          | Every row's `traceId` is a click-through to the Tempo trace; every row offers "show all logs for this traceId" across `api` + `worker`.                                                                                    | OVERVIEW §14 + Grafana derived fields |
+| 7   | **Accessible severity**                              | Severity = color **+** icon **+** text (never color alone). Left-border accent + leading icon + level pill.                                                                                                                | PatternFly / Astro UXDS               |
+| 8   | **Skeletons, not spinners**                          | Dashboard/feed/table fetches show skeleton screens; spinners only for short blocking actions (submit/save).                                                                                                                | NN/g + Onething                       |
+| 9   | **Action-oriented empty states**                     | "No logs yet — fire one from the Playground →" with a primary action, never a blank pane.                                                                                                                                  | NN/g empty-state design               |
+| 10  | **One global time range + one global source toggle** | Both controls drive every panel and the Explorer simultaneously; time buckets auto-scale to ~60–120 points.                                                                                                                | Grafana / Datadog                     |
 
 ---
 
@@ -88,14 +88,14 @@ A left nav with six destinations. The first three are the daily drivers; the las
 └────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-| Route | Page | Primary job |
-| ----- | ---- | ----------- |
-| `/` | **Overview** | Health at a glance — golden signals, RED, breakdowns, pipeline health |
-| `/explorer` | **Log Explorer** | Search, filter, live-tail, drill into individual logs and their traces |
-| `/trigger` | **Trigger Center** | Fire every kind of log / library feature on demand (the Playground) |
-| `/alerts` | **Alerts & Incidents** | Rules over log patterns, channels, incident lifecycle |
-| `/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail |
-| `/settings` | **Settings** | Source endpoints, display defaults, theme |
+| Route          | Page                         | Primary job                                                            |
+| -------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| `/`            | **Overview**                 | Health at a glance — golden signals, RED, breakdowns, pipeline health  |
+| `/explorer`    | **Log Explorer**             | Search, filter, live-tail, drill into individual logs and their traces |
+| `/trigger`     | **Trigger Center**           | Fire every kind of log / library feature on demand (the Playground)    |
+| `/alerts`      | **Alerts & Incidents**       | Rules over log patterns, channels, incident lifecycle                  |
+| `/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail                  |
+| `/settings`    | **Settings**                 | Source endpoints, display defaults, theme                              |
 
 ---
 
@@ -104,7 +104,7 @@ A left nav with six destinations. The first three are the daily drivers; the las
 Three controls live in the top bar and are persisted in the **URL** (via `nuqs` typed search params) so any view is a shareable deep-link.
 
 - **Time range** — relative presets (Last 5m/15m/1h/6h/24h/7d) + absolute picker (shadcn `Calendar`). Drives every panel and the Explorer. Buckets auto-scale: `1m` for ≤6h, `5m` for ≤24h, `1h` for ≤7d (~60–120 points).
-- **Source toggle `[ Loki | Postgres ]`** — switches which backend answers. **Loki = `info`+ (full)**, **Postgres = `warn`+ (durable/audit tier)**. A persistent callout explains the asymmetry so different volumes per source read as a *lesson*, not missing data:
+- **Source toggle `[ Loki | Postgres ]`** — switches which backend answers. **Loki = `info`+ (full)**, **Postgres = `warn`+ (durable/audit tier)**. A persistent callout explains the asymmetry so different volumes per source read as a _lesson_, not missing data:
 
   > 🎓 You're viewing **Postgres** (`warn`+, durable). `info`/`debug` lines live only in **Loki**. This two-tier split — cheap full-fidelity aggregation (Loki) + durable structured audit store (Postgres) — is how real platforms balance cost and compliance.
 
@@ -191,6 +191,7 @@ The daily driver. Modeled on Datadog Log Explorer + Grafana Explore: a faceted l
 **Faceted left rail** — `level`, `service.name`, `logKey`, `tenantId` as facets with **live value counts** (from `GET /logs/facets`); click to add a positive filter, ⌥-click for negative (`is-not`). Counts reflect the current query + time range.
 
 **Query bar** — structured field syntax compiled to **both** SQL (Postgres) and LogQL (Loki):
+
 - `level:error` · `level>=warn` · `logKey:PAYMENT_*` (wildcard prefix) · `service:api` · `tenantId:acme` · `traceId:4bf9…` · free-text `msg ~ "refund"` (ILIKE / `|=`).
 - `logKey` values autocomplete and are validated against **`LOG_KEYS_CONVENTION_REGEX`** imported from `@bymax-one/nest-logger/shared` — a typo'd key is flagged inline.
 - **Teaching toggles** reveal the generated `SQL` and `LogQL` beside the form (mirrors Grafana's "verify in Explore first" habit and makes the dual-backend tangible).
@@ -200,6 +201,7 @@ The daily driver. Modeled on Datadog Log Explorer + Grafana Explore: a faceted l
 **Table** — `TanStack Table v8` (headless) + `TanStack Virtual v3`: sticky header, column sort/resize/pin, selectable columns (`time`, `level` chip, `logKey` mono badge, `service`, `msg`, `requestId`, `traceId`), newest-first default, 50k+ rows at 60fps via `useVirtualizer({ overscan: 10, measureElement })`. Older logs load via **keyset/cursor infinite-scroll-up**; new logs arrive at the bottom via SSE (§7). Display toggles (real-tool polish): dedup (None/Exact/Numbers/Signature), wrap (off/on/on+pretty-JSON), timestamp precision (ms/ns), density.
 
 **Detail drawer** (row click) — four tabs:
+
 1. **Overview** — every field with per-field `filter for` / `filter out` / `add as column` / ad-hoc field-stats.
 2. **Raw JSON** — full entry in a collapsible tree (`@uiw/react-json-view`, built-in clipboard). PII fields show `[REDACTED]` — **proof the library redacted at source** (see §10 governance).
 3. **Context** — surrounding lines by `requestId` (or `traceId`), N-before / N-after (`GET /logs/context`).
@@ -226,20 +228,20 @@ The **Live** toggle turns any log list into a real-time stream. This is the head
 
 The "acionar todos os tipos de logs pelo dashboard" requirement — and the exact analog of how `nest-auth-example`'s UI exercises every auth feature. A grid of buttons/forms that hit the `apps/api` demo endpoints (OVERVIEW §10) to emit each kind of log, then **auto-pivots the Explorer** to the new `requestId`/`traceId` so you immediately see what you fired.
 
-| Trigger | Fires | Demonstrates | Endpoint |
-| ------- | ----- | ------------ | -------- |
-| **Emit each level** | `trace`/`debug`/`info`/`warn`/`error`/`fatal` | `PinoLoggerService.info/warn/error/fatal` + level mapping | `POST /trigger/level` |
-| **Structured success** | `ORDER_CREATE_SUCCESS` (+ metadata) | `info(logKey, msg, userId, meta)` + ALS `requestId`/`tenantId` | `POST /orders` |
-| **Error with stack** | `PAYMENT_REFUND_FAILED` | `errorStructured(logKey, Error, …)` + `HTTP_EXCEPTION_HANDLED` once | `POST /payments` |
-| **PII payload** | signup with `password`/`cpf`/`cardNumber` | 97-path redaction → `[REDACTED]` | `POST /pii-demo/signup` |
-| **Deep-nested PII** | depth 1→5 payload | wildcard depth boundary (4 redacted, 5 not) | `POST /pii-demo/nested` |
-| **Sensitive headers** | `authorization`, `x-api-key`, `set-cookie` | header bracket-syntax redaction | `GET /pii-demo/echo-headers` |
-| **Oversized entry** | >64 KB metadata | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED` | `POST /pii-demo/huge` |
-| **Slow method** | sleeps > 1s | `@LogPerformance` → `METHOD_SLOW_EXECUTION` | `GET /orders/slow` |
-| **HTTP 4xx / 5xx** | client/server error | `HTTP_REQUEST_CLIENT_ERROR` / `_SERVER_ERROR` | `GET /trigger/status/:code` |
-| **Cross-service** | calls `apps/worker` | one `traceId` across two services | `POST /downstream/dispatch` |
-| **Fault-inject a destination** | point Loki at a dead host | `LOGGER_DESTINATION_WRITE_FAILED`, fail-soft | `POST /trigger/fault/loki` |
-| **Load burst** | N requests over T seconds | populate charts / drive the RED panels / test live tail | `POST /trigger/burst` |
+| Trigger                        | Fires                                         | Demonstrates                                                        | Endpoint                     |
+| ------------------------------ | --------------------------------------------- | ------------------------------------------------------------------- | ---------------------------- |
+| **Emit each level**            | `trace`/`debug`/`info`/`warn`/`error`/`fatal` | `PinoLoggerService.info/warn/error/fatal` + level mapping           | `POST /trigger/level`        |
+| **Structured success**         | `ORDER_CREATE_SUCCESS` (+ metadata)           | `info(logKey, msg, userId, meta)` + ALS `requestId`/`tenantId`      | `POST /orders`               |
+| **Error with stack**           | `PAYMENT_REFUND_FAILED`                       | `errorStructured(logKey, Error, …)` + `HTTP_EXCEPTION_HANDLED` once | `POST /payments`             |
+| **PII payload**                | signup with `password`/`cpf`/`cardNumber`     | 97-path redaction → `[REDACTED]`                                    | `POST /pii-demo/signup`      |
+| **Deep-nested PII**            | depth 1→5 payload                             | wildcard depth boundary (4 redacted, 5 not)                         | `POST /pii-demo/nested`      |
+| **Sensitive headers**          | `authorization`, `x-api-key`, `set-cookie`    | header bracket-syntax redaction                                     | `GET /pii-demo/echo-headers` |
+| **Oversized entry**            | >64 KB metadata                               | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                      | `POST /pii-demo/huge`        |
+| **Slow method**                | sleeps > 1s                                   | `@LogPerformance` → `METHOD_SLOW_EXECUTION`                         | `GET /orders/slow`           |
+| **HTTP 4xx / 5xx**             | client/server error                           | `HTTP_REQUEST_CLIENT_ERROR` / `_SERVER_ERROR`                       | `GET /trigger/status/:code`  |
+| **Cross-service**              | calls `apps/worker`                           | one `traceId` across two services                                   | `POST /downstream/dispatch`  |
+| **Fault-inject a destination** | point Loki at a dead host                     | `LOGGER_DESTINATION_WRITE_FAILED`, fail-soft                        | `POST /trigger/fault/loki`   |
+| **Load burst**                 | N requests over T seconds                     | populate charts / drive the RED panels / test live tail             | `POST /trigger/burst`        |
 
 Each trigger card shows the emitted `logKey`(s) and, after firing, a **“View in Explorer →”** link pre-filtered to the resulting `requestId`/`traceId`. The burst generator is what makes the Overview charts and live tail feel alive in a demo.
 
@@ -252,6 +254,7 @@ Turns the viewer into an on-call tool. Modeled on the Loki ruler + Alertmanager 
 > 🎓 _Scoped demo of **log-based alerting + on-call**. In production you'd use the **Loki ruler → Alertmanager → PagerDuty/Slack**; here the same shape runs as a NestJS cron over the `/logs` query layer with mockable channels._
 
 **Alert rules** — `expr + threshold + for-duration`, evaluated on a NestJS cron (e.g. every 30s) against the same query layer the Explorer uses. Rule shapes the library's `logKey` convention enables:
+
 - **Error spike** — `count(level ∈ {error,fatal}) by logKey over 5m > N`.
 - **Any FATAL** — `count(level = fatal) over 1m ≥ 1`.
 - **Specific failure** — `rate(PAYMENT_REFUND_FAILED) over 5m > X`.
@@ -269,19 +272,23 @@ Turns the viewer into an on-call tool. Modeled on the Loki ruler + Alertmanager 
 The "dar manutenção / como é usado em caso real" surface. Four believable, small, real implementations.
 
 ### Retention & storage
+
 - A real **TTL sweep**: a NestJS cron deletes `application_logs` rows older than `RETENTION_DAYS` (default 30) and the panel shows next-sweep time + rows-pending-deletion.
 - A **read-only echo** of the Loki retention config beside it, making the **two-tier story** concrete: hot/durable `warn`+ in Postgres (TTL'd) + full `info`+ aggregation in Loki (its own retention). ⚠️ Loki retention is **off by default**: `retention_period`/`retention_stream` do nothing unless the **`compactor`** sets `retention_enabled: true` **and** a `delete_request_store` — the example's `loki-config.yml` enables both so the echo reflects a real, working policy.
 - 🎓 _Scoped demo of **tiered retention**. Real platforms add warm/cold object-storage tiers (S3/Glacier) and per-tenant retention overrides._
 
 ### Export
+
 - Download the **current filtered result set** as **JSON** and **CSV** (columns: `time, level, logKey, service, requestId, traceId, tenantId, msg`), hard-capped at 100k rows with a truncation banner (Datadog's cap). Reuses the Explorer's exact query.
 
 ### RBAC (query-based, multi-tenant)
+
 - **Roles:** **Viewer** (own `tenantId` only, no export, no alert edits) · **Operator** (read + ack/snooze/resolve incidents + export) · **Admin** (manage rules/retention/channels, all tenants, see audit).
 - Enforced by **injecting a `tenantId` restriction into the existing SQL/LogQL query builder** — RBAC reuses the query layer rather than bolting on a second auth path. Switching role/tenant in the global control visibly changes what the Explorer can see.
 - 🎓 _Scoped demo of **query-based RBAC** (à la Datadog data-access restrictions). In production, wire roles to your IdP/`@bymax-one/nest-auth`._
 
 ### Governance — redaction at source (the hero)
+
 This is the library's strongest, most differentiated story and gets a dedicated panel:
 
 - Show the **same record from Postgres and Loki side by side**, both displaying `[REDACTED]` censor values.
@@ -289,6 +296,7 @@ This is the library's strongest, most differentiated story and gets a dedicated 
 - Link to the **active redact-path list** from `LogAuditService` (`@Inject(LOGGER_OPTIONS_TOKEN)`, OVERVIEW §13).
 
 ### Audit trail
+
 - An `audit_events` table records **actions** (not logins): who exported, who created/edited/muted an alert, who switched role/tenant, who changed retention — `{ actor, action, target, tenantId, at }`, rendered read-only. Closes the compliance loop and pairs with the redaction story.
 
 ---
@@ -297,25 +305,25 @@ This is the library's strongest, most differentiated story and gets a dedicated 
 
 Every chart is fed by a **server-side aggregation endpoint**; the browser never crunches raw rows. Library: **Recharts v3** via shadcn chart primitives (ECharts/uPlot reserved for the dense heatmap if needed).
 
-| Panel | Chart type | Source query (Postgres ⇄ Loki) | Formula / notes |
-| ----- | ---------- | ------------------------------ | --------------- |
-| Traffic tile | Stat + sparkline | `count(HTTP_REQUEST_START)` per bucket | req/min |
-| Errors tile | Stat + threshold | `(4xx+5xx)/total` | red > 1% |
-| Latency tile | Stat | `p95(durationMs)` | percentile, not avg |
-| Fatal+Error tile | Stat + sparkline | `count(level ∈ {error,fatal})` | — |
-| SLO/error-budget | Gauge | budget = `1 − errorRate`; burn = consumed/window | 99.9% / 30d; 14.4/6/1 burn badges |
-| **Log volume** | **Stacked bar (brushable)** | `count() by level` per bucket | signature panel + time selector |
-| Requests/min | Line/bar | `count(HTTP_REQUEST_START)` per bucket | RED — Rate |
-| Error rate % | Line (4xx, 5xx series) | `(4xx+5xx)/total` per bucket | RED — Errors; threshold 1% |
-| Latency percentiles | Lines (p50/p95/p99) | `percentile(durationMs)` per bucket | RED — Duration; never average |
-| Latency heatmap | Heatmap | `durationMs` histogram per bucket | reveals bimodal distributions |
-| Slow requests | Stat | `count(durationMs > 1000)` / `METHOD_SLOW_EXECUTION` | — |
-| Level distribution | Donut | `count() by level` | bounded (6) |
-| Top logKeys | Horizontal bar | `count() by logKey` top-N | bounded |
-| Top errors | Horizontal bar | `count() by logKey where level∈{error,fatal}` | — |
-| Status mix | Stacked bar | `count() by status_class` | 2xx/3xx/4xx/5xx |
-| Top tenants | Horizontal bar | `count() by tenantId` top-N + "other" | low cardinality only |
-| Pipeline health | Stat row | counts of `LOGGER_DESTINATION_*` / `LOGGER_ENTRY_TRUNCATED` | USE-style saturation |
+| Panel               | Chart type                  | Source query (Postgres ⇄ Loki)                              | Formula / notes                   |
+| ------------------- | --------------------------- | ----------------------------------------------------------- | --------------------------------- |
+| Traffic tile        | Stat + sparkline            | `count(HTTP_REQUEST_START)` per bucket                      | req/min                           |
+| Errors tile         | Stat + threshold            | `(4xx+5xx)/total`                                           | red > 1%                          |
+| Latency tile        | Stat                        | `p95(durationMs)`                                           | percentile, not avg               |
+| Fatal+Error tile    | Stat + sparkline            | `count(level ∈ {error,fatal})`                              | —                                 |
+| SLO/error-budget    | Gauge                       | budget = `1 − errorRate`; burn = consumed/window            | 99.9% / 30d; 14.4/6/1 burn badges |
+| **Log volume**      | **Stacked bar (brushable)** | `count() by level` per bucket                               | signature panel + time selector   |
+| Requests/min        | Line/bar                    | `count(HTTP_REQUEST_START)` per bucket                      | RED — Rate                        |
+| Error rate %        | Line (4xx, 5xx series)      | `(4xx+5xx)/total` per bucket                                | RED — Errors; threshold 1%        |
+| Latency percentiles | Lines (p50/p95/p99)         | `percentile(durationMs)` per bucket                         | RED — Duration; never average     |
+| Latency heatmap     | Heatmap                     | `durationMs` histogram per bucket                           | reveals bimodal distributions     |
+| Slow requests       | Stat                        | `count(durationMs > 1000)` / `METHOD_SLOW_EXECUTION`        | —                                 |
+| Level distribution  | Donut                       | `count() by level`                                          | bounded (6)                       |
+| Top logKeys         | Horizontal bar              | `count() by logKey` top-N                                   | bounded                           |
+| Top errors          | Horizontal bar              | `count() by logKey where level∈{error,fatal}`               | —                                 |
+| Status mix          | Stacked bar                 | `count() by status_class`                                   | 2xx/3xx/4xx/5xx                   |
+| Top tenants         | Horizontal bar              | `count() by tenantId` top-N + "other"                       | low cardinality only              |
+| Pipeline health     | Stat row                    | counts of `LOGGER_DESTINATION_*` / `LOGGER_ENTRY_TRUNCATED` | USE-style saturation              |
 
 > **Bounded-dimension rule:** aggregation `group by` is only ever `level`, `status_class`, `logKey`, `service.name`, `tenantId`. `requestId`/`traceId`/`spanId`/`userId` are **search/drill-down keys only** — never chart dimensions (high cardinality).
 
@@ -325,21 +333,21 @@ Every chart is fed by a **server-side aggregation endpoint**; the browser never 
 
 All dashboard features are powered by **one `logs/` module** in `apps/api` (plus small modules for alerts/incidents/views/audit). No new datastore — it reads the same Postgres `application_logs` and proxies Loki. Each endpoint accepts the same filter object so the source toggle is transparent.
 
-| Method & route | Purpose | Notes |
-| -------------- | ------- | ----- |
-| `GET /logs` | Paged log query | Keyset cursor; `?level=&logKey=&service=&tenantId=&traceId=&requestId=&q=&from=&to=&source=&cursor=&limit=` |
-| `GET /logs/aggregate` | Time-bucketed counts for charts | `?metric=volume\|errorRate\|latency\|statusMix&groupBy=level\|logKey\|...&bucket=auto&from=&to=&source=` |
-| `GET /logs/facets` | Distinct values + counts for the rail | `?fields=level,service,logKey,tenantId&from=&to=` |
-| `GET /logs/context` | Surrounding lines | `?requestId=\|traceId=&before=10&after=10` |
-| `GET /logs/stream` | **SSE live tail** | `text/event-stream`; honors filters + `Last-Event-ID`; §14 |
-| `GET /logs/loki` | Loki proxy | maps the filter object → LogQL `query_range` / `labels` / `tail` |
-| `GET /logs/export` | JSON/CSV download | `?format=json\|csv` + filters; 100k cap |
-| `GET/POST /views` | Saved views CRUD | named filter sets |
-| `GET/POST/PATCH /alerts/rules` | Alert rules CRUD | `expr + threshold + for` |
-| `GET/POST /alerts/channels` | Notification channels | test-fireable |
-| `GET/PATCH /incidents` | Incident lifecycle | ack/snooze/resolve + timeline |
-| `GET /audit` | Audit events | read-only |
-| `GET/PATCH /maintenance/retention` | TTL config + sweep status | Admin only |
+| Method & route                     | Purpose                               | Notes                                                                                                       |
+| ---------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /logs`                        | Paged log query                       | Keyset cursor; `?level=&logKey=&service=&tenantId=&traceId=&requestId=&q=&from=&to=&source=&cursor=&limit=` |
+| `GET /logs/aggregate`              | Time-bucketed counts for charts       | `?metric=volume\|errorRate\|latency\|statusMix&groupBy=level\|logKey\|...&bucket=auto&from=&to=&source=`    |
+| `GET /logs/facets`                 | Distinct values + counts for the rail | `?fields=level,service,logKey,tenantId&from=&to=`                                                           |
+| `GET /logs/context`                | Surrounding lines                     | `?requestId=\|traceId=&before=10&after=10`                                                                  |
+| `GET /logs/stream`                 | **SSE live tail**                     | `text/event-stream`; honors filters + `Last-Event-ID`; §14                                                  |
+| `GET /logs/loki`                   | Loki proxy                            | maps the filter object → LogQL `query_range` / `labels` / `tail`                                            |
+| `GET /logs/export`                 | JSON/CSV download                     | `?format=json\|csv` + filters; 100k cap                                                                     |
+| `GET/POST /views`                  | Saved views CRUD                      | named filter sets                                                                                           |
+| `GET/POST/PATCH /alerts/rules`     | Alert rules CRUD                      | `expr + threshold + for`                                                                                    |
+| `GET/POST /alerts/channels`        | Notification channels                 | test-fireable                                                                                               |
+| `GET/PATCH /incidents`             | Incident lifecycle                    | ack/snooze/resolve + timeline                                                                               |
+| `GET /audit`                       | Audit events                          | read-only                                                                                                   |
+| `GET/PATCH /maintenance/retention` | TTL config + sweep status             | Admin only                                                                                                  |
 
 **Filter DTO** (shared by `/logs`, `/logs/aggregate`, `/logs/export`, `/logs/stream`) — validated with Zod; `logKey` patterns checked against `LOG_KEYS_CONVENTION_REGEX`:
 
@@ -454,12 +462,12 @@ GROUP BY 1 ORDER BY 1;
 
 The same `LogQuery` compiles to LogQL and hits the Loki HTTP API:
 
-| Dashboard need | Loki endpoint / query |
-| -------------- | --------------------- |
-| Paged search | `GET /loki/api/v1/query_range` with `{service="api"} | json | level="error" |= "refund"` |
-| Chart buckets | `query_range` of `sum by (level) (count_over_time({service="api"} | json [1m]))`, `step=$interval` |
-| Facet values | `GET /loki/api/v1/label/<name>/values` |
-| Live tail | `GET /loki/api/v1/tail` (WebSocket) → bridged to the dashboard's SSE feed |
+| Dashboard need | Loki endpoint / query                                                     |
+| -------------- | ------------------------------------------------------------------------- | ------------------------------ | ------------- | ----------- |
+| Paged search   | `GET /loki/api/v1/query_range` with `{service="api"}                      | json                           | level="error" | = "refund"` |
+| Chart buckets  | `query_range` of `sum by (level) (count_over_time({service="api"}         | json [1m]))`, `step=$interval` |
+| Facet values   | `GET /loki/api/v1/label/<name>/values`                                    |
+| Live tail      | `GET /loki/api/v1/tail` (WebSocket) → bridged to the dashboard's SSE feed |
 
 `logKey` filtering uses `| json | logKey=~"PAYMENT_.*"`; malformed lines are dropped with `| __error__=""`. Because Loki holds `info`+, the same window shows more rows than Postgres — the toggle callout explains why.
 
@@ -478,13 +486,18 @@ export class LogsSseController {
   constructor(private readonly bus: LogEventBus) {}
 
   @Sse('stream')
-  stream(@Query() filter: LogQuery, @Headers('last-event-id') lastId?: string): Observable<MessageEvent> {
+  stream(
+    @Query() filter: LogQuery,
+    @Headers('last-event-id') lastId?: string,
+  ): Observable<MessageEvent> {
     const replay$ = this.bus.replaySince(lastId, filter) // keyset replay of missed rows
     const live$ = fromEvent(this.bus.emitter, 'log').pipe(
       filter((e) => matches(e, filter)),
       map((e) => ({ data: JSON.stringify(e), id: e.cursor }) as MessageEvent),
     )
-    const keepAlive$ = interval(15_000).pipe(map(() => ({ data: '', type: 'ping' }) as MessageEvent))
+    const keepAlive$ = interval(15_000).pipe(
+      map(() => ({ data: '', type: 'ping' }) as MessageEvent),
+    )
     return merge(replay$, live$, keepAlive$)
   }
 }
@@ -507,7 +520,10 @@ export function useLogStream(filter: LogFilter, enabled: boolean) {
     let raf = 0
     es.onmessage = (ev) => {
       pending.push(JSON.parse(ev.data))
-      raf ||= requestAnimationFrame(() => { buffer.pushMany(pending.splice(0)); raf = 0 }) // batch flush
+      raf ||= requestAnimationFrame(() => {
+        buffer.pushMany(pending.splice(0))
+        raf = 0
+      }) // batch flush
     }
     ref.current = es
     return () => es.close()
@@ -528,22 +544,22 @@ Follow-mode (auto-scroll only when pinned to bottom; pause-on-scroll-up; "jump t
 
 ### Tech stack
 
-| Concern | Choice | Why |
-| ------- | ------ | --- |
-| Framework | **Next.js `^16.2`** (App Router) + **React `^19.2`** + TypeScript | matches `nest-auth-example`; SSR + route handlers for SSE |
-| Styling | **Tailwind CSS v4** (`@tailwindcss/postcss` only — v4 auto-prefixes, **no `autoprefixer`/`postcss-import`**) + **shadcn/ui `new-york`** | identical to `nest-auth-example` |
-| Icons | **`lucide-react`** | the nav + UI icon set (shadcn `iconLibrary: lucide`) |
-| Fonts | **`geist`** (`GeistSans` + `GeistMono`) | body = Geist Sans; headings/brand/card-titles = mono |
-| Theme | **forced dark** (`dark` on `<html>`) — **no `next-themes`** | the design system is dark-only by design |
-| Charts | **Recharts v3** via shadcn chart primitives | **fed by `/logs/aggregate`, never raw rows**; ECharts/uPlot only if the heatmap needs it |
-| Server state | **TanStack Query v5** (App-Router `get-query-client` + `HydrationBoundary`) | `useInfiniteQuery` (table), `useQuery` (panels) |
-| Table | **TanStack Table v8** + **TanStack Virtual v3** | 50k rows @60fps, sticky header, sort/resize/pin, expandable rows |
-| Filter state | **nuqs v2** typed URL search params | every view is a shareable deep-link |
-| Live tail | **`EventSource`** + custom `useLogStream` hook | SSE; reconnect + `Last-Event-ID` + rAF-batched ring buffer |
-| JSON viewer | **`@uiw/react-json-view`** | zero-dep, built-in clipboard, collapsible tree |
-| Toasts | **`sonner`** (glass `Toaster`) | identical config to `nest-auth-example` |
-| Class utils | **`class-variance-authority` + `clsx` + `tailwind-merge`** | the `cn()` util + button/badge variants |
-| Types | **`@bymax-one/nest-logger/shared`** | `LogEntry`, `LogLevel`, `LOG_KEYS_CONVENTION_REGEX` — the isomorphic subpath |
+| Concern      | Choice                                                                                                                                  | Why                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Framework    | **Next.js `^16.2`** (App Router) + **React `^19.2`** + TypeScript                                                                       | matches `nest-auth-example`; SSR + route handlers for SSE                                |
+| Styling      | **Tailwind CSS v4** (`@tailwindcss/postcss` only — v4 auto-prefixes, **no `autoprefixer`/`postcss-import`**) + **shadcn/ui `new-york`** | identical to `nest-auth-example`                                                         |
+| Icons        | **`lucide-react`**                                                                                                                      | the nav + UI icon set (shadcn `iconLibrary: lucide`)                                     |
+| Fonts        | **`geist`** (`GeistSans` + `GeistMono`)                                                                                                 | body = Geist Sans; headings/brand/card-titles = mono                                     |
+| Theme        | **forced dark** (`dark` on `<html>`) — **no `next-themes`**                                                                             | the design system is dark-only by design                                                 |
+| Charts       | **Recharts v3** via shadcn chart primitives                                                                                             | **fed by `/logs/aggregate`, never raw rows**; ECharts/uPlot only if the heatmap needs it |
+| Server state | **TanStack Query v5** (App-Router `get-query-client` + `HydrationBoundary`)                                                             | `useInfiniteQuery` (table), `useQuery` (panels)                                          |
+| Table        | **TanStack Table v8** + **TanStack Virtual v3**                                                                                         | 50k rows @60fps, sticky header, sort/resize/pin, expandable rows                         |
+| Filter state | **nuqs v2** typed URL search params                                                                                                     | every view is a shareable deep-link                                                      |
+| Live tail    | **`EventSource`** + custom `useLogStream` hook                                                                                          | SSE; reconnect + `Last-Event-ID` + rAF-batched ring buffer                               |
+| JSON viewer  | **`@uiw/react-json-view`**                                                                                                              | zero-dep, built-in clipboard, collapsible tree                                           |
+| Toasts       | **`sonner`** (glass `Toaster`)                                                                                                          | identical config to `nest-auth-example`                                                  |
+| Class utils  | **`class-variance-authority` + `clsx` + `tailwind-merge`**                                                                              | the `cn()` util + button/badge variants                                                  |
+| Types        | **`@bymax-one/nest-logger/shared`**                                                                                                     | `LogEntry`, `LogLevel`, `LOG_KEYS_CONVENTION_REGEX` — the isomorphic subpath             |
 
 Install (pinned to `nest-auth-example`): `next@^16.2 react@^19.2 react-dom@^19.2 tailwindcss@^4.2 @tailwindcss/postcss@^4.2 geist@^1.7 lucide-react sonner@^2 class-variance-authority clsx tailwind-merge` + the data libs (`@tanstack/react-query @tanstack/react-table @tanstack/react-virtual nuqs @uiw/react-json-view recharts`). **Do not** add `next-themes`, **and do not add `autoprefixer`/`postcss-import`** (Tailwind v4 handles both). Remember the **`<NuqsAdapter>`** in the root layout (required by nuqs v2).
 
@@ -565,23 +581,36 @@ Install (pinned to `nest-auth-example`): `next@^16.2 react@^19.2 react-dom@^19.2
 
 /* Tokens at TOP LEVEL (shadcn-v4 puts :root/.dark OUTSIDE @layer base) */
 :root {
-  --background: 0 0% 100%; --foreground: 20 14.3% 4.1%;
-  --primary: 20.5 90.2% 57.8%; --primary-foreground: 60 9.1% 97.8%; /* #ff6224 */
-  --border: 20 5.9% 90%; --input: 20 5.9% 90%; --ring: 20.5 90.2% 57.8%;
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --primary: 20.5 90.2% 57.8%;
+  --primary-foreground: 60 9.1% 97.8%; /* #ff6224 */
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --ring: 20.5 90.2% 57.8%;
   --radius: 0.75rem;
-  --glass-bg: rgba(0,0,0,0.03); --glass-card-bg: rgba(0,0,0,0.03); --glass-border: rgba(0,0,0,0.08);
-  --shadow-primary: 0 0 24px rgba(255,98,36,0.4);
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-card-bg: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --shadow-primary: 0 0 24px rgba(255, 98, 36, 0.4);
   /* …full light set (card/popover/secondary/muted/accent/destructive) … */
 }
 .dark {
-  --background: 20 14.3% 4.1%; --foreground: 60 9.1% 97.8%;
-  --primary: 20.5 90.2% 57.8%; --primary-foreground: 20 14.3% 4.1%;
-  --border: 12 6.5% 15.1%; --input: 12 6.5% 15.1%; --ring: 20.5 90.2% 57.8%;
+  --background: 20 14.3% 4.1%;
+  --foreground: 60 9.1% 97.8%;
+  --primary: 20.5 90.2% 57.8%;
+  --primary-foreground: 20 14.3% 4.1%;
+  --border: 12 6.5% 15.1%;
+  --input: 12 6.5% 15.1%;
+  --ring: 20.5 90.2% 57.8%;
   --color-bg-primary: #0a0a0a;
-  --glass-bg: rgba(255,255,255,0.05); --glass-bg-raised: rgba(255,255,255,0.08);
-  --glass-bg-hover: rgba(255,255,255,0.10); --glass-card-bg: rgba(255,255,255,0.06);
-  --glass-border: rgba(255,255,255,0.10);
-  --color-secondary: #60a5fa; --color-accent: #f97316; /* …full dark (live) set … */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-raised: rgba(255, 255, 255, 0.08);
+  --glass-bg-hover: rgba(255, 255, 255, 0.1);
+  --glass-card-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --color-secondary: #60a5fa;
+  --color-accent: #f97316; /* …full dark (live) set … */
 }
 
 /* Map tokens → Tailwind utilities so `bg-background`, `from-brand-500`, `rounded-lg`,
@@ -593,8 +622,11 @@ Install (pinned to `nest-auth-example`): `next@^16.2 react@^19.2 react-dom@^19.2
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-border: hsl(var(--border));
   --color-ring: hsl(var(--ring));
-  --color-brand-50: #fff5f0; --color-brand-400: #ff8748; --color-brand-500: #ff6224;
-  --color-brand-600: #e5511b; --color-brand-900: #7a2609;
+  --color-brand-50: #fff5f0;
+  --color-brand-400: #ff8748;
+  --color-brand-500: #ff6224;
+  --color-brand-600: #e5511b;
+  --color-brand-900: #7a2609;
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -603,9 +635,22 @@ Install (pinned to `nest-auth-example`): `next@^16.2 react@^19.2 react-dom@^19.2
 }
 
 @layer base {
-  * { border-color: hsl(var(--border)); }
-  body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); font-family: var(--font-sans); }
-  h1,h2,h3,h4,h5,h6 { font-family: var(--font-mono); }
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-mono);
+  }
 }
 /* keyframes glow-float/glow-drift/fade-in: define in @theme, or keep them in a JS
    tailwind.config bridged via `@config './tailwind.config.ts';` at the top of this file. */
@@ -624,7 +669,11 @@ import Providers from './providers' // 'use client': QueryClientProvider + <Toas
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} dark`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable} dark`}
+      suppressHydrationWarning
+    >
       <body>
         {/* nuqs v2 made the adapter MANDATORY — without it every useQueryState() throws
             at runtime, breaking the shareable-deep-link filters. */}
@@ -649,14 +698,14 @@ Reuse `nest-auth-example`'s Topbar + Sidebar shell **classes verbatim**; only th
 
 **Logger nav items** (replacing auth's Overview/Account/Security/…), lucide icons:
 
-| Label | href | Icon |
-| ----- | ---- | ---- |
-| Overview | `/` | `LayoutDashboard` |
-| Explorer | `/explorer` | `Search` |
-| Trigger Center | `/trigger` | `Zap` |
-| Alerts | `/alerts` | `BellRing` |
-| Maintenance | `/maintenance` | `Settings2` |
-| Settings | `/settings` | `Cog` |
+| Label          | href           | Icon              |
+| -------------- | -------------- | ----------------- |
+| Overview       | `/`            | `LayoutDashboard` |
+| Explorer       | `/explorer`    | `Search`          |
+| Trigger Center | `/trigger`     | `Zap`             |
+| Alerts         | `/alerts`      | `BellRing`        |
+| Maintenance    | `/maintenance` | `Settings2`       |
+| Settings       | `/settings`    | `Cog`             |
 
 ### Glass-morphism & component recipes (verbatim)
 

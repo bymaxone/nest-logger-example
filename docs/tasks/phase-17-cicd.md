@@ -8,15 +8,15 @@
 
 ## Task index
 
-| ID    | Task                                                                | Status | Priority | Size | Depends on             |
-| ----- | ------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P17-1 | `ci.yml` — install → lint/typecheck/unit/export-check, e2e, coverage | 🔴     | High     | L    | —                      |
-| P17-2 | `mutation.yml` — per-PR incremental Stryker (`dorny/paths-filter`)   | 🔴     | High     | M    | P17-1                  |
-| P17-3 | `mutation-nightly.yml` — Monday 03:00 UTC full cold run + issue      | 🔴     | Medium   | M    | P17-2                  |
-| P17-4 | `release.yml` — `v*` tags → GHCR images → bot-append `RELEASES.md`   | 🔴     | High     | L    | P17-1, P17-5, P17-6    |
-| P17-5 | `apps/api/Dockerfile` (multi-stage Node 24 alpine, source-maps)      | 🔴     | High     | M    | —                      |
-| P17-6 | `apps/web/Dockerfile` + `docker-compose.prod.yml`                    | 🔴     | High     | M    | P17-5                  |
-| P17-7 | Verification gate — green PR + `v*` tag publishes images & RELEASES  | 🔴     | High     | M    | P17-1..P17-6           |
+| ID    | Task                                                                 | Status | Priority | Size | Depends on          |
+| ----- | -------------------------------------------------------------------- | ------ | -------- | ---- | ------------------- |
+| P17-1 | `ci.yml` — install → lint/typecheck/unit/export-check, e2e, coverage | 🔴     | High     | L    | —                   |
+| P17-2 | `mutation.yml` — per-PR incremental Stryker (`dorny/paths-filter`)   | 🔴     | High     | M    | P17-1               |
+| P17-3 | `mutation-nightly.yml` — Monday 03:00 UTC full cold run + issue      | 🔴     | Medium   | M    | P17-2               |
+| P17-4 | `release.yml` — `v*` tags → GHCR images → bot-append `RELEASES.md`   | 🔴     | High     | L    | P17-1, P17-5, P17-6 |
+| P17-5 | `apps/api/Dockerfile` (multi-stage Node 24 alpine, source-maps)      | 🔴     | High     | M    | —                   |
+| P17-6 | `apps/web/Dockerfile` + `docker-compose.prod.yml`                    | 🔴     | High     | M    | P17-5               |
+| P17-7 | Verification gate — green PR + `v*` tag publishes images & RELEASES  | 🔴     | High     | M    | P17-1..P17-6        |
 
 ---
 
@@ -58,6 +58,7 @@ Create the primary CI pipeline `.github/workflows/ci.yml`. It runs on every push
 > Steps:
 >
 > 1. Create `/.github/workflows/ci.yml`. Header + triggers + concurrency + permissions:
+>
 >    ```yaml
 >    name: CI
 >
@@ -74,6 +75,7 @@ Create the primary CI pipeline `.github/workflows/ci.yml`. It runs on every push
 >    permissions:
 >      contents: read
 >    ```
+>
 > 2. Add the `install` job — this is the canonical setup block reused (verbatim) in every other job. Note the action order:
 >    ```yaml
 >    jobs:
@@ -95,55 +97,55 @@ Create the primary CI pipeline `.github/workflows/ci.yml`. It runs on every push
 > 3. Add `lint`, `typecheck` (both `needs: install`) — same setup block, then `- run: pnpm lint` / `- run: pnpm typecheck` respectively.
 > 4. Add `unit` (`needs: install`) — same setup block, then:
 >    ```yaml
->          - name: Run unit tests with coverage
->            run: pnpm test:cov
->          - name: Upload API coverage
->            if: always()
->            uses: actions/upload-artifact@v4
->            with:
->              name: coverage-unit-api
->              path: apps/api/coverage/
->              retention-days: 7
->          - name: Upload web coverage
->            if: always()
->            uses: actions/upload-artifact@v4
->            with:
->              name: coverage-unit-web
->              path: apps/web/coverage/
->              retention-days: 7
+>    - name: Run unit tests with coverage
+>      run: pnpm test:cov
+>    - name: Upload API coverage
+>      if: always()
+>      uses: actions/upload-artifact@v4
+>      with:
+>        name: coverage-unit-api
+>        path: apps/api/coverage/
+>        retention-days: 7
+>    - name: Upload web coverage
+>      if: always()
+>      uses: actions/upload-artifact@v4
+>      with:
+>        name: coverage-unit-web
+>        path: apps/web/coverage/
+>        retention-days: 7
 >    ```
 > 5. Add `e2e-api` (`needs: install`) — same setup block, then bring up the test stack, run the suite, tear down:
 >    ```yaml
->          - name: Start test infrastructure
->            run: docker compose -f docker-compose.test.yml up -d --wait
->          - name: Run API e2e tests
->            run: pnpm --filter @nest-logger-example/api run test:e2e
->          - name: Stop test infrastructure
->            if: always()
->            run: docker compose -f docker-compose.test.yml down -v
+>    - name: Start test infrastructure
+>      run: docker compose -f docker-compose.test.yml up -d --wait
+>    - name: Run API e2e tests
+>      run: pnpm --filter @nest-logger-example/api run test:e2e
+>    - name: Stop test infrastructure
+>      if: always()
+>      run: docker compose -f docker-compose.test.yml down -v
 >    ```
 > 6. Add `e2e-web` with `needs: e2e-api`, running inside the Playwright container (`container: { image: mcr.microsoft.com/playwright:v1.59.1-noble, options: --user root }`), the same setup block, `pnpm --filter @nest-logger-example/api run build`, `pnpm --filter @nest-logger-example/web run build`, then `pnpm --filter @nest-logger-example/web run test:e2e`. Upload `apps/web/test-results/` on failure.
 > 7. Add `export-usage-check` (`needs: install`) — same setup block, then `- run: node scripts/audit-library-exports.mjs`.
 > 8. Add `coverage-report`:
 >    ```yaml
->      coverage-report:
->        name: Coverage report
->        needs: [unit, e2e-api, e2e-web]
->        if: always()
->        runs-on: ubuntu-latest
->        timeout-minutes: 5
->        steps:
->          - name: Download API coverage
->            uses: actions/download-artifact@v4
->            with: { name: coverage-unit-api, path: coverage/api }
->            continue-on-error: true
->          - name: Download web coverage
->            uses: actions/download-artifact@v4
->            with: { name: coverage-unit-web, path: coverage/web }
->            continue-on-error: true
->          - name: Upload combined coverage
->            uses: actions/upload-artifact@v4
->            with: { name: coverage-combined, path: coverage/, retention-days: 30 }
+>    coverage-report:
+>      name: Coverage report
+>      needs: [unit, e2e-api, e2e-web]
+>      if: always()
+>      runs-on: ubuntu-latest
+>      timeout-minutes: 5
+>      steps:
+>        - name: Download API coverage
+>          uses: actions/download-artifact@v4
+>          with: { name: coverage-unit-api, path: coverage/api }
+>          continue-on-error: true
+>        - name: Download web coverage
+>          uses: actions/download-artifact@v4
+>          with: { name: coverage-unit-web, path: coverage/web }
+>          continue-on-error: true
+>        - name: Upload combined coverage
+>          uses: actions/upload-artifact@v4
+>          with: { name: coverage-combined, path: coverage/, retention-days: 30 }
 >    ```
 >    Constraints:
 >
@@ -153,7 +155,6 @@ Create the primary CI pipeline `.github/workflows/ci.yml`. It runs on every push
 > - Job names are contractual (branch-protection + the export audit reference them) — do NOT rename `install`/`lint`/`typecheck`/`unit`/`e2e-api`/`e2e-web`/`export-usage-check`/`coverage-report`.
 > - Do NOT add a release/publish job here — that is P17-4.
 >   Verification:
->
 > - `actionlint .github/workflows/ci.yml` — expected: no errors (or `npx --yes @action-validator/cli .github/workflows/ci.yml`).
 > - `node -e "const y=require('js-yaml');y.load(require('fs').readFileSync('.github/workflows/ci.yml','utf8'));console.log('ok')"` — expected: `ok`.
 > - `grep -n "cancel-in-progress: true" .github/workflows/ci.yml` — expected: match.
@@ -209,6 +210,7 @@ Create `.github/workflows/mutation.yml`, the per-PR mutation-testing gate. A `de
 > Steps:
 >
 > 1. Header + triggers + concurrency + permissions:
+>
 >    ```yaml
 >    name: Mutation Testing (PR)
 >
@@ -242,6 +244,7 @@ Create `.github/workflows/mutation.yml`, the per-PR mutation-testing gate. A `de
 >      contents: read
 >      pull-requests: read
 >    ```
+>
 > 2. `detect` job — the same `paths` expressed as `dorny/paths-filter` filters, exposing two outputs:
 >    ```yaml
 >    jobs:
@@ -276,46 +279,46 @@ Create `.github/workflows/mutation.yml`, the per-PR mutation-testing gate. A `de
 >    ```
 > 3. `mutation-api` job:
 >    ```yaml
->      mutation-api:
->        name: Mutation — apps/api
->        needs: detect
->        if: needs.detect.outputs.api == 'true'
->        runs-on: ubuntu-latest
->        timeout-minutes: 30
->        steps:
->          - uses: actions/checkout@v5
->            with:
->              fetch-depth: 0
->          - uses: pnpm/action-setup@v4
->            with:
->              version: 10.8.0
->          - uses: actions/setup-node@v5
->            with:
->              node-version: '24'
->              cache: pnpm
->          - run: pnpm install --frozen-lockfile
->          - name: Generate Prisma client
->            working-directory: apps/api
->            run: pnpm prisma:generate
->            env:
->              DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_placeholder
->          - name: Restore Stryker incremental cache (api)
->            uses: actions/cache@v4
->            with:
->              path: apps/api/reports/stryker-incremental.json
->              key: stryker-incremental-api-${{ github.ref }}-${{ github.sha }}
->              restore-keys: |
->                stryker-incremental-api-${{ github.ref }}-
->                stryker-incremental-api-refs/heads/main-
->          - name: Run mutation testing (api)
->            run: pnpm mutation:incremental --filter @nest-logger-example/api
->          - name: Upload mutation HTML report (api)
->            if: always()
->            uses: actions/upload-artifact@v4
->            with:
->              name: mutation-report-api
->              path: apps/api/reports/mutation/
->              retention-days: 30
+>    mutation-api:
+>      name: Mutation — apps/api
+>      needs: detect
+>      if: needs.detect.outputs.api == 'true'
+>      runs-on: ubuntu-latest
+>      timeout-minutes: 30
+>      steps:
+>        - uses: actions/checkout@v5
+>          with:
+>            fetch-depth: 0
+>        - uses: pnpm/action-setup@v4
+>          with:
+>            version: 10.8.0
+>        - uses: actions/setup-node@v5
+>          with:
+>            node-version: '24'
+>            cache: pnpm
+>        - run: pnpm install --frozen-lockfile
+>        - name: Generate Prisma client
+>          working-directory: apps/api
+>          run: pnpm prisma:generate
+>          env:
+>            DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_placeholder
+>        - name: Restore Stryker incremental cache (api)
+>          uses: actions/cache@v4
+>          with:
+>            path: apps/api/reports/stryker-incremental.json
+>            key: stryker-incremental-api-${{ github.ref }}-${{ github.sha }}
+>            restore-keys: |
+>              stryker-incremental-api-${{ github.ref }}-
+>              stryker-incremental-api-refs/heads/main-
+>        - name: Run mutation testing (api)
+>          run: pnpm mutation:incremental --filter @nest-logger-example/api
+>        - name: Upload mutation HTML report (api)
+>          if: always()
+>          uses: actions/upload-artifact@v4
+>          with:
+>            name: mutation-report-api
+>            path: apps/api/reports/mutation/
+>            retention-days: 30
 >    ```
 > 4. `mutation-web` job — the symmetric copy: `if: needs.detect.outputs.web == 'true'`, no Prisma step, cache path `apps/web/reports/stryker-incremental.json` (key prefix `stryker-incremental-web-`), run `pnpm mutation:incremental --filter @nest-logger-example/web`, upload `apps/web/reports/mutation/`.
 >    Constraints:
@@ -325,7 +328,6 @@ Create `.github/workflows/mutation.yml`, the per-PR mutation-testing gate. A `de
 > - `fetch-depth: 0` is REQUIRED on the mutation jobs (Stryker incremental diff vs base).
 > - Do NOT run a cold full run here — that is the nightly job (P17-3).
 >   Verification:
->
 > - `actionlint .github/workflows/mutation.yml` — expected: no errors.
 > - `grep -n "dorny/paths-filter@v3" .github/workflows/mutation.yml` — expected: match.
 > - `grep -n "fetch-depth: 0" .github/workflows/mutation.yml` — expected: two matches (api + web).
@@ -380,6 +382,7 @@ Create `.github/workflows/mutation-nightly.yml`, the weekly full (non-incrementa
 > Steps:
 >
 > 1. Header + triggers + permissions:
+>
 >    ```yaml
 >    name: Mutation Testing (Nightly Full)
 >
@@ -392,6 +395,7 @@ Create `.github/workflows/mutation-nightly.yml`, the weekly full (non-incrementa
 >      contents: read
 >      issues: write
 >    ```
+>
 > 2. `full-api` job:
 >    ```yaml
 >    jobs:
@@ -450,7 +454,6 @@ Create `.github/workflows/mutation-nightly.yml`, the weekly full (non-incrementa
 > - `--incremental false` is REQUIRED (this is the cold safety-net run).
 > - The PR gate in `mutation.yml` remains primary enforcement; this is the safety net — do NOT make it block merges.
 >   Verification:
->
 > - `actionlint .github/workflows/mutation-nightly.yml` — expected: no errors.
 > - `grep -n "cron: '0 3 \* \* 1'" .github/workflows/mutation-nightly.yml` — expected: match.
 > - `grep -n "incremental false" .github/workflows/mutation-nightly.yml` — expected: two matches.
@@ -506,6 +509,7 @@ Create `.github/workflows/release.yml`, the release pipeline triggered by `v*` t
 > Steps:
 >
 > 1. Header + trigger + top-level permissions:
+>
 >    ```yaml
 >    name: Release
 >
@@ -517,6 +521,7 @@ Create `.github/workflows/release.yml`, the release pipeline triggered by `v*` t
 >    permissions:
 >      contents: read
 >    ```
+>
 > 2. `build-and-push` job with job-scoped OIDC permissions and per-image idempotency guards:
 >    ```yaml
 >    jobs:
@@ -565,51 +570,51 @@ Create `.github/workflows/release.yml`, the release pipeline triggered by `v*` t
 > 3. API image steps (gated on `api-exists`): `docker/metadata-action@v5` (`images: ghcr.io/bymaxone/nest-logger-example-api`, `flavor: latest=auto`, semver tags) then `docker/build-push-action@v6` (`context: .`, `file: apps/api/Dockerfile`, `push: true`, tags/labels from metadata).
 > 4. Web image steps (gated on `web-exists`): same pattern with `images: ghcr.io/bymaxone/nest-logger-example-web`, `file: apps/web/Dockerfile`, plus:
 >    ```yaml
->          build-args: |
->            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://example.com/api' }}
->            NEXT_PUBLIC_GRAFANA_URL=${{ vars.NEXT_PUBLIC_GRAFANA_URL || 'https://example.com/grafana' }}
+>    build-args: |
+>      NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://example.com/api' }}
+>      NEXT_PUBLIC_GRAFANA_URL=${{ vars.NEXT_PUBLIC_GRAFANA_URL || 'https://example.com/grafana' }}
 >    ```
 > 5. `update-releases-doc` job — pass values via env, harden against injection:
 >    ```yaml
->      update-releases-doc:
->        name: Update RELEASES.md
->        needs: build-and-push
->        runs-on: ubuntu-latest
->        timeout-minutes: 10
->        permissions:
->          contents: write
->        steps:
->          - uses: actions/checkout@v5
->            with:
->              ref: main
->              token: ${{ secrets.GITHUB_TOKEN }}
->          - name: Append row to RELEASES.md
->            env:
->              TAG: ${{ github.ref_name }}
->            run: |
->              # Idempotency: skip if this tag is already recorded.
->              if grep -qF "| \`${TAG}\`" docs/RELEASES.md; then
->                echo "Tag ${TAG} already present — skipping."
->                exit 0
->              fi
->              LIB_VERSION=$(jq -r '.dependencies["@bymax-one/nest-logger"] // ""' apps/api/package.json | sed 's/^[^0-9]*//')
->              DATE=$(date -u +%Y-%m-%d)
->              python3 - "$TAG" "$LIB_VERSION" "$DATE" << 'PYEOF'
->              import sys, re, pathlib
->              tag, lib, date = sys.argv[1], sys.argv[2], sys.argv[3]
->              path = pathlib.Path('docs/RELEASES.md')
->              content = path.read_text()
->              new_row = f'| `{tag}` | `@bymax-one/nest-logger@{lib}` | {date} | | [CHANGELOG](../CHANGELOG.md) |\n'
->              content = re.sub(r'(?m)(^\| `v)', new_row + r'\1', content, count=1)
->              path.write_text(content)
->              PYEOF
->          - name: Push bot commit
->            uses: stefanzweifel/git-auto-commit-action@v5
->            with:
->              commit_message: 'chore(release): record ${{ github.ref_name }} in RELEASES.md [skip ci]'
->              commit_user_name: github-actions[bot]
->              commit_user_email: github-actions[bot]@users.noreply.github.com
->              file_pattern: docs/RELEASES.md
+>    update-releases-doc:
+>      name: Update RELEASES.md
+>      needs: build-and-push
+>      runs-on: ubuntu-latest
+>      timeout-minutes: 10
+>      permissions:
+>        contents: write
+>      steps:
+>        - uses: actions/checkout@v5
+>          with:
+>            ref: main
+>            token: ${{ secrets.GITHUB_TOKEN }}
+>        - name: Append row to RELEASES.md
+>          env:
+>            TAG: ${{ github.ref_name }}
+>          run: |
+>            # Idempotency: skip if this tag is already recorded.
+>            if grep -qF "| \`${TAG}\`" docs/RELEASES.md; then
+>              echo "Tag ${TAG} already present — skipping."
+>              exit 0
+>            fi
+>            LIB_VERSION=$(jq -r '.dependencies["@bymax-one/nest-logger"] // ""' apps/api/package.json | sed 's/^[^0-9]*//')
+>            DATE=$(date -u +%Y-%m-%d)
+>            python3 - "$TAG" "$LIB_VERSION" "$DATE" << 'PYEOF'
+>            import sys, re, pathlib
+>            tag, lib, date = sys.argv[1], sys.argv[2], sys.argv[3]
+>            path = pathlib.Path('docs/RELEASES.md')
+>            content = path.read_text()
+>            new_row = f'| `{tag}` | `@bymax-one/nest-logger@{lib}` | {date} | | [CHANGELOG](../CHANGELOG.md) |\n'
+>            content = re.sub(r'(?m)(^\| `v)', new_row + r'\1', content, count=1)
+>            path.write_text(content)
+>            PYEOF
+>        - name: Push bot commit
+>          uses: stefanzweifel/git-auto-commit-action@v5
+>          with:
+>            commit_message: 'chore(release): record ${{ github.ref_name }} in RELEASES.md [skip ci]'
+>            commit_user_name: github-actions[bot]
+>            commit_user_email: github-actions[bot]@users.noreply.github.com
+>            file_pattern: docs/RELEASES.md
 >    ```
 >    Constraints:
 >
@@ -619,7 +624,6 @@ Create `.github/workflows/release.yml`, the release pipeline triggered by `v*` t
 > - If `docs/RELEASES.md` does not yet exist, it is created by Phase 16 — the append regex assumes the table's first data row begins `| \`v`.
 > - Do NOT push the images on non-tag events; the trigger is `tags: ['v*']` only.
 >   Verification:
->
 > - `actionlint .github/workflows/release.yml` — expected: no errors.
 > - `grep -n "id-token: write" .github/workflows/release.yml` — expected: match (job-scoped).
 > - `grep -n "ghcr.io/bymaxone/nest-logger-example-" .github/workflows/release.yml` — expected: api + web matches.
@@ -676,6 +680,7 @@ Create `apps/api/Dockerfile`, the production image for the NestJS API consumed b
 > Steps:
 >
 > 1. Create `/apps/api/Dockerfile`:
+>
 >    ```dockerfile
 >    # syntax=docker/dockerfile:1
 >
@@ -711,6 +716,7 @@ Create `apps/api/Dockerfile`, the production image for the NestJS API consumed b
 >    # start:instrumented variant — preload the OTel SDK via --import:
 >    #   CMD ["node", "--enable-source-maps", "--import", "./dist/instrumentation.js", "dist/main.js"]
 >    ```
+>
 > 2. If `/.dockerignore` does not exist, create it:
 >    ```
 >    **/node_modules
@@ -730,7 +736,6 @@ Create `apps/api/Dockerfile`, the production image for the NestJS API consumed b
 > - Keep `--enable-source-maps` in the default `CMD` (do not strip it for size).
 > - Adjust `EXPOSE` to the API's actual `PORT` (Appendix A) if it differs from `4000`.
 >   Verification:
->
 > - `docker build -f apps/api/Dockerfile -t nest-logger-example-api:local .` — expected: build succeeds.
 > - `docker run --rm nest-logger-example-api:local node -e "console.log(process.version)"` — expected: `v24.*`.
 > - `grep -n "enable-source-maps" apps/api/Dockerfile` — expected: match in the default CMD.
@@ -786,6 +791,7 @@ Create `apps/web/Dockerfile`, the production image for the Next.js 16 dashboard 
 > Steps:
 >
 > 1. Create `/apps/web/Dockerfile`:
+>
 >    ```dockerfile
 >    # syntax=docker/dockerfile:1
 >
@@ -820,6 +826,7 @@ Create `apps/web/Dockerfile`, the production image for the Next.js 16 dashboard 
 >    EXPOSE 3000
 >    CMD ["node", "apps/web/server.js"]
 >    ```
+>
 > 2. Ensure `apps/web/next.config.*` sets `output: 'standalone'` (note it in the task; the Phase 11 config should already do this — if not, add it).
 > 3. Create `/docker-compose.prod.yml` composing the published images + backing services:
 >    ```yaml
@@ -867,7 +874,6 @@ Create `apps/web/Dockerfile`, the production image for the Next.js 16 dashboard 
 > - Run the web runner as non-root; ship ONLY the standalone output (no source/tests).
 > - `docker-compose.prod.yml` must NOT hardcode secrets — read from `.env`; bind host ports to `127.0.0.1` only.
 >   Verification:
->
 > - `docker build -f apps/web/Dockerfile -t nest-logger-example-web:local --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000 .` — expected: build succeeds.
 > - `docker compose -f docker-compose.prod.yml config` — expected: validates without error.
 > - `grep -n "output: 'standalone'" apps/web/next.config.*` — expected: match.
@@ -937,7 +943,6 @@ Phase 17 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the whole re
 > - Do NOT skip hooks or lower any threshold to make CI green; fix the root cause.
 > - Use a throwaway `-rc` tag for verification so the real `v1.0.0` (Phase 18) stays clean.
 >   Verification:
->
 > - `gh pr checks <N>` — expected: every contract job `pass`.
 > - `gh run list --workflow=release.yml --limit 1` — expected: the tag run concluded `success`.
 > - `docker manifest inspect ghcr.io/bymaxone/nest-logger-example-api:<tag>` — expected: exit 0.

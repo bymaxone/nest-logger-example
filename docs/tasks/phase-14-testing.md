@@ -8,18 +8,18 @@
 
 ## Task index
 
-| ID     | Task                                                                          | Status | Priority | Size | Depends on             |
-| ------ | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P14-1  | `apps/api` Jest config (native ESM + ts-jest) + 100% coverage gate            | 🔴     | High     | M    | Phases 6–13            |
-| P14-2  | `apps/api` unit tests — destinations + `logger.config` + `LogAuditService` + guards/decorators | 🔴 | High | L | P14-1 |
-| P14-3  | `apps/api` supertest e2e — stdout-capture (logKeys, URL norm, requestId, `[REDACTED]`, double-log) | 🔴 | High | L | P14-1 |
-| P14-4  | `apps/api` e2e — `logs/` read-API (paging, aggregate, facets, SSE stream emits) | 🔴   | High     | L    | P14-3                  |
-| P14-5  | `apps/api` e2e — `apps/worker` `traceId` propagation across the HTTP hop       | 🔴     | High     | M    | P14-3                  |
-| P14-6  | Optional `docker-compose.test.yml` + `infra:test:up/down` + Testcontainers Loki | 🔴    | Low      | M    | P14-4                  |
-| P14-7  | `apps/web` Vitest config (jsdom, v8) + 100% thresholds on `lib/**`+`components/**` (pin Vitest major) | 🔴 | High | M | Phases 11–13 |
-| P14-8  | `apps/web` unit tests — severity mapping, filters↔URL (`nuqs`), SSE hook ring buffer, log-key validation | 🔴 | High | L | P14-7 |
-| P14-9  | `apps/web` Playwright journeys (Trigger → live Explorer → trace; brush → filter; RBAC scoping) | 🔴 | High | L | P14-7 |
-| P14-10 | Verification gate — `pnpm test:cov` + `pnpm test:e2e` 100% in both workspaces  | 🔴     | High     | M    | P14-1..P14-9           |
+| ID     | Task                                                                                                     | Status | Priority | Size | Depends on   |
+| ------ | -------------------------------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P14-1  | `apps/api` Jest config (native ESM + ts-jest) + 100% coverage gate                                       | 🔴     | High     | M    | Phases 6–13  |
+| P14-2  | `apps/api` unit tests — destinations + `logger.config` + `LogAuditService` + guards/decorators           | 🔴     | High     | L    | P14-1        |
+| P14-3  | `apps/api` supertest e2e — stdout-capture (logKeys, URL norm, requestId, `[REDACTED]`, double-log)       | 🔴     | High     | L    | P14-1        |
+| P14-4  | `apps/api` e2e — `logs/` read-API (paging, aggregate, facets, SSE stream emits)                          | 🔴     | High     | L    | P14-3        |
+| P14-5  | `apps/api` e2e — `apps/worker` `traceId` propagation across the HTTP hop                                 | 🔴     | High     | M    | P14-3        |
+| P14-6  | Optional `docker-compose.test.yml` + `infra:test:up/down` + Testcontainers Loki                          | 🔴     | Low      | M    | P14-4        |
+| P14-7  | `apps/web` Vitest config (jsdom, v8) + 100% thresholds on `lib/**`+`components/**` (pin Vitest major)    | 🔴     | High     | M    | Phases 11–13 |
+| P14-8  | `apps/web` unit tests — severity mapping, filters↔URL (`nuqs`), SSE hook ring buffer, log-key validation | 🔴     | High     | L    | P14-7        |
+| P14-9  | `apps/web` Playwright journeys (Trigger → live Explorer → trace; brush → filter; RBAC scoping)           | 🔴     | High     | L    | P14-7        |
+| P14-10 | Verification gate — `pnpm test:cov` + `pnpm test:e2e` 100% in both workspaces                            | 🔴     | High     | M    | P14-1..P14-9 |
 
 ---
 
@@ -61,6 +61,7 @@ Consolidate the `apps/api` Jest setup into one canonical config that runs under 
 > 1. Install the test toolchain in `apps/api` (if not already present from earlier phases):
 >    `pnpm add -D --filter api jest@^30 ts-jest@^29 @types/jest @nestjs/testing supertest @types/supertest pino-test`.
 > 2. Create `apps/api/jest.config.ts`:
+>
 >    ```ts
 >    import type { Config } from 'jest'
 >
@@ -104,6 +105,7 @@ Consolidate the `apps/api` Jest setup into one canonical config that runs under 
 >
 >    export default config
 >    ```
+>
 > 3. Create `apps/api/test/jest-e2e.config.ts` — same ESM transform, but `roots: ['<rootDir>/test']`, `testRegex: '\\.e2e-spec\\.ts$'`, and **no** `coverageThreshold`/`collectCoverage` (e2e measures behavior, not coverage).
 > 4. Edit `apps/api/package.json` scripts (note: `--experimental-vm-modules` is required for Jest native ESM):
 >    ```jsonc
@@ -111,8 +113,8 @@ Consolidate the `apps/api` Jest setup into one canonical config that runs under 
 >      "scripts": {
 >        "test": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.ts",
 >        "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.ts --coverage",
->        "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.ts --runInBand"
->      }
+>        "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.ts --runInBand",
+>      },
 >    }
 >    ```
 >    Constraints:
@@ -122,7 +124,6 @@ Consolidate the `apps/api` Jest setup into one canonical config that runs under 
 > - Jest native ESM is still flagged experimental as of Jest 30.4 (Appendix C) — keep the `NODE_OPTIONS` flag and a one-line comment noting a CJS-transform fallback exists if an upstream change breaks it. Do NOT silently fall back to CJS.
 > - Do NOT use `@ts-ignore` / `eslint-disable` anywhere in the config or tests.
 >   Verification:
->
 > - `pnpm --filter api exec jest --config jest.config.ts --showConfig` — expected: prints the resolved config; `coverageThreshold.global` shows all four metrics at 100.
 > - `pnpm --filter api test:cov` — expected: the runner boots under ESM (no "Cannot use import statement" / VM-modules error); coverage is enforced at 100 once P14-2..P14-5 land.
 
@@ -180,6 +181,7 @@ Write the `apps/api` **unit** tests that drive every non-HTTP unit to 100% cover
 > Steps:
 >
 > 1. **`LokiDestination`** — fake timers + a mocked `fetch`:
+>
 >    ```ts
 >    import { jest } from '@jest/globals'
 >    import { LokiDestination } from './loki.destination'
@@ -197,14 +199,19 @@ Write the `apps/api` **unit** tests that drive every non-HTTP unit to 100% cover
 >
 >    it('fails soft on a bad URL — writes LOGGER_DESTINATION_WRITE_FAILED to stderr, never throws', async () => {
 >      const stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => true)
->      globalThis.fetch = (async () => { throw new Error('ECONNREFUSED') }) as unknown as typeof fetch
+>      globalThis.fetch = (async () => {
+>        throw new Error('ECONNREFUSED')
+>      }) as unknown as typeof fetch
 >      const dest = new LokiDestination({ url: 'http://bad', batchSize: 1 })
 >      await expect((async () => dest.write('{"a":1}\n'))()).resolves.toBeUndefined()
 >      await new Promise((r) => setTimeout(r, 0))
->      expect(String(stderr.mock.calls.flat().join(''))).toContain('LOGGER_DESTINATION_WRITE_FAILED')
+>      expect(String(stderr.mock.calls.flat().join(''))).toContain(
+>        'LOGGER_DESTINATION_WRITE_FAILED',
+>      )
 >      stderr.mockRestore()
 >    })
 >    ```
+>
 > 2. **`PrismaLogDestination`** — inject a mock Prisma client (`{ applicationLog: { createMany: jest.fn() } }`); assert a `debug`/`info` line below `minLevel: 'warn'` is dropped, a `warn`+ line is buffered and `createMany`'d on flush, and a non-JSON payload hits the parse-guard branch without throwing.
 > 3. **`RollingFileDestination`** — `jest.mock('pino-roll', ...)`; assert `onInit()` awaits the stream factory and `write()` forwards the line.
 > 4. **`logger.config`** — call `buildLoggerOptions(configStub, prismaStub)` with `NODE_ENV='production'` and `'development'`; assert `isPretty` flips, `LOG_EXTRA_REDACT_PATHS='a, b ,'` parses to `['a','b']` and merges into `redactPaths`, `http.excludePaths` are the two anchored RegExps, and `RollingFileDestination` is present only when not prod. Use a `ConfigService`-shaped stub (`get`/`getOrThrow`).
@@ -223,7 +230,6 @@ Write the `apps/api` **unit** tests that drive every non-HTTP unit to 100% cover
 > - Never log to the logger from inside a destination's `write()` (infinite loop) — assert failures go to `process.stderr` (`OVERVIEW.md` §11/§12).
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`; do NOT delete a hard-to-cover branch to reach 100 — test it.
 >   Verification:
->
 > - `pnpm --filter api test:cov` — expected: every file covered by these specs reports 100% b/l/f/s; no test is `.skip`/`.todo`.
 > - `pnpm --filter api exec jest loki.destination` — expected: the fail-soft `catch` branch is hit (visible in the per-file branch coverage).
 
@@ -279,6 +285,7 @@ Write the core HTTP **e2e** suite using **supertest** against a booted Nest app,
 > Steps:
 >
 > 1. Create `test/utils/capture-stdout.ts`:
+>
 >    ```ts
 >    import { jest } from '@jest/globals'
 >
@@ -290,7 +297,9 @@ Write the core HTTP **e2e** suite using **supertest** against a booted Nest app,
 >      }
 >    }
 >    ```
+>
 > 2. Boot the app once per suite:
+>
 >    ```ts
 >    import { Test } from '@nestjs/testing'
 >    import { PinoLoggerService } from '@bymax-one/nest-logger'
@@ -304,15 +313,23 @@ Write the core HTTP **e2e** suite using **supertest** against a booted Nest app,
 >      app.useLogger(app.get(PinoLoggerService))
 >      await app.init()
 >    })
->    afterAll(async () => { await app.close() })
+>    afterAll(async () => {
+>      await app.close()
+>    })
 >    ```
+>
 > 3. The canonical redaction + HTTP-keys assertion (from `OVERVIEW.md` §16):
 >    ```ts
 >    it('logs HTTP_REQUEST_START + HTTP_REQUEST_SUCCESS and redacts the body', async () => {
 >      const out = captureStdout()
 >      await request(app.getHttpServer())
 >        .post('/pii-demo/signup')
->        .send({ email: 'a@b.com', password: 'p@ss', cpf: '12345678900', cardNumber: '4111111111111111' })
+>        .send({
+>          email: 'a@b.com',
+>          password: 'p@ss',
+>          cpf: '12345678900',
+>          cardNumber: '4111111111111111',
+>        })
 >        .expect(201)
 >      const logs = out.lines()
 >      expect(logs).toContain('"logKey":"HTTP_REQUEST_START"')
@@ -332,7 +349,6 @@ Write the core HTTP **e2e** suite using **supertest** against a booted Nest app,
 > - Assert raw PII is **absent** (`not.toContain`) in addition to asserting `[REDACTED]` is present — both directions.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: `http-logging.e2e-spec.ts` passes; the double-log test proves `HTTP_EXCEPTION_HANDLED` count === 1.
 
 ### Completion Protocol
@@ -390,7 +406,9 @@ E2E-cover the `logs/` read-API that powers the dashboard (Phase 10): keyset pagi
 >    const first = await request(app.getHttpServer()).get('/logs?limit=2').expect(200)
 >    expect(first.body.items).toHaveLength(2)
 >    const cursor = first.body.nextCursor
->    const second = await request(app.getHttpServer()).get(`/logs?limit=2&cursor=${cursor}`).expect(200)
+>    const second = await request(app.getHttpServer())
+>      .get(`/logs?limit=2&cursor=${cursor}`)
+>      .expect(200)
 >    const firstIds = first.body.items.map((r: { id: string }) => r.id)
 >    const secondIds = second.body.items.map((r: { id: string }) => r.id)
 >    expect(firstIds.some((id: string) => secondIds.includes(id))).toBe(false) // no overlap
@@ -402,10 +420,13 @@ E2E-cover the `logs/` read-API that powers the dashboard (Phase 10): keyset pagi
 >    it('streams a new log entry as an SSE event', async () => {
 >      const server = app.getHttpServer()
 >      const events: string[] = []
->      const req = request(server).get('/logs/stream').buffer(false).parse((res, cb) => {
->        res.on('data', (chunk: Buffer) => events.push(chunk.toString()))
->        res.on('end', () => cb(null, Buffer.from('')))
->      })
+>      const req = request(server)
+>        .get('/logs/stream')
+>        .buffer(false)
+>        .parse((res, cb) => {
+>          res.on('data', (chunk: Buffer) => events.push(chunk.toString()))
+>          res.on('end', () => cb(null, Buffer.from('')))
+>        })
 >      const pending = req.then(() => {}).catch(() => {})
 >      await new Promise((r) => setTimeout(r, 100)) // let the subscription attach
 >      await request(server).post('/trigger/level').send({ level: 'info' }).expect(201)
@@ -423,7 +444,6 @@ E2E-cover the `logs/` read-API that powers the dashboard (Phase 10): keyset pagi
 > - Assert the aggregate **math** (counts), not merely that the route returns 200 — the gate is that the numbers reconcile with the seed.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: `logs-api.e2e-spec.ts` + `logs-sse.e2e-spec.ts` pass; the SSE test observes a `data:` frame after the trigger; the paging test shows zero id overlap across pages.
 
 ### Completion Protocol
@@ -481,7 +501,10 @@ E2E-prove **cross-service trace correlation**: a `POST /downstream/dispatch` on 
 >    ```ts
 >    it('propagates one traceId across the api → worker hop', async () => {
 >      const out = captureStdout()
->      await request(app.getHttpServer()).post('/downstream/dispatch').send({ payload: 'x' }).expect(201)
+>      await request(app.getHttpServer())
+>        .post('/downstream/dispatch')
+>        .send({ payload: 'x' })
+>        .expect(201)
 >      await new Promise((r) => setTimeout(r, 300)) // let the worker log
 >      const lines = out.lines()
 >      const apiMatch = /"traceId":"([0-9a-f]{32})"/.exec(lines)
@@ -501,7 +524,6 @@ E2E-prove **cross-service trace correlation**: a `POST /downstream/dispatch` on 
 > - Always close both apps in `afterAll` (and free the ephemeral port); never leave the worker listening.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: `worker-trace-propagation.e2e-spec.ts` passes; the api `traceId` equals the worker `trace_id` value.
 
 ### Completion Protocol
@@ -557,6 +579,7 @@ Add the **optional** integration tier: a `docker-compose.test.yml` wired to the 
 > 2. Confirm root `infra:test:up` = `docker compose -f docker-compose.test.yml up -d --wait` and `infra:test:down` = `docker compose -f docker-compose.test.yml down -v` (from P0-1).
 > 3. Install Testcontainers in `apps/api`: `pnpm add -D --filter api testcontainers`.
 > 4. Write `test/integration/loki.int-spec.ts`:
+>
 >    ```ts
 >    import { GenericContainer, type StartedTestContainer } from 'testcontainers'
 >    import { LokiDestination } from '../../src/destinations/loki.destination'
@@ -565,7 +588,9 @@ Add the **optional** integration tier: a `docker-compose.test.yml` wired to the 
 >    beforeAll(async () => {
 >      loki = await new GenericContainer('grafana/loki:latest').withExposedPorts(3100).start()
 >    }, 120_000)
->    afterAll(async () => { await loki.stop() })
+>    afterAll(async () => {
+>      await loki.stop()
+>    })
 >
 >    it('pushes a line to a real Loki and queries it back', async () => {
 >      const base = `http://${loki.getHost()}:${loki.getMappedPort(3100)}`
@@ -577,6 +602,7 @@ Add the **optional** integration tier: a `docker-compose.test.yml` wired to the 
 >      // expect a LogQL query for {service=...} to return the pushed line
 >    })
 >    ```
+>
 > 5. Add `apps/api/package.json` script `test:int` with a regex that matches **only** `*.int-spec.ts` (and ensure the unit/e2e configs exclude `test/integration/**`).
 >    Constraints:
 >
@@ -585,7 +611,6 @@ Add the **optional** integration tier: a `docker-compose.test.yml` wired to the 
 > - Give container startup a generous timeout (Loki cold start); always `stop()` the container in `afterAll`.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm infra:test:up` then `pnpm --filter api test:int` (Docker available) — expected: the pushed line is queryable; exit 0. `pnpm infra:test:down` tears it down.
 > - `pnpm --filter api test` — expected: the integration spec is NOT picked up (default run stays hermetic).
 
@@ -642,6 +667,7 @@ Set up the `apps/web` **Vitest** test harness with the `jsdom` environment and t
 > 1. Install pinned dev-deps:
 >    `pnpm add -D --filter web vitest@^3 @vitest/coverage-v8@^3 jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event`.
 > 2. Create `apps/web/vitest.config.ts`:
+>
 >    ```ts
 >    import { defineConfig } from 'vitest/config'
 >    import react from '@vitejs/plugin-react'
@@ -663,6 +689,7 @@ Set up the `apps/web` **Vitest** test harness with the `jsdom` environment and t
 >      },
 >    })
 >    ```
+>
 > 3. Create `apps/web/vitest.setup.ts`:
 >    ```ts
 >    import '@testing-library/jest-dom/vitest'
@@ -672,12 +699,12 @@ Set up the `apps/web` **Vitest** test harness with the `jsdom` environment and t
 >    {
 >      "scripts": {
 >        "test": "vitest run",
->        "test:cov": "vitest run --coverage"
+>        "test:cov": "vitest run --coverage",
 >      },
 >      "devDependencies": {
->        "vitest": "^3",                 // PINNED major — Stryker 9 vitest-runner needs Vitest >= 2
->        "@vitest/coverage-v8": "^3"
->      }
+>        "vitest": "^3", // PINNED major — Stryker 9 vitest-runner needs Vitest >= 2
+>        "@vitest/coverage-v8": "^3",
+>      },
 >    }
 >    ```
 >    Constraints:
@@ -687,7 +714,6 @@ Set up the `apps/web` **Vitest** test harness with the `jsdom` environment and t
 > - Exclude shadcn primitives (`components/ui/**`) from coverage — they are vendored, not authored here; do NOT exclude `lib/**` or your own `components/`.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter web exec vitest --version` — expected: a `3.x` version (pinned).
 > - `pnpm --filter web test:cov` — expected: the runner boots under jsdom with the v8 provider; thresholds show 100 on all four metrics once P14-8 lands.
 
@@ -743,31 +769,48 @@ Write the `apps/web` **Vitest** unit suite that drives `lib/**` + `components/**
 > Steps:
 >
 > 1. **Severity mapping** — table-drive every level:
+>
 >    ```ts
 >    import { describe, it, expect } from 'vitest'
 >    import { toSeverity } from '@/lib/severity'
 >    import type { LogLevel } from '@bymax-one/nest-logger/shared'
 >
 >    it.each<[LogLevel, string]>([
->      ['fatal', 'critical'], ['error', 'error'], ['warn', 'warning'],
->      ['info', 'info'], ['debug', 'muted'], ['trace', 'muted'],
+>      ['fatal', 'critical'],
+>      ['error', 'error'],
+>      ['warn', 'warning'],
+>      ['info', 'info'],
+>      ['debug', 'muted'],
+>      ['trace', 'muted'],
 >    ])('maps %s → %s', (level, expected) => {
 >      expect(toSeverity(level).bucket).toBe(expected)
 >    })
->    it('falls back for an unknown level', () => { expect(toSeverity('???' as LogLevel).bucket).toBe('info') })
+>    it('falls back for an unknown level', () => {
+>      expect(toSeverity('???' as LogLevel).bucket).toBe('info')
+>    })
 >    ```
+>
 > 2. **Filters↔URL** — assert the `nuqs` parsers round-trip; for the hook form, wrap with `NuqsTestingAdapter` (`renderHook(..., { wrapper })`) and assert `setFilters({...})` reflects into the URL search params and back.
 > 3. **SSE ring buffer** — `renderHook(() => useLogStream(...))` with `vi.useFakeTimers()`; push more than the cap and assert `result.current.entries.length === MAX` and the oldest id is gone; toggle follow/pause and assert append behavior; advance timers to flush the rAF/interval batch.
 > 4. **Log-key validation**:
+>
 >    ```ts
 >    import { LOG_KEYS_CONVENTION_REGEX, RESERVED_LOG_KEYS } from '@bymax-one/nest-logger/shared'
 >    import { isValidLogKey } from '@/lib/log-keys'
 >
->    it('accepts a valid MODULE_ACTION_RESULT key', () => { expect(isValidLogKey('ORDER_CREATE_SUCCESS')).toBe(true) })
->    it('rejects a malformed key', () => { expect(isValidLogKey('bad-key')).toBe(false) })
->    it('flags a reserved key', () => { expect(isValidLogKey(RESERVED_LOG_KEYS[0]!).isReserved).toBe(true) })
+>    it('accepts a valid MODULE_ACTION_RESULT key', () => {
+>      expect(isValidLogKey('ORDER_CREATE_SUCCESS')).toBe(true)
+>    })
+>    it('rejects a malformed key', () => {
+>      expect(isValidLogKey('bad-key')).toBe(false)
+>    })
+>    it('flags a reserved key', () => {
+>      expect(isValidLogKey(RESERVED_LOG_KEYS[0]!).isReserved).toBe(true)
+>    })
 >    ```
+>
 >    (Adapt to the real `lib/log-keys.ts` API from Phase 11.)
+>
 > 5. Add component specs for any remaining `components/**` files (render with Testing Library, assert real text/roles) until coverage hits 100.
 >    Constraints:
 >
@@ -776,7 +819,6 @@ Write the `apps/web` **Vitest** unit suite that drives `lib/**` + `components/**
 > - Assert real rendered output (roles/text), never fabricated `className` strings; cover every branch (including default/fallback) — do NOT `/* istanbul ignore */` a branch.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter web test:cov` — expected: 100% b/l/f/s on `lib/**` + `components/**`; no `.skip`/`.todo`.
 
 ### Completion Protocol
@@ -832,6 +874,7 @@ Write the `apps/web` **Playwright** end-to-end journeys that exercise the dashbo
 >
 > 1. `pnpm add -D --filter web @playwright/test` and (in CI) `pnpm --filter web exec playwright install --with-deps chromium`.
 > 2. Create `apps/web/playwright.config.ts`:
+>
 >    ```ts
 >    import { defineConfig } from '@playwright/test'
 >
@@ -847,7 +890,9 @@ Write the `apps/web` **Playwright** end-to-end journeys that exercise the dashbo
 >      projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 >    })
 >    ```
+>
 > 3. **Trigger → Explorer → trace** (use stable `data-testid`/roles, not brittle CSS):
+>
 >    ```ts
 >    import { test, expect } from '@playwright/test'
 >
@@ -863,6 +908,7 @@ Write the `apps/web` **Playwright** end-to-end journeys that exercise the dashbo
 >      await expect(trace).toHaveAttribute('href', /traceId=|\/trace\//)
 >    })
 >    ```
+>
 > 4. **Brush → filter**: on `/`, brush the volume chart (mouse down → move → up over the chart region) and assert the URL gains the time-window `nuqs` params and the Explorer rows reflect the window.
 > 5. **RBAC scoping**: switch the tenant/role control and assert rows are scoped — e.g. every visible row's tenant cell equals the selected tenant; rows of another tenant are absent.
 >    Constraints:
@@ -872,7 +918,6 @@ Write the `apps/web` **Playwright** end-to-end journeys that exercise the dashbo
 > - Document the run prerequisites (API up via `infra:up` + `pnpm --filter api dev`) in the spec header; do NOT hardcode secrets.
 > - Do NOT use `@ts-ignore` / `eslint-disable` / `--no-verify`.
 >   Verification:
->
 > - `pnpm --filter web test:e2e` (with the API + web running) — expected: all three journeys pass; the trace link asserts a `traceId`-bearing href.
 
 ### Completion Protocol
@@ -935,7 +980,6 @@ Phase 14 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove `pnpm test:c
 > - Do NOT lower any coverage threshold; do NOT add `collectCoverageFrom`/`coverage.exclude` entries to mask a real gap; do NOT `--no-verify` / `@ts-ignore` / `.skip` to go green.
 > - The 100% bar is on all four metrics in both workspaces — partial is failing.
 >   Verification:
->
 > - `pnpm test:cov` — expected: exit 0; both apps report 100% branches/functions/lines/statements.
 > - `pnpm test:e2e` — expected: exit 0; api supertest + web Playwright suites pass.
 > - `pnpm lint && pnpm typecheck` — expected: exit 0.

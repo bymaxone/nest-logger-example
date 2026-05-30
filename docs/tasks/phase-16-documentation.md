@@ -8,16 +8,16 @@
 
 ## Task index
 
-| ID    | Task                                                                       | Status | Priority | Size | Depends on             |
-| ----- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P16-1 | `docs/GETTING_STARTED.md` — 5-minute quickstart → first correlated trace   | 🔴     | High     | M    | Phase 15               |
-| P16-2 | `docs/FEATURES.md` — guided feature tour + the §15 journeys (curl + logs)  | 🔴     | High     | L    | P16-1                  |
-| P16-3 | `docs/ARCHITECTURE.md` + `docs/DATABASE.md` — pipeline deep-dive + schema  | 🔴     | High     | L    | P16-1                  |
-| P16-4 | `docs/ENVIRONMENT.md` + `docs/DESTINATIONS.md` — env reference + custom dest | 🔴   | High     | L    | P16-1                  |
-| P16-5 | `docs/REDACTION.md` + `docs/OTEL.md` — 97 paths + OTel/Grafana/Sentry      | 🔴     | High     | L    | P16-1                  |
-| P16-6 | `docs/DEPLOYMENT.md` + `docs/TROUBLESHOOTING.md` — prod checklist + "no traceId?" | 🔴 | High   | M    | P16-1                  |
-| P16-7 | Root `README.md` (badges, quick start, feature checklist, ASCII arch) + `RELEASES.md` | 🔴 | High | M  | P16-1..P16-6           |
-| P16-8 | Verification gate — `markdown-link-check` + §6 coverage-matrix ↔ audit     | 🔴     | High     | S    | P16-1..P16-7           |
+| ID    | Task                                                                                  | Status | Priority | Size | Depends on   |
+| ----- | ------------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P16-1 | `docs/GETTING_STARTED.md` — 5-minute quickstart → first correlated trace              | 🔴     | High     | M    | Phase 15     |
+| P16-2 | `docs/FEATURES.md` — guided feature tour + the §15 journeys (curl + logs)             | 🔴     | High     | L    | P16-1        |
+| P16-3 | `docs/ARCHITECTURE.md` + `docs/DATABASE.md` — pipeline deep-dive + schema             | 🔴     | High     | L    | P16-1        |
+| P16-4 | `docs/ENVIRONMENT.md` + `docs/DESTINATIONS.md` — env reference + custom dest          | 🔴     | High     | L    | P16-1        |
+| P16-5 | `docs/REDACTION.md` + `docs/OTEL.md` — 97 paths + OTel/Grafana/Sentry                 | 🔴     | High     | L    | P16-1        |
+| P16-6 | `docs/DEPLOYMENT.md` + `docs/TROUBLESHOOTING.md` — prod checklist + "no traceId?"     | 🔴     | High     | M    | P16-1        |
+| P16-7 | Root `README.md` (badges, quick start, feature checklist, ASCII arch) + `RELEASES.md` | 🔴     | High     | M    | P16-1..P16-6 |
+| P16-8 | Verification gate — `markdown-link-check` + §6 coverage-matrix ↔ audit                | 🔴     | High     | S    | P16-1..P16-7 |
 
 ---
 
@@ -98,7 +98,6 @@ Write the "first five minutes" onboarding doc: from a clean clone to a NestJS AP
 > - Use only scripts/paths that actually exist in this repo (`pnpm infra:up`, `pnpm dev`, `pnpm --filter api …`); do NOT invent commands.
 > - Keep it to ~5 minutes of reading + doing; defer deep dives to the sibling docs via links.
 >   Verification:
->
 > - `npx markdown-link-check docs/GETTING_STARTED.md` — expected: every link resolves (run after the P16-6 docs exist; until then, no broken **intra-Phase-16** links).
 > - Manual: every fenced command maps 1:1 to a real `package.json` script or a real route.
 
@@ -173,7 +172,7 @@ Write the guided tour that walks every demonstrated library feature **and** the 
 >    logger.info('ORDER_CREATE_SUCCESS', 'Order created', userId, { orderId, amount })
 >    logger.warnStructured('PAYMENT_RETRYABLE', 'Will retry', userId, { attempt })
 >    logger.errorStructured('PAYMENT_CHARGE_FAILED', error, userId, { orderId })
->    logger.fatal('boot failed', err)   // variadic — there is NO fatalStructured
+>    logger.fatal('boot failed', err) // variadic — there is NO fatalStructured
 >    ```
 > 5. For the slow-path journey use `GET /orders/slow` → `METHOD_SLOW_EXECUTION` (decorator `@LogPerformance(ms)`); for oversized use `POST /pii-demo/huge` → `LOGGER_ENTRY_TRUNCATED`; for fault use a dead `LOKI_URL` → `LOGGER_DESTINATION_WRITE_FAILED` on stderr while the app keeps serving; for shutdown use `SIGTERM` → `LOGGER_SHUTDOWN_OK`.
 >    Constraints:
@@ -182,7 +181,6 @@ Write the guided tour that walks every demonstrated library feature **and** the 
 > - Every `logKey` you invent for the demo domain must be `MODULE_ACTION_RESULT` (uppercase, ≥2 segments) and MUST NOT equal any of the 16 reserved keys.
 > - Keep outputs realistic and post-redaction (no raw PII anywhere in the doc).
 >   Verification:
->
 > - `npx markdown-link-check docs/FEATURES.md` — expected: all links resolve.
 > - `grep -c "fatalStructured" docs/FEATURES.md` — expected: `0`.
 > - Manual: every journey in `OVERVIEW.md` §15 has a matching `##` section here.
@@ -251,6 +249,7 @@ Write the two structural docs. `ARCHITECTURE.md` is the deep dive into the five-
 > 2. Add a **module boundaries** section: `apps/api` owns the OTel SDK bootstrap (`instrumentation.ts` first) + `forRootAsync`; `apps/worker` is a second service with its own SDK and `otel.fieldFormat: 'snake_case'`; `apps/web` never touches Postgres/Loki directly — it reads the `logs/` API and imports only the `/shared` subpath.
 > 3. **DATABASE.md** — H1, then the `ApplicationLog` model fenced as `prisma` (id/level/logKey/message/service/requestId/traceId/payload Json/createdAt + the four `@@index` lines). Note the dashboard-grade superset (time/status/durationMs/tenantId/spanId + BRIN/keyset/GIN) lives in `DASHBOARD.md` §13; do not duplicate it.
 > 4. Add a **Querying the durable tier** section with real SQL:
+>
 >    ```sql
 >    -- Reconstruct one request end-to-end from the database alone:
 >    SELECT "createdAt", level, "logKey", message, payload
@@ -265,7 +264,9 @@ Write the two structural docs. `ARCHITECTURE.md` is the deep dive into the five-
 >    ORDER BY "createdAt" DESC, id DESC
 >    LIMIT 50;
 >    ```
+>
 >    Plus the Prisma equivalent (`prisma.applicationLog.findMany({ where: { traceId }, orderBy: { createdAt: 'asc' } })`).
+>
 > 5. Add a **Two-tier model** section: `warn`+ → Postgres (durable/audit, gated by `LOG_DB_MIN_LEVEL`, default `warn`); `info`+ → Loki (aggregation). Stress that `payload` is **already redacted** before it is written — no raw PII in Postgres — and cross-link `REDACTION.md`.
 >    Constraints:
 >
@@ -273,7 +274,6 @@ Write the two structural docs. `ARCHITECTURE.md` is the deep dive into the five-
 > - Keep the dashboard-grade schema in `DASHBOARD.md` (link to it) — `DATABASE.md` documents the simplified shape + querying, not a copy.
 > - SQL must match the actual column names/casing of the Prisma model.
 >   Verification:
->
 > - `npx markdown-link-check docs/ARCHITECTURE.md docs/DATABASE.md` — expected: all links resolve.
 > - `grep -E "TraceContextMixin|REDACT_MAX_DEPTH" docs/ARCHITECTURE.md` — expected: only in an "internal (not exported)" context, never in an `import` line.
 
@@ -334,19 +334,25 @@ Write the configuration + extensibility pair. `ENVIRONMENT.md` is the full env-v
 >    ```typescript
 >    interface ILogDestination {
 >      readonly name: string
->      readonly minLevel?: LogLevel              // undefined = accept everything
+>      readonly minLevel?: LogLevel // undefined = accept everything
 >      write(payload: string): void | Promise<void> // already-serialized JSON, newline-terminated, UTF-8
->      onInit?(): void | Promise<void>           // module init: open connections, start flush timers
->      onShutdown?(): void | Promise<void>       // onApplicationShutdown: flush + close (reverse order)
+>      onInit?(): void | Promise<void> // module init: open connections, start flush timers
+>      onShutdown?(): void | Promise<void> // onApplicationShutdown: flush + close (reverse order)
 >    }
 >    ```
 > 5. Walk the canonical `LokiDestination` (buffer + flush timer + ns-timestamp + fail-soft) — adapt the §12 implementation. Then a "wire it" snippet:
 >    ```typescript
 >    // apps/api/src/logger/logger.config.ts
 >    destinations: [
->      new LokiDestination({ url: config.getOrThrow('LOKI_URL'), batchSize: 50, flushIntervalMs: 3_000 }),
+>      new LokiDestination({
+>        url: config.getOrThrow('LOKI_URL'),
+>        batchSize: 50,
+>        flushIntervalMs: 3_000,
+>      }),
 >      new PrismaLogDestination(prisma, { minLevel: config.get('LOG_DB_MIN_LEVEL') ?? 'warn' }),
->      ...(isProd ? [] : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
+>      ...(isProd
+>        ? []
+>        : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
 >    ]
 >    ```
 > 6. Add a **Gotchas** section (verbatim intent from §12): multistream parent-level math; `/loki/api/v1/push` + `String(BigInt(Date.now()) * 1_000_000n)`; async `onInit` for `pino-roll`; shared payload immutability; never log from `write()` (stderr `LOGGER_DESTINATION_WRITE_FAILED`); worker-thread transports do not inherit ALS.
@@ -357,7 +363,6 @@ Write the configuration + extensibility pair. `ENVIRONMENT.md` is the full env-v
 > - Do NOT duplicate the dashboard-grade DB schema here (that's `DATABASE.md`/`DASHBOARD.md`).
 > - Keep env names exactly as standardized in §9 (OTel-aligned).
 >   Verification:
->
 > - `npx markdown-link-check docs/ENVIRONMENT.md docs/DESTINATIONS.md` — expected: all links resolve.
 > - Manual: count the env table rows == the §9 table rows (16).
 > - `grep -E "redactCensor *: *\(" docs/DESTINATIONS.md docs/ENVIRONMENT.md` — expected: no match (no censor function).
@@ -428,7 +433,11 @@ Write the two "crown-jewel" feature docs. `REDACTION.md` documents the **97 defa
 >    Note paths are merged with (never replace) the 97 defaults.
 > 4. **Auditing** subsection — show `LogAuditService` importing the exported defaults:
 >    ```typescript
->    import { DEFAULT_REDACT_PATHS, LOGGER_OPTIONS_TOKEN, type BymaxLoggerModuleOptions } from '@bymax-one/nest-logger'
+>    import {
+>      DEFAULT_REDACT_PATHS,
+>      LOGGER_OPTIONS_TOKEN,
+>      type BymaxLoggerModuleOptions,
+>    } from '@bymax-one/nest-logger'
 >    // effective = [...DEFAULT_REDACT_PATHS, ...(opts.redactPaths ?? [])]
 >    ```
 >    Plus the `shouldDisableDefaultRedact: true → LOGGER_BOOTSTRAP_WARNING` opt-out (test-module only) and the LGPD note (`nome` logged in cleartext on purpose).
@@ -447,7 +456,6 @@ Write the two "crown-jewel" feature docs. `REDACTION.md` documents the **97 defa
 > - Do NOT recommend gating correlation on `traceFlags` (unsampled spans must be kept).
 > - No raw PII in any example.
 >   Verification:
->
 > - `npx markdown-link-check docs/REDACTION.md docs/OTEL.md` — expected: all links resolve.
 > - `grep -E "autoInjectTraceContext|fatalStructured|@sentry/pino" docs/OTEL.md docs/REDACTION.md` — expected: `0` matches.
 > - Manual: the redact-path category counts sum to 23 common (+5 headers = 97 with the ×4 depths).
@@ -505,7 +513,10 @@ Write the operational pair. `DEPLOYMENT.md` is the production checklist from `OV
 >    ```typescript
 >    // main.ts — the ONE shutdown owner (no competing process.exit in instrumentation.ts)
 >    process.once('SIGTERM', () => {
->      void app.close().then(() => otelSdk.shutdown()).finally(() => process.exit(0))
+>      void app
+>        .close()
+>        .then(() => otelSdk.shutdown())
+>        .finally(() => process.exit(0))
 >    })
 >    ```
 > 2. Add a **Version pins** subsection (sdk-node `^0.218` own 0.x line; cap on `@opentelemetry/api >=1.9.0 <1.10`; `auto-instrumentations-node ^0.76`) and a **Container** subsection (`node --enable-source-maps dist/main.js`; the `--import ./dist/instrumentation.mjs` Node 20.6+ variant). Cross-link `docker-compose.prod.yml` (Phase 17) without duplicating it.
@@ -519,13 +530,12 @@ Write the operational pair. `DEPLOYMENT.md` is the production checklist from `OV
 >    - "`debug`/`trace` lines never appear" — the Pino parent `level` must be the lowest of all destination `minLevel`s + `LOG_LEVEL`.
 >    - `LOGGER_BOOTSTRAP_WARNING` — defaults disabled via `shouldDisableDefaultRedact` (should only ever be a test module).
 >    - "`Cannot find module '@bymax-one/nest-logger'`" — the sibling `link:` target isn't built; `pnpm build` in `../nest-logger`.
->    Constraints:
+>      Constraints:
 >
 > - English only; reconciled `0.1.0` only (NO `fatalStructured`; `shouldAutoInjectTraceContext`; `http.excludePaths: RegExp[]`).
 > - Treat `LOGGER_ERROR_CODES` as **internal** — document the **observable behaviors/log keys**, never as importable symbols.
 > - Every fix must be a real action (a command, an env change, a config line) — no hand-waving.
 >   Verification:
->
 > - `npx markdown-link-check docs/DEPLOYMENT.md docs/TROUBLESHOOTING.md` — expected: all links resolve.
 > - `grep -c "No \`traceId\`" docs/TROUBLESHOOTING.md` — expected: ≥ 1 (the flagship entry exists).
 
@@ -584,8 +594,7 @@ Replace the Phase 0 README stub with the full root `README.md` in the **`nest-au
 >    ```html
 >    <p align="center">
 >      <a href="https://github.com/bymaxone/nest-logger">📦 Library</a> ·
->      <a href="#-quick-start">🚀 Quick Start</a> ·
->      <a href="#-whats-inside">✅ Features</a> ·
+>      <a href="#-quick-start">🚀 Quick Start</a> · <a href="#-whats-inside">✅ Features</a> ·
 >      <a href="#-architecture">🏗️ Architecture</a> ·
 >      <a href="docs/OVERVIEW.md">📖 Docs</a>
 >    </p>
@@ -608,7 +617,6 @@ Replace the Phase 0 README stub with the full root `README.md` in the **`nest-au
 > - Do NOT overstate test numbers — reference "100% coverage + 100% Stryker" (the gates), not invented suite counts.
 > - This replaces the P0-7 stub; keep the same links-into-`docs/` intent but expand fully.
 >   Verification:
->
 > - `npx markdown-link-check README.md docs/RELEASES.md` — expected: all links resolve.
 > - `grep -E "fatalStructured|autoInjectTraceContext" README.md` — expected: `0` matches.
 > - Manual: the Documentation section lists all 14 doc links above.
@@ -684,7 +692,6 @@ Phase 16 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the document
 > - Do NOT modify the library, the audit script's logic, or any non-docs source to make a check pass — fix the docs.
 > - Keep `OVERVIEW.md` edits surgical (only §6 rows that are actually wrong).
 >   Verification:
->
 > - `npx markdown-link-check --config .markdown-link-check.json docs/*.md README.md` — expected: 0 dead links.
 > - `grep -rnE "fatalStructured|autoInjectTraceContext|@LogContext\(store\)" docs/ README.md` — expected: exit 1 (no matches).
 > - `pnpm audit:exports` (if present) — expected: exit 0; matrix and audit agree.

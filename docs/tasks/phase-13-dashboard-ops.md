@@ -8,17 +8,17 @@
 
 ## Task index
 
-| ID    | Task                                                                          | Status | Priority | Size | Depends on             |
-| ----- | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P13-1 | `app/trigger/page.tsx` Trigger Center — card grid firing every log type       | 🔴     | High     | L    | Phase 12               |
-| P13-2 | Trigger cards — emitted `logKey`(s) + auto-pivot Explorer ("View in Explorer →") | 🔴   | High     | M    | P13-1                  |
-| P13-3 | `app/alerts/page.tsx` — rule form (`expr + threshold + for`) + Loki ruler YAML | 🔴     | High     | M    | Phase 12               |
-| P13-4 | Alerts — notification channel registry (Slack/webhook/email-mock, routing)    | 🔴     | High     | M    | P13-3                  |
-| P13-5 | Alerts — incident lifecycle (Triggered→Ack→Snoozed→Resolved) + timeline       | 🔴     | High     | M    | P13-3, P13-4           |
-| P13-6 | `app/maintenance/page.tsx` Retention (TTL sweep + Loki echo) + 🎓 callout      | 🔴     | High     | M    | Phase 12               |
-| P13-7 | Maintenance — JSON/CSV export (100k cap) + query-based RBAC (Viewer/Op/Admin) | 🔴     | High     | M    | P13-6                  |
-| P13-8 | Maintenance — redaction-at-source hero panel + `audit_events` table           | 🔴     | High     | M    | P13-6, P13-7           |
-| P13-9 | Verification gate — triggers→logKeys, alert→incident, export, tenant scoping  | 🔴     | High     | M    | P13-1..P13-8           |
+| ID    | Task                                                                             | Status | Priority | Size | Depends on   |
+| ----- | -------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
+| P13-1 | `app/trigger/page.tsx` Trigger Center — card grid firing every log type          | 🔴     | High     | L    | Phase 12     |
+| P13-2 | Trigger cards — emitted `logKey`(s) + auto-pivot Explorer ("View in Explorer →") | 🔴     | High     | M    | P13-1        |
+| P13-3 | `app/alerts/page.tsx` — rule form (`expr + threshold + for`) + Loki ruler YAML   | 🔴     | High     | M    | Phase 12     |
+| P13-4 | Alerts — notification channel registry (Slack/webhook/email-mock, routing)       | 🔴     | High     | M    | P13-3        |
+| P13-5 | Alerts — incident lifecycle (Triggered→Ack→Snoozed→Resolved) + timeline          | 🔴     | High     | M    | P13-3, P13-4 |
+| P13-6 | `app/maintenance/page.tsx` Retention (TTL sweep + Loki echo) + 🎓 callout        | 🔴     | High     | M    | Phase 12     |
+| P13-7 | Maintenance — JSON/CSV export (100k cap) + query-based RBAC (Viewer/Op/Admin)    | 🔴     | High     | M    | P13-6        |
+| P13-8 | Maintenance — redaction-at-source hero panel + `audit_events` table              | 🔴     | High     | M    | P13-6, P13-7 |
+| P13-9 | Verification gate — triggers→logKeys, alert→incident, export, tenant scoping     | 🔴     | High     | M    | P13-1..P13-8 |
 
 ---
 
@@ -58,6 +58,7 @@ Build the **Trigger Center** (`/trigger`) — the "acionar todos os tipos de log
 > Steps:
 >
 > 1. Create the typed client `apps/web/lib/trigger-api.ts`. Model each trigger as a typed descriptor and a `fire()` helper:
+>
 >    ```typescript
 >    // apps/web/lib/trigger-api.ts
 >    const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -85,7 +86,13 @@ Build the **Trigger Center** (`/trigger`) — the "acionar todos os tipos de log
 >      level: (level: string) => call('POST', '/trigger/level', { level }),
 >      order: () => call('POST', '/orders', { sku: 'DEMO-1', qty: 1 }),
 >      payment: () => call('POST', '/payments', { orderId: 'demo', amount: 4200 }),
->      piiSignup: () => call('POST', '/pii-demo/signup', { email: 'a@b.co', password: 's3cret', cpf: '111', cardNumber: '4111' }),
+>      piiSignup: () =>
+>        call('POST', '/pii-demo/signup', {
+>          email: 'a@b.co',
+>          password: 's3cret',
+>          cpf: '111',
+>          cardNumber: '4111',
+>        }),
 >      piiNested: () => call('POST', '/pii-demo/nested', { depth: 5 }),
 >      echoHeaders: () => call('GET', '/pii-demo/echo-headers'),
 >      huge: () => call('POST', '/pii-demo/huge', { padKb: 80 }),
@@ -93,9 +100,11 @@ Build the **Trigger Center** (`/trigger`) — the "acionar todos os tipos de log
 >      status: (code: number) => call('GET', `/trigger/status/${code}`),
 >      dispatch: () => call('POST', '/downstream/dispatch', { job: 'demo' }),
 >      faultLoki: () => call('POST', '/trigger/fault/loki'),
->      burst: (count: number, seconds: number) => call('POST', '/trigger/burst', { count, seconds }),
+>      burst: (count: number, seconds: number) =>
+>        call('POST', '/trigger/burst', { count, seconds }),
 >    }
 >    ```
+>
 > 2. Create `apps/web/components/trigger/trigger-card.tsx` — a shadcn `Card` with `CardHeader` (title + `Demonstrates` line), a mono endpoint `Badge`, an optional input slot (`children`), and a `Button` that runs the passed `onFire`, toggling a local `isFiring` state and emitting a `sonner` toast on success/failure. Keep it presentational; the fire callback is injected.
 > 3. Create `apps/web/components/trigger/trigger-grid.tsx` declaring the **12** trigger descriptors (title, demonstrates, endpoint label, the `triggerApi` call, and any inputs). For the status card render a small select of `[400, 404, 500, 503]`; for the burst card render `count` + `seconds` number inputs.
 > 4. Create `apps/web/app/trigger/page.tsx` — a server component that renders the page header ("Trigger Center / Log Playground", a one-line intro) inside the shared shell, then mounts `<TriggerGrid />` (a `'use client'` component since it holds fire state).
@@ -108,7 +117,6 @@ Build the **Trigger Center** (`/trigger`) — the "acionar todos os tipos de log
 > - Match the endpoints in `DASHBOARD.md` §8 **exactly** (path, method, the emitted feature); do not invent new routes.
 > - Defer the "View in Explorer →" link + Explorer auto-pivot to P13-2 — this task only fires and toasts.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: compiles with zero type errors.
 > - `pnpm --filter web dev`, open `/trigger` — expected: 12 cards render in the dark/glass shell; clicking **Fire** on "Emit each level" shows a loading state then a success toast (with `apps/api` running).
 > - `node -e "import('./apps/web/lib/trigger-api.ts')"` (or a Vitest import smoke) — expected: the module exposes all 12 trigger methods.
@@ -164,6 +172,7 @@ Close the Trigger Center loop (`DASHBOARD.md` §8): every card must **show the `
 > Steps:
 >
 > 1. Create `apps/web/lib/explorer-link.ts` building an Explorer href from the same param names Phase 12's `nuqs` parsers use:
+>
 >    ```typescript
 >    // apps/web/lib/explorer-link.ts
 >    export interface ExplorerTarget {
@@ -183,15 +192,17 @@ Close the Trigger Center loop (`DASHBOARD.md` §8): every card must **show the `
 >      return `/explorer?${p.toString()}`
 >    }
 >    ```
+>
 > 2. Extend each descriptor in `trigger-grid.tsx` with `logKeys: string[]` taken verbatim from `DASHBOARD.md` §8 (e.g. order → `['ORDER_CREATE_SUCCESS']`, payment → `['PAYMENT_REFUND_FAILED', 'HTTP_EXCEPTION_HANDLED']`, status → `['HTTP_REQUEST_CLIENT_ERROR', 'HTTP_REQUEST_SERVER_ERROR']`, slow → `['METHOD_SLOW_EXECUTION']`, huge → `['LOGGER_ENTRY_TRUNCATED']`, faultLoki → `['LOGGER_DESTINATION_WRITE_FAILED']`, dispatch → `['DOWNSTREAM_DISPATCH_SUCCESS']`).
 > 3. In `trigger-card.tsx`, render the `logKeys` as mono `Badge`s under the description. After a successful fire, store the `TriggerResult` and render the returned `requestId`/`traceId` plus a `next/link` to `explorerHref({ traceId } | { requestId })`. For the cross-service card prefer `traceId`; for burst, link with a `{ from, to }` window instead of an id.
 > 4. Guard the declared `logKeys` at module load (or in a unit test) against `LOG_KEYS_CONVENTION_REGEX`:
 >    ```typescript
 >    import { LOG_KEYS_CONVENTION_REGEX } from '@bymax-one/nest-logger/shared'
 >    // every declared logKey must match the library convention
->    for (const t of TRIGGERS) for (const k of t.logKeys) {
->      if (!LOG_KEYS_CONVENTION_REGEX.test(k)) throw new Error(`Invalid logKey literal: ${k}`)
->    }
+>    for (const t of TRIGGERS)
+>      for (const k of t.logKeys) {
+>        if (!LOG_KEYS_CONVENTION_REGEX.test(k)) throw new Error(`Invalid logKey literal: ${k}`)
+>      }
 >    ```
 > 5. Ensure the Explorer link opens on a relative range (so the live tail / keyset window includes the just-fired request).
 >    Constraints:
@@ -201,7 +212,6 @@ Close the Trigger Center loop (`DASHBOARD.md` §8): every card must **show the `
 > - Import `LOG_KEYS_CONVENTION_REGEX` from `@bymax-one/nest-logger/shared` (the isomorphic subpath) — never re-declare the regex locally.
 > - `logKey` literals must be copied from `DASHBOARD.md` §8 verbatim; do not paraphrase or rename keys.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors; the `logKey`-regex guard does not throw.
 > - With `apps/api` up: fire "Structured success", click **View in Explorer →** — expected: the Explorer opens filtered to that `requestId` and shows the `ORDER_CREATE_SUCCESS` row.
 > - Fire "Cross-service", follow the link — expected: the Explorer shows both `api` and `worker` rows sharing one `traceId`.
@@ -286,7 +296,7 @@ Build the **rule-authoring** half of Alerts & Incidents (`/alerts`, `DASHBOARD.m
 >              sum by (logKey) (count_over_time({service="api"} | json | level=~"error|fatal" [5m])) > 10
 >            for: 2m
 >            labels: { severity: critical }
->            annotations: { summary: "logKey {{ $labels.logKey }} error spike" }
+>            annotations: { summary: 'logKey {{ $labels.logKey }} error spike' }
 >    ```
 >    (Build the `expr` from `metric`/`level`/`logKey`/`comparator`/`threshold`/`window`; `rate` → `rate(... [window])`, `count` → `count_over_time(... [window])`.)
 > 3. Create `rule-form.tsx` (a `'use client'` form): fields for `name`, `metric`, `level`/`logKey`, `comparator`, `threshold`, `window`, `for`, `severity`; four **preset** buttons that fill the canonical shapes from `DASHBOARD.md` §9. Validate `logKey` against `LOG_KEYS_CONVENTION_REGEX` and flag inline. On submit call `createRule`/`updateRule` and invalidate the rules query.
@@ -300,7 +310,6 @@ Build the **rule-authoring** half of Alerts & Incidents (`/alerts`, `DASHBOARD.m
 > - Honest scope: the page MUST display the §9 scoped-demo callout — do not present it as production alerting.
 > - Validate `logKey` via `LOG_KEYS_CONVENTION_REGEX` from `/shared`; never inline the pattern.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - With `apps/api` up: create an "error spike" rule via a preset → it appears in the rule list; the YAML panel shows a matching `count_over_time(... [5m]) > N` group.
 > - A Vitest on `ruleToRulerYaml` asserts `rate` vs `count` and the `for`/`labels` lines render exactly.
@@ -379,7 +388,6 @@ Add the **notification channel registry** to the Alerts page (`DASHBOARD.md` §9
 > - Never render a full webhook URL/token — always mask (consistency with the redaction-at-source story in P13-8).
 > - Reuse the P13-3 `alerts-api.ts` client and TanStack Query patterns — do not introduce a second data-fetching style.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - With `apps/api` up: add a Slack channel routed to `critical` → it lists with a masked target; **Send test** reports a delivery result (mock).
 > - A Vitest asserts the masking helper hides the token segment of a webhook URL.
@@ -439,7 +447,11 @@ Add the **incident lifecycle** to the Alerts page (`DASHBOARD.md` §9) — the P
 > 1. Extend `apps/web/lib/alerts-api.ts`:
 >    ```typescript
 >    export type IncidentState = 'triggered' | 'acknowledged' | 'snoozed' | 'resolved'
->    export interface IncidentEvent { actor: string; action: string; at: string }
+>    export interface IncidentEvent {
+>      actor: string
+>      action: string
+>      at: string
+>    }
 >    export interface Incident {
 >      id: string
 >      ruleName: string
@@ -452,8 +464,11 @@ Add the **incident lifecycle** to the Alerts page (`DASHBOARD.md` §9) — the P
 >      timeline: IncidentEvent[]
 >    }
 >    export const listIncidents = () => get<Incident[]>('/incidents')
->    export const transitionIncident = (id: string, action: 'ack' | 'snooze' | 'resolve', opts?: { durationH?: number }) =>
->      patch(`/incidents/${id}`, { action, ...opts })
+>    export const transitionIncident = (
+>      id: string,
+>      action: 'ack' | 'snooze' | 'resolve',
+>      opts?: { durationH?: number },
+>    ) => patch(`/incidents/${id}`, { action, ...opts })
 >    ```
 > 2. Create `incident-timeline.tsx` — renders `incident.timeline` newest-first, each row `{actor} {action} · {relative time}`, strictly read-only (no edit/delete affordances — it is immutable).
 > 3. Create `incident-list.tsx` (`'use client'`): a table of incidents; per row a state badge and a state-gated action menu — **Acknowledge** (when `triggered`), **Snooze** with a 1h/4h/8h/24h submenu (when `triggered`/`acknowledged`), **Resolve** (when not already `resolved`). Each action calls `transitionIncident(...)` then invalidates the incidents query. Disable actions the RBAC role lacks (Viewer is read-only; gate via the global role from §10).
@@ -467,7 +482,6 @@ Add the **incident lifecycle** to the Alerts page (`DASHBOARD.md` §9) — the P
 > - RBAC: Viewer cannot transition incidents — reuse the §10 global role, do not invent a separate permission model (aligns with P13-7).
 > - Reuse `explorerHref` from P13-2 — do not duplicate the link builder.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - With `apps/api` up + a firing rule: an incident appears `triggered`; **Acknowledge** → `acknowledged` and a timeline entry is appended; **Snooze 4h** → `snoozed` with a "snoozed until" time; **Resolve** → `resolved` and Resolve is no longer offered.
 > - **View in Explorer →** opens the Explorer filtered to the incident's `logKey` + time window.
@@ -526,11 +540,16 @@ Build the **Retention & storage** section of Maintenance & Governance (`/mainten
 > 1. Create `apps/web/components/maintenance/scoped-demo-callout.tsx` — a small presentational component:
 >    ```tsx
 >    // apps/web/components/maintenance/scoped-demo-callout.tsx
->    export function ScopedDemoCallout({ feature, children }: { feature: string; children: React.ReactNode }) {
+>    export function ScopedDemoCallout({
+>      feature,
+>      children,
+>    }: {
+>      feature: string
+>      children: React.ReactNode
+>    }) {
 >      return (
 >        <div className="rounded-md border border-border bg-glass-card-bg p-3 text-sm text-muted-foreground">
->          <span aria-hidden>🎓</span>{' '}
->          <strong>Scoped demo of {feature}.</strong> {children}
+>          <span aria-hidden>🎓</span> <strong>Scoped demo of {feature}.</strong> {children}
 >        </div>
 >      )
 >    }
@@ -547,7 +566,6 @@ Build the **Retention & storage** section of Maintenance & Governance (`/mainten
 > - The `ScopedDemoCallout` component is reused by P13-7 (RBAC) and P13-8 (redaction) — keep it generic (`feature` + children).
 > - Use the §10 callout wording verbatim; do not soften or omit the honest-scope framing.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - With `apps/api` up: `/maintenance` shows TTL=30, a next-sweep time, and rows-pending-deletion; the Loki echo card renders the retention period; the 🎓 callout is visible.
 > - As a non-Admin role, the TTL edit / "Run sweep now" control is disabled; as **Admin**, `PATCH /maintenance/retention` succeeds and the panel refreshes.
@@ -632,7 +650,6 @@ Add **Export** + **query-based RBAC** to Maintenance (`DASHBOARD.md` §10). **Ex
 > - RBAC must be expressed as a **`tenantId` restriction on the shared query builder** — do NOT introduce a parallel authorization path; the panel must say so (honest scope).
 > - Both panels carry their §10 **🎓 scoped demo** callouts via the reused `<ScopedDemoCallout>`.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - With `apps/api` up + filters applied in the Explorer: **Download CSV** yields a file whose header is exactly `time,level,logKey,service,requestId,traceId,tenantId,msg`, scoped to the active tenant.
 > - Switching tenant in the global control visibly reduces the Explorer rows (tenant restriction); switching to **Viewer** disables the export control.
@@ -691,12 +708,20 @@ Ship the library's **strongest, most differentiated story** as a dedicated **red
 >
 > 1. Extend `apps/web/lib/maintenance-api.ts`:
 >    ```typescript
->    export interface AuditEvent { actor: string; action: string; target: string; tenantId: string | null; at: string }
+>    export interface AuditEvent {
+>      actor: string
+>      action: string
+>      target: string
+>      tenantId: string | null
+>      at: string
+>    }
 >    export const getAuditEvents = () => get<AuditEvent[]>('/audit')
 >    export const getActiveRedactPaths = () => get<string[]>('/logger/redact-paths') // LogAuditService.listActiveRedactPaths()
 >    // fetch the SAME record from both backends for the side-by-side proof
 >    export async function getSameRecord(id: { requestId?: string; traceId?: string }) {
->      const q = new URLSearchParams(id.requestId ? { requestId: id.requestId } : { traceId: id.traceId! })
+>      const q = new URLSearchParams(
+>        id.requestId ? { requestId: id.requestId } : { traceId: id.traceId! },
+>      )
 >      const [pg, loki] = await Promise.all([
 >        get(`/logs?source=postgres&limit=1&${q}`),
 >        get(`/logs?source=loki&limit=1&${q}`),
@@ -716,7 +741,6 @@ Ship the library's **strongest, most differentiated story** as a dedicated **red
 > - The active redact-path list MUST come from `LogAuditService.listActiveRedactPaths()` (via an `apps/api` endpoint) — do not hardcode the 97 paths in the web app.
 > - Use `@uiw/react-json-view` (already in the stack) — do not add another JSON viewer.
 >   Verification:
->
 > - `pnpm --filter web build` — expected: zero type errors.
 > - Fire `POST /pii-demo/signup` (Trigger Center), then on `/maintenance` pick that `requestId` — expected: both the Postgres and Loki records render with `password`/`cpf`/`cardNumber` = `[REDACTED]`, and the "redacted at source" badge + redact-path link are shown.
 > - `GET /audit` renders rows for a prior export / role-switch with `actor, action, target, tenantId, at`, read-only.
@@ -785,7 +809,6 @@ Phase 13 **"Definition of done"** gate per `DEVELOPMENT_PLAN.md` §Phase 13: pro
 > - Do NOT introduce new product surface here — this is a verification/close task; fix earlier P13 tasks if a DoD flow breaks.
 > - Keep the journeys deterministic (await the cron window / poll the Explorer) rather than fixed sleeps where avoidable.
 >   Verification:
->
 > - `pnpm --filter web test:e2e` — expected: the trigger/alerts/maintenance journeys pass.
 > - `pnpm --filter web typecheck` — expected: exit 0.
 > - `pnpm --filter web lint` — expected: exit 0.

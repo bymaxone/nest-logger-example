@@ -779,14 +779,15 @@
         <div class="ds-section-title">Bymax · Reference Apps</div>
         <h1>Example Apps — Design System</h1>
         <p>
-          The single, project-agnostic visual language shared by every Bymax <em>example</em>
-          application — <code>nest-auth-example</code>, <code>nest-logger-example</code>, and any
-          future <code>nest-*-example</code>. It is <strong>forced-dark</strong>, built on an
-          orange/blue <strong>glass-morphism</strong> aesthetic with <strong>Geist Sans</strong>
-          for body text and a <strong>monospace</strong> stack for headings, brand, and data. Copy
-          these tokens and component recipes verbatim — the goal is that any two example apps look
-          like one product. This page renders the system live (with hand-written CSS so it works
-          offline) and ends with a step-by-step recreation guide for AI agents.
+          The single, project-agnostic visual language shared by every Bymax
+          <em>example</em> application — <code>nest-auth-example</code>,
+          <code>nest-logger-example</code>, and any future <code>nest-*-example</code>. It is
+          <strong>forced-dark</strong>, built on an orange/blue
+          <strong>glass-morphism</strong> aesthetic with <strong>Geist Sans</strong> for body text
+          and a <strong>monospace</strong> stack for headings, brand, and data. Copy these tokens
+          and component recipes verbatim — the goal is that any two example apps look like one
+          product. This page renders the system live (with hand-written CSS so it works offline) and
+          ends with a step-by-step recreation guide for AI agents.
         </p>
         <nav class="ds-toc">
           <a href="#use">00 · How to use</a>
@@ -836,7 +837,9 @@
             </tr>
             <tr>
               <td>components.json</td>
-              <td>shadcn `new-york`, `cssVariables: true`, `baseColor: neutral`, `iconLibrary: lucide`</td>
+              <td>
+                shadcn `new-york`, `cssVariables: true`, `baseColor: neutral`, `iconLibrary: lucide`
+              </td>
             </tr>
             <tr>
               <td>app/layout.tsx</td>
@@ -851,41 +854,98 @@
         <div class="ds-section-title">01 — Color</div>
         <h2>Brand, semantics, glass &amp; text ramp</h2>
         <p>
-          Primary is <strong>orange <code>#ff6224</code></strong> (<code>hsl(20.5 90.2% 57.8%)</code>) —
-          it is <code>--primary</code> and <code>--ring</code>. Surfaces are translucent white over
-          near-black; text is white at descending opacity. Use color only with an icon and a label
-          (never color alone) for accessibility.
+          Primary is <strong>orange <code>#ff6224</code></strong> (<code>hsl(20.5 90.2% 57.8%)</code
+          >) — it is <code>--primary</code> and <code>--ring</code>. Surfaces are translucent white
+          over near-black; text is white at descending opacity. Use color only with an icon and a
+          label (never color alone) for accessibility.
         </p>
 
         <div class="ds-sub">Brand scale</div>
         <div class="ds-grid">
-          <div class="ds-col"><div class="swatch" style="background:#fff5f0"></div><span class="ds-label">brand-50 #fff5f0</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#ffe8d6"></div><span class="ds-label">brand-100 #ffe8d6</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#ffb07d"></div><span class="ds-label">brand-300 #ffb07d</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#ff8748"></div><span class="ds-label">brand-400 #ff8748</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#ff6224"></div><span class="ds-label">brand-500 #ff6224 ★</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#e5511b"></div><span class="ds-label">brand-600 #e5511b</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#9d320d"></div><span class="ds-label">brand-800 #9d320d</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#7a2609"></div><span class="ds-label">brand-900 #7a2609</span></div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #fff5f0"></div>
+            <span class="ds-label">brand-50 #fff5f0</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #ffe8d6"></div>
+            <span class="ds-label">brand-100 #ffe8d6</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #ffb07d"></div>
+            <span class="ds-label">brand-300 #ffb07d</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #ff8748"></div>
+            <span class="ds-label">brand-400 #ff8748</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #ff6224"></div>
+            <span class="ds-label">brand-500 #ff6224 ★</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #e5511b"></div>
+            <span class="ds-label">brand-600 #e5511b</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #9d320d"></div>
+            <span class="ds-label">brand-800 #9d320d</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #7a2609"></div>
+            <span class="ds-label">brand-900 #7a2609</span>
+          </div>
         </div>
 
         <div class="ds-sub">Semantic</div>
         <div class="ds-grid">
-          <div class="ds-col"><div class="swatch" style="background:#22c55e"></div><span class="ds-label">success / info #22c55e</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#60a5fa"></div><span class="ds-label">secondary / link #60a5fa</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#f59e0b"></div><span class="ds-label">warning #f59e0b</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#ef4444"></div><span class="ds-label">error / danger #ef4444</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#a855f7"></div><span class="ds-label">fatal #a855f7</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#f97316"></div><span class="ds-label">accent #f97316</span></div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #22c55e"></div>
+            <span class="ds-label">success / info #22c55e</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #60a5fa"></div>
+            <span class="ds-label">secondary / link #60a5fa</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #f59e0b"></div>
+            <span class="ds-label">warning #f59e0b</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #ef4444"></div>
+            <span class="ds-label">error / danger #ef4444</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #a855f7"></div>
+            <span class="ds-label">fatal #a855f7</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #f97316"></div>
+            <span class="ds-label">accent #f97316</span>
+          </div>
         </div>
 
         <div class="ds-sub">Glass surfaces &amp; borders</div>
         <div class="ds-grid">
-          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.05)"></div><span class="ds-label">white/5 — surface</span></div>
-          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.06)"></div><span class="ds-label">white/6 — card</span></div>
-          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.08)"></div><span class="ds-label">white/8 — raised/chip</span></div>
-          <div class="ds-col"><div class="swatch" style="background:rgba(255,255,255,0.1)"></div><span class="ds-label">white/10 — hover/border</span></div>
-          <div class="ds-col"><div class="swatch" style="background:#0a0a0a"></div><span class="ds-label">#0a0a0a — page bg</span></div>
+          <div class="ds-col">
+            <div class="swatch" style="background: rgba(255, 255, 255, 0.05)"></div>
+            <span class="ds-label">white/5 — surface</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: rgba(255, 255, 255, 0.06)"></div>
+            <span class="ds-label">white/6 — card</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: rgba(255, 255, 255, 0.08)"></div>
+            <span class="ds-label">white/8 — raised/chip</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: rgba(255, 255, 255, 0.1)"></div>
+            <span class="ds-label">white/10 — hover/border</span>
+          </div>
+          <div class="ds-col">
+            <div class="swatch" style="background: #0a0a0a"></div>
+            <span class="ds-label">#0a0a0a — page bg</span>
+          </div>
         </div>
 
         <div class="ds-sub">Text ramp (white opacity)</div>
@@ -905,9 +965,9 @@
         <h2>Geist Sans body · monospace headings &amp; data</h2>
         <p>
           Body copy uses <strong>Geist Sans</strong>; headings, the brand wordmark, card titles,
-          metric values, log keys, and tabular data use the <strong>monospace</strong> stack
-          (<code>ui-monospace, 'Cascadia Code', …</code>). This split gives the apps their
-          technical, observability-tool character.
+          metric values, log keys, and tabular data use the <strong>monospace</strong> stack (<code
+            >ui-monospace, 'Cascadia Code', …</code
+          >). This split gives the apps their technical, observability-tool character.
         </p>
         <div class="ds-canvas">
           <h1 style="font-size: 28px">H1 · Mono 28/700 — page title</h1>
@@ -933,11 +993,38 @@
           Spacing follows an 8-pt rhythm (4 / 8 / 12 / 16 / 24 / 32).
         </p>
         <div class="ds-row">
-          <div class="ds-col"><div class="swatch" style="border-radius: 8px; background: var(--glass-bg-hover)"></div><span class="ds-label">sm 8px — inputs/nav</span></div>
-          <div class="ds-col"><div class="swatch" style="border-radius: 12px; background: var(--glass-bg-hover)"></div><span class="ds-label">md 12px — toasts</span></div>
-          <div class="ds-col"><div class="swatch" style="border-radius: 16px; background: var(--glass-bg-hover)"></div><span class="ds-label">2xl 16px — cards</span></div>
-          <div class="ds-col"><div class="swatch" style="border-radius: 24px; background: var(--glass-bg-hover)"></div><span class="ds-label">xl 24px — hero</span></div>
-          <div class="ds-col"><div class="swatch" style="border-radius: 9999px; background: var(--glass-bg-hover)"></div><span class="ds-label">pill — controls</span></div>
+          <div class="ds-col">
+            <div class="swatch" style="border-radius: 8px; background: var(--glass-bg-hover)"></div>
+            <span class="ds-label">sm 8px — inputs/nav</span>
+          </div>
+          <div class="ds-col">
+            <div
+              class="swatch"
+              style="border-radius: 12px; background: var(--glass-bg-hover)"
+            ></div>
+            <span class="ds-label">md 12px — toasts</span>
+          </div>
+          <div class="ds-col">
+            <div
+              class="swatch"
+              style="border-radius: 16px; background: var(--glass-bg-hover)"
+            ></div>
+            <span class="ds-label">2xl 16px — cards</span>
+          </div>
+          <div class="ds-col">
+            <div
+              class="swatch"
+              style="border-radius: 24px; background: var(--glass-bg-hover)"
+            ></div>
+            <span class="ds-label">xl 24px — hero</span>
+          </div>
+          <div class="ds-col">
+            <div
+              class="swatch"
+              style="border-radius: 9999px; background: var(--glass-bg-hover)"
+            ></div>
+            <span class="ds-label">pill — controls</span>
+          </div>
         </div>
       </section>
 
@@ -947,11 +1034,11 @@
         <h2>The <code>globals.css</code> token block</h2>
         <p>The <code>.dark</code> set is always active (forced dark). Copy verbatim.</p>
         <div class="ds-note">
-          <strong>Tailwind v4 note.</strong> The blocks below show the token <em>values</em>. In a real
-          v4 app, map them to utilities with a <code>@theme inline { … }</code> block (v4 does
+          <strong>Tailwind v4 note.</strong> The blocks below show the token <em>values</em>. In a
+          real v4 app, map them to utilities with a <code>@theme inline { … }</code> block (v4 does
           <strong>not</strong> auto-load a JS <code>tailwind.config.ts</code>; bridge a kept one via
-          <code>@config './tailwind.config.ts';</code>), keep <code>:root</code>/<code>.dark</code> at
-          <em>top level</em> (not inside <code>@layer base</code>), declare the dark variant with
+          <code>@config './tailwind.config.ts';</code>), keep <code>:root</code>/<code>.dark</code>
+          at <em>top level</em> (not inside <code>@layer base</code>), declare the dark variant with
           <code>@custom-variant dark (&amp;:is(.dark *))</code>, and use only
           <code>@tailwindcss/postcss</code> (no <code>autoprefixer</code>). See the full v4-correct
           block in <code>DASHBOARD.md</code> §15.
@@ -1014,7 +1101,9 @@ fontFamily: {
 }</pre>
 
         <h2 style="margin-top: 28px"><code>app/layout.tsx</code> — fonts + forced dark</h2>
-        <pre class="ds-code"><span class="k">import</span> { GeistSans } <span class="k">from</span> <span class="s">'geist/font/sans'</span>
+        <pre
+          class="ds-code"
+        ><span class="k">import</span> { GeistSans } <span class="k">from</span> <span class="s">'geist/font/sans'</span>
 <span class="k">import</span> { GeistMono } <span class="k">from</span> <span class="s">'geist/font/mono'</span>
 <span class="k">import</span> <span class="s">'./globals.css'</span>
 
@@ -1033,9 +1122,9 @@ fontFamily: {
         <h2>64px topbar · 250px sidebar · fluid main</h2>
         <p>
           Every example app uses this exact shell. The brand mark is an orange-bordered badge with a
-          stacked-layers glyph; the wordmark is a mono orange→amber gradient. The active nav item has
-          a left orange border, a faint orange fill, and orange text/icon. Swap only the wordmark and
-          the nav items per app.
+          stacked-layers glyph; the wordmark is a mono orange→amber gradient. The active nav item
+          has a left orange border, a faint orange fill, and orange text/icon. Swap only the
+          wordmark and the nav items per app.
         </p>
         <div class="shell">
           <div class="topbar">
@@ -1062,23 +1151,65 @@ fontFamily: {
           <div class="shell__body">
             <aside class="sidebar">
               <a class="nav-item nav-item--active" href="#shell"
-                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg
+                ><svg
+                  class="nav-item__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" /></svg
                 >Overview</a
               >
               <a class="nav-item" href="#dashboard"
-                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg
+                ><svg
+                  class="nav-item__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.3-4.3" /></svg
                 >Explorer</a
               >
               <a class="nav-item" href="#components"
-                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg
+                ><svg
+                  class="nav-item__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg
                 >Trigger Center</a
               >
               <a class="nav-item" href="#severity"
-                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg
+                ><svg
+                  class="nav-item__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg
                 >Alerts</a
               >
               <a class="nav-item" href="#patterns"
-                ><svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></svg
+                ><svg
+                  class="nav-item__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 7h-9M14 17H5" />
+                  <circle cx="17" cy="17" r="3" />
+                  <circle cx="7" cy="7" r="3" /></svg
                 >Maintenance</a
               >
               <div class="sidebar__spacer"></div>
@@ -1099,7 +1230,9 @@ fontFamily: {
             </main>
           </div>
         </div>
-        <pre class="ds-code"><span class="c">// JSX — Tailwind classes (the production recipe)</span>
+        <pre
+          class="ds-code"
+        ><span class="c">// JSX — Tailwind classes (the production recipe)</span>
 &lt;header className=<span class="s">"fixed left-0 right-0 top-0 z-200 flex h-16 items-center justify-between border-b border-[rgba(255,255,255,0.07)] bg-[rgba(10,10,10,0.85)] px-4 backdrop-blur-md"</span>&gt; … &lt;/header&gt;
 &lt;div className=<span class="s">"flex pt-16"</span>&gt;
   &lt;aside className=<span class="s">"w-[250px] shrink-0 border-r border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,12,0.98)] lg:sticky lg:top-16 lg:h-[calc(100vh-64px)]"</span>&gt; … &lt;/aside&gt;
@@ -1156,12 +1289,42 @@ idle   = <span class="s">"border-l-transparent text-[rgba(255,255,255,0.55)] hov
           <div class="card">
             <table class="table">
               <thead>
-                <tr><th>time</th><th>level</th><th>logKey</th><th>message</th><th>trace</th></tr>
+                <tr>
+                  <th>time</th>
+                  <th>level</th>
+                  <th>logKey</th>
+                  <th>message</th>
+                  <th>trace</th>
+                </tr>
               </thead>
               <tbody>
-                <tr><td>10:12:44.512</td><td><span class="level level--error"><span class="level__dot"></span>ERROR</span></td><td>PAYMENT_REFUND_FAILED</td><td>Gateway declined</td><td>↗ 4bf9</td></tr>
-                <tr><td>10:12:44.498</td><td><span class="level level--info"><span class="level__dot"></span>INFO</span></td><td>HTTP_REQUEST_SUCCESS</td><td>GET /orders/:id</td><td>↗ 4bf9</td></tr>
-                <tr><td>10:12:44.480</td><td><span class="level level--warn"><span class="level__dot"></span>WARN</span></td><td>METHOD_SLOW_EXECUTION</td><td>refund() 1240ms</td><td>↗ 4bf9</td></tr>
+                <tr>
+                  <td>10:12:44.512</td>
+                  <td>
+                    <span class="level level--error"><span class="level__dot"></span>ERROR</span>
+                  </td>
+                  <td>PAYMENT_REFUND_FAILED</td>
+                  <td>Gateway declined</td>
+                  <td>↗ 4bf9</td>
+                </tr>
+                <tr>
+                  <td>10:12:44.498</td>
+                  <td>
+                    <span class="level level--info"><span class="level__dot"></span>INFO</span>
+                  </td>
+                  <td>HTTP_REQUEST_SUCCESS</td>
+                  <td>GET /orders/:id</td>
+                  <td>↗ 4bf9</td>
+                </tr>
+                <tr>
+                  <td>10:12:44.480</td>
+                  <td>
+                    <span class="level level--warn"><span class="level__dot"></span>WARN</span>
+                  </td>
+                  <td>METHOD_SLOW_EXECUTION</td>
+                  <td>refund() 1240ms</td>
+                  <td>↗ 4bf9</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1218,10 +1381,19 @@ idle   = <span class="s">"border-l-transparent text-[rgba(255,255,255,0.55)] hov
         <div class="ds-sub">Toasts (Sonner — severity left-border, glass)</div>
         <div class="ds-canvas">
           <div class="ds-row">
-            <div class="toast toast--success"><span class="level__dot" style="color: var(--green)"></span>Saved view created</div>
-            <div class="toast toast--error"><span class="level__dot" style="color: var(--red)"></span>Failed to reach Loki</div>
-            <div class="toast toast--info"><span class="level__dot" style="color: var(--blue)"></span>Live tail resumed</div>
-            <div class="toast toast--warning"><span class="level__dot" style="color: var(--amber)"></span>High log rate — tail paused</div>
+            <div class="toast toast--success">
+              <span class="level__dot" style="color: var(--green)"></span>Saved view created
+            </div>
+            <div class="toast toast--error">
+              <span class="level__dot" style="color: var(--red)"></span>Failed to reach Loki
+            </div>
+            <div class="toast toast--info">
+              <span class="level__dot" style="color: var(--blue)"></span>Live tail resumed
+            </div>
+            <div class="toast toast--warning">
+              <span class="level__dot" style="color: var(--amber)"></span>High log rate — tail
+              paused
+            </div>
           </div>
         </div>
 
@@ -1230,7 +1402,9 @@ idle   = <span class="s">"border-l-transparent text-[rgba(255,255,255,0.55)] hov
           <div class="empty">
             <div class="empty__title">No logs yet</div>
             <div>Fire one from the Trigger Center →</div>
-            <button class="btn btn--primary btn--sm" style="margin-top: 12px">Open Trigger Center</button>
+            <button class="btn btn--primary btn--sm" style="margin-top: 12px">
+              Open Trigger Center
+            </button>
           </div>
           <div class="card">
             <div class="skeleton" style="width: 40%; margin-bottom: 10px"></div>
@@ -1259,7 +1433,10 @@ idle   = <span class="s">"border-l-transparent text-[rgba(255,255,255,0.55)] hov
             <span class="level level--error"><span class="level__dot"></span>ERROR</span>
             <span class="level level--fatal"><span class="level__dot"></span>FATAL</span>
           </div>
-          <pre class="ds-code" style="margin: 0"><span class="c">// lib/severity.ts → { color, icon, label } per level</span>
+          <pre
+            class="ds-code"
+            style="margin: 0"
+          ><span class="c">// lib/severity.ts → { color, icon, label } per level</span>
 trace #93b4d8 · debug #60a5fa · info #22c55e · warn #f59e0b · error #ef4444 · fatal #a855f7</pre>
         </div>
       </section>
@@ -1276,8 +1453,8 @@ trace #93b4d8 · debug #60a5fa · info #22c55e · warn #f59e0b · error #ef4444 
             <code>0 0 24px rgba(255,98,36,0.4)</code> on hover.
           </li>
           <li>
-            <strong>Forced dark:</strong> no theme toggle. <code>dark</code> on <code>&lt;html&gt;</code>;
-            the <code>.dark</code> token set is the only live one.
+            <strong>Forced dark:</strong> no theme toggle. <code>dark</code> on
+            <code>&lt;html&gt;</code>; the <code>.dark</code> token set is the only live one.
           </li>
           <li>
             <strong>Mono for data, sans for prose:</strong> headings, brand, card titles, metrics,
@@ -1292,7 +1469,8 @@ trace #93b4d8 · debug #60a5fa · info #22c55e · warn #f59e0b · error #ef4444 
             blocking actions (submit/save).
           </li>
           <li>
-            <strong>Action-oriented empty states</strong> with a primary action — never a blank pane.
+            <strong>Action-oriented empty states</strong> with a primary action — never a blank
+            pane.
           </li>
           <li>
             <strong>Accessible severity:</strong> color + icon + text together; verify contrast.
@@ -1307,31 +1485,37 @@ trace #93b4d8 · debug #60a5fa · info #22c55e · warn #f59e0b · error #ef4444 
         <p>Follow these steps to give a fresh <code>apps/web</code> the identical design system.</p>
         <ol style="color: var(--text-70); padding-left: 18px; display: grid; gap: 8px">
           <li>
-            Install: <code>next@^16 react@^19 tailwindcss@^4 @tailwindcss/postcss geist
-            lucide-react sonner class-variance-authority clsx tailwind-merge</code>. Do
-            <strong>not</strong> add <code>next-themes</code> or <code>autoprefixer</code>/<code>postcss-import</code>
+            Install:
+            <code
+              >next@^16 react@^19 tailwindcss@^4 @tailwindcss/postcss geist lucide-react sonner
+              class-variance-authority clsx tailwind-merge</code
+            >. Do <strong>not</strong> add <code>next-themes</code> or
+            <code>autoprefixer</code>/<code>postcss-import</code>
             (Tailwind&nbsp;v4 forces dark via a class and auto-prefixes).
           </li>
           <li>
-            Copy <code>app/globals.css</code> (the §4 token block), <code>components.json</code>
-            (shadcn <code>new-york</code>, lucide), and <code>postcss.config.mjs</code> (just
-            <code>@tailwindcss/postcss</code>). In <strong>Tailwind&nbsp;v4</strong>, map tokens to
-            utilities with a <code>@theme inline</code> block; v4 does <strong>not</strong> auto-load a JS
+            Copy <code>app/globals.css</code> (the §4 token block),
+            <code>components.json</code> (shadcn <code>new-york</code>, lucide), and
+            <code>postcss.config.mjs</code> (just <code>@tailwindcss/postcss</code>). In
+            <strong>Tailwind&nbsp;v4</strong>, map tokens to utilities with a
+            <code>@theme inline</code> block; v4 does <strong>not</strong> auto-load a JS
             <code>tailwind.config.ts</code> — if you keep one (e.g. for keyframes), bridge it with
             <code>@config './tailwind.config.ts';</code> at the top of <code>globals.css</code>. Put
-            <code>:root</code>/<code>.dark</code> at top level (not in <code>@layer base</code>) and declare the
-            dark variant via <code>@custom-variant dark (&amp;:is(.dark *))</code>.
+            <code>:root</code>/<code>.dark</code> at top level (not in <code>@layer base</code>) and
+            declare the dark variant via <code>@custom-variant dark (&amp;:is(.dark *))</code>.
           </li>
           <li>
-            In <code>app/layout.tsx</code> load <code>GeistSans</code> + <code>GeistMono</code> and put
-            <code>`${GeistSans.variable} ${GeistMono.variable} dark`</code> on <code>&lt;html&gt;</code>.
+            In <code>app/layout.tsx</code> load <code>GeistSans</code> + <code>GeistMono</code> and
+            put <code>`${GeistSans.variable} ${GeistMono.variable} dark`</code> on
+            <code>&lt;html&gt;</code>.
           </li>
           <li>
-            Add <code>lib/utils.ts</code> with <code>cn = (…i) =&gt; twMerge(clsx(i))</code>; scaffold
-            shadcn components (<code>button, card, badge, input, table, tabs, dialog, dropdown-menu,
-            tooltip, sonner, avatar, skeleton, popover, select, command</code>); override
-            <code>button</code> to the pill + brand-gradient variants and <code>card</code> to the
-            glass variant.
+            Add <code>lib/utils.ts</code> with <code>cn = (…i) =&gt; twMerge(clsx(i))</code>;
+            scaffold shadcn components (<code
+              >button, card, badge, input, table, tabs, dialog, dropdown-menu, tooltip, sonner,
+              avatar, skeleton, popover, select, command</code
+            >); override <code>button</code> to the pill + brand-gradient variants and
+            <code>card</code> to the glass variant.
           </li>
           <li>
             Build the shell from §5 (Topbar 64px + Sidebar 250px + main). Reuse the active/idle nav

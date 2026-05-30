@@ -8,12 +8,12 @@
 
 ## Task index
 
-| ID   | Task                                                                          | Status | Priority | Size | Depends on   |
-| ---- | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
-| P2-1 | Scaffold `apps/api` + `apps/worker` package.json (local link) + tsconfigs     | 🔴     | High     | S    | Phase 0      |
-| P2-2 | Install required + optional peers + consumer OTel SDK deps in both apps       | 🔴     | High     | S    | P2-1         |
-| P2-3 | Typed subpath probe (`.` + `/shared`) proving both subpaths type-resolve      | 🔴     | High     | S    | P2-1, P2-2   |
-| P2-4 | Verification gate — `pnpm install` + `pnpm typecheck` resolve both subpaths   | 🔴     | High     | S    | P2-1..P2-3   |
+| ID   | Task                                                                        | Status | Priority | Size | Depends on |
+| ---- | --------------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
+| P2-1 | Scaffold `apps/api` + `apps/worker` package.json (local link) + tsconfigs   | 🔴     | High     | S    | Phase 0    |
+| P2-2 | Install required + optional peers + consumer OTel SDK deps in both apps     | 🔴     | High     | S    | P2-1       |
+| P2-3 | Typed subpath probe (`.` + `/shared`) proving both subpaths type-resolve    | 🔴     | High     | S    | P2-1, P2-2 |
+| P2-4 | Verification gate — `pnpm install` + `pnpm typecheck` resolve both subpaths | 🔴     | High     | S    | P2-1..P2-3 |
 
 ---
 
@@ -60,13 +60,13 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 >      "private": true,
 >      "type": "module",
 >      "scripts": {
->        "typecheck": "tsc --noEmit"
+>        "typecheck": "tsc --noEmit",
 >      },
 >      "dependencies": {
 >        // pnpm symlink to the sibling checkout (≈ `npm link`); `file:` resolves identically.
 >        // After the library publishes, switch this to "^0.1.0".
->        "@bymax-one/nest-logger": "link:../../../nest-logger"
->      }
+>        "@bymax-one/nest-logger": "link:../../../nest-logger",
+>      },
 >    }
 >    ```
 > 2. Create `apps/worker/package.json` identically, with `"name": "worker"` (same `link:../../../nest-logger` — the relative depth is the same from `apps/worker/`).
@@ -92,7 +92,6 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 > - Decorator options (`experimentalDecorators`/`emitDecoratorMetadata`) go in the **app** tsconfigs only, never in `tsconfig.base.json` (the future Next.js app must not inherit them — see P0-3).
 > - Do NOT run `pnpm install` here (that is P2-4's gate); P2-2 adds the peers first.
 >   Verification:
->
 > - `node -p "require('./apps/api/package.json').dependencies['@bymax-one/nest-logger']"` — expected: `link:../../../nest-logger`.
 > - `node -p "require('./apps/worker/package.json').dependencies['@bymax-one/nest-logger']"` — expected: `link:../../../nest-logger`.
 > - `node -p "require('./apps/api/tsconfig.json').extends"` — expected: `../../tsconfig.base.json`.
@@ -170,7 +169,6 @@ Install the library's peer dependencies plus the consumer-owned OpenTelemetry SD
 > - Keep `pino-roll` clearly example-only — do NOT add it to any "library peer" grouping; it is a normal app dependency here.
 > - Respect the `@opentelemetry/api` `<1.10` upper bound (it is the version cap the SDK peers on — see `docs/OVERVIEW.md` §4).
 >   Verification:
->
 > - `pnpm install` — expected: exits 0 with no unmet-peer warnings naming `@bymax-one/nest-logger`.
 > - `node -p "require('./apps/api/package.json').dependencies['@opentelemetry/sdk-node']"` — expected: a `^0.218`-compatible range.
 > - `node -p "require('./apps/api/package.json').dependencies['@opentelemetry/auto-instrumentations-node']"` — expected: a `^0.76`-compatible range (0.7x line).
@@ -225,6 +223,7 @@ Add a single typed **subpath probe** file to `apps/api` that imports from **both
 > Steps:
 >
 > 1. Create `apps/api/src/library-probe.ts`:
+>
 >    ```typescript
 >    /**
 >     * Phase 2 subpath probe — proves both `@bymax-one/nest-logger` subpaths
@@ -243,8 +242,7 @@ Add a single typed **subpath probe** file to `apps/api` that imports from **both
 >
 >    // Use the `/shared` imports — a value call + a type annotation:
 >    const sampleLevel: LogLevel = 'info'
->    export const isWellFormedKey: boolean =
->      LOG_KEYS_CONVENTION_REGEX.test('ORDER_CREATE_SUCCESS')
+>    export const isWellFormedKey: boolean = LOG_KEYS_CONVENTION_REGEX.test('ORDER_CREATE_SUCCESS')
 >
 >    /** A trivial probe result proving both subpaths resolved at type-check time. */
 >    export const probe = {
@@ -253,6 +251,7 @@ Add a single typed **subpath probe** file to `apps/api` that imports from **both
 >      isWellFormedKey,
 >    } as const
 >    ```
+>
 > 2. Confirm `apps/api/tsconfig.json` (P2-1) `include` covers `src/**/*.ts` so `tsc --noEmit` picks up the probe.
 > 3. Do NOT import anything from `'@nestjs/*'` or instantiate Nest providers here — keep it a pure type/value probe so it compiles without a Nest container.
 > 4. Keep `LogLevel` on a `import type` line (it is a type-only symbol; `verbatimModuleSyntax` requires the `type` modifier).
@@ -263,7 +262,6 @@ Add a single typed **subpath probe** file to `apps/api` that imports from **both
 > - The probe must reference both a **runtime value** and a **type** from `/shared` to prove the `types` + `import` map entries both resolve.
 > - Do NOT add a `.spec.ts` for the probe — it is a typecheck-only artifact (it carries no behavior to test and is excluded from coverage in Phase 14).
 >   Verification:
->
 > - `pnpm --filter api typecheck` — expected: exit 0 (the probe resolves both subpaths).
 > - `pnpm --filter api exec tsc --noEmit --traceResolution src/library-probe.ts 2>/dev/null | grep -E "nest-logger/(dist/server|dist/shared)" | head` — expected: shows resolution hitting both `dist/server/index.d.ts` and `dist/shared/index.d.ts`.
 
@@ -333,7 +331,6 @@ Phase 2 "Definition of done" gate (per `DEVELOPMENT_PLAN.md` §Phase 2): prove t
 > - Do NOT switch `@bymax-one/nest-logger` to a published semver range — it is unpublished; the `link:` is the only resolver until first publish.
 > - Do NOT skip or weaken any gate; diagnose failures in the originating task file.
 >   Verification:
->
 > - `pnpm install` — expected: exit 0, `link:` resolved.
 > - `pnpm typecheck` — expected: exit 0 (probe resolves `.` + `/shared`).
 > - `pnpm --filter api typecheck` — expected: exit 0 (the probe file compiles).

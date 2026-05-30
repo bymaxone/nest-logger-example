@@ -8,14 +8,14 @@
 
 ## Task index
 
-| ID   | Task                                                                       | Status | Priority | Size | Depends on       |
-| ---- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------- |
-| P1-1 | `docker-compose.yml` — 5-service stack (healthchecks, 127.0.0.1 ports, volumes) | 🔴     | High     | M    | Phase 0          |
-| P1-2 | `docker/loki/loki-config.yml` + `docker/tempo/tempo-config.yml`             | 🔴     | High     | M    | P1-1             |
-| P1-3 | `docker/otel-collector/config.yml` (OTLP → Tempo + Loki via `otlphttp`)     | 🔴     | High     | M    | P1-1, P1-2       |
-| P1-4 | `docker/grafana/provisioning/` — Loki + Tempo datasources + `traceId` derived field | 🔴     | High     | M    | P1-1, P1-2       |
-| P1-5 | `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`)              | 🔴     | Medium   | XS   | P1-1             |
-| P1-6 | Root `.env.example` (every Appendix A variable) + `pnpm infra:up` green gate | 🔴     | High     | S    | P1-1..P1-5       |
+| ID   | Task                                                                                | Status | Priority | Size | Depends on |
+| ---- | ----------------------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
+| P1-1 | `docker-compose.yml` — 5-service stack (healthchecks, 127.0.0.1 ports, volumes)     | 🔴     | High     | M    | Phase 0    |
+| P1-2 | `docker/loki/loki-config.yml` + `docker/tempo/tempo-config.yml`                     | 🔴     | High     | M    | P1-1       |
+| P1-3 | `docker/otel-collector/config.yml` (OTLP → Tempo + Loki via `otlphttp`)             | 🔴     | High     | M    | P1-1, P1-2 |
+| P1-4 | `docker/grafana/provisioning/` — Loki + Tempo datasources + `traceId` derived field | 🔴     | High     | M    | P1-1, P1-2 |
+| P1-5 | `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`)                      | 🔴     | Medium   | XS   | P1-1       |
+| P1-6 | Root `.env.example` (every Appendix A variable) + `pnpm infra:up` green gate        | 🔴     | High     | S    | P1-1..P1-5 |
 
 ---
 
@@ -53,6 +53,7 @@ Author the root `docker-compose.yml` that defines the full local observability b
 > Steps:
 >
 > 1. Create `/docker-compose.yml`. Do NOT set a top-level `version:` key (obsolete in Compose v2). Define a shared `services:` block:
+>
 >    ```yaml
 >    services:
 >      postgres:
@@ -143,7 +144,8 @@ Author the root `docker-compose.yml` that defines the full local observability b
 >          tempo:
 >            condition: service_healthy
 >        healthcheck:
->          test: ['CMD-SHELL', 'wget -q -O- http://localhost:3000/api/health | grep -q ok || exit 1']
+>          test:
+>            ['CMD-SHELL', 'wget -q -O- http://localhost:3000/api/health | grep -q ok || exit 1']
 >          interval: 10s
 >          timeout: 5s
 >          retries: 12
@@ -155,6 +157,7 @@ Author the root `docker-compose.yml` that defines the full local observability b
 >      tempo-data:
 >      grafana-data:
 >    ```
+>
 > 2. Confirm every `ports:` entry is prefixed with `127.0.0.1:` — grep the file: `grep -c "127.0.0.1:" docker-compose.yml` should be `6` (5432, 3100, 3200, 4317, 4318, 3000).
 > 3. Do NOT create the `docker/**` config files here — they are P1-2 (loki/tempo), P1-3 (otel-collector), P1-4 (grafana), P1-5 (postgres). The mounts intentionally reference files that do not exist yet; `docker compose config` still validates because it does not stat bind sources.
 >    Constraints:
@@ -164,7 +167,6 @@ Author the root `docker-compose.yml` that defines the full local observability b
 > - No top-level `version:` key (Compose v2 ignores it and emits a warning).
 > - Do NOT containerize the `apps/*` services here — only the five backend services (app services run on the host per §8).
 >   Verification:
->
 > - `docker compose config -q` — expected: exit 0, no warnings.
 > - `docker compose config --services` — expected: prints `postgres loki tempo otel-collector grafana` (any order).
 > - `grep -c "127.0.0.1:" docker-compose.yml` — expected: `6`.
@@ -219,6 +221,7 @@ Author the Loki and Tempo server configs that back the bind mounts wired in P1-1
 > Steps:
 >
 > 1. Create `/docker/loki/loki-config.yml`:
+>
 >    ```yaml
 >    auth_enabled: false
 >
@@ -267,7 +270,9 @@ Author the Loki and Tempo server configs that back the bind mounts wired in P1-1
 >        local:
 >          directory: /loki/rules
 >    ```
+>
 > 2. Create `/docker/tempo/tempo-config.yml`:
+>
 >    ```yaml
 >    server:
 >      http_listen_port: 3200
@@ -297,7 +302,9 @@ Author the Loki and Tempo server configs that back the bind mounts wired in P1-1
 >        local:
 >          path: /var/tempo/blocks
 >    ```
+>
 >    > NOTE: Tempo's OTLP receiver here listens on `4317`/`4318` **inside Tempo's container**; the collector forwards to `tempo:4317`. This is distinct from the host-published collector ports (also `4317`/`4318`) in P1-1 — different containers, no conflict on the Compose network.
+>
 > 3. Validate YAML and bring the two services up:
 >    ```bash
 >    docker compose config -q
@@ -309,7 +316,6 @@ Author the Loki and Tempo server configs that back the bind mounts wired in P1-1
 > - Do NOT use the removed Loki `boltdb-shipper`/legacy schema — use `tsdb` + `schema: v13`.
 > - Keep storage `filesystem`/`local` — this is a self-contained local demo, not cloud object storage.
 >   Verification:
->
 > - `docker compose up -d --wait loki tempo` — expected: exit 0 (both healthy).
 > - `curl -fsS http://127.0.0.1:3100/ready` — expected: `ready`.
 > - `curl -fsS http://127.0.0.1:3200/ready` — expected: `ready`.
@@ -366,6 +372,7 @@ Author the OpenTelemetry Collector config: an **OTLP receiver** (gRPC `4317` + H
 > Steps:
 >
 > 1. Create `/docker/otel-collector/config.yml`:
+>
 >    ```yaml
 >    receivers:
 >      otlp:
@@ -407,6 +414,7 @@ Author the OpenTelemetry Collector config: an **OTLP receiver** (gRPC `4317` + H
 >          processors: [batch]
 >          exporters: [otlphttp/loki]
 >    ```
+>
 > 2. Prove the removed exporter is not present:
 >    ```bash
 >    # must NOT match a top-level `loki:` exporter (otlphttp/loki is fine)
@@ -422,7 +430,6 @@ Author the OpenTelemetry Collector config: an **OTLP receiver** (gRPC `4317` + H
 > - Use container service names (`tempo`, `loki`) for endpoints, not `localhost`.
 > - Spaces only in YAML; keep `tls.insecure: true` (local, non-TLS demo).
 >   Verification:
->
 > - `docker compose up -d --wait otel-collector` — expected: exit 0 (healthy).
 > - `curl -fsS http://127.0.0.1:13133/` — expected: HTTP 200 (collector healthy).
 > - `grep -q "http://loki:3100/otlp" docker/otel-collector/config.yml` — expected: match.
@@ -476,6 +483,7 @@ Provision Grafana so it auto-registers the **Loki** and **Tempo** datasources on
 > Steps:
 >
 > 1. Create `/docker/grafana/provisioning/datasources/datasources.yml`:
+>
 >    ```yaml
 >    apiVersion: 1
 >
@@ -513,7 +521,9 @@ Provision Grafana so it auto-registers the **Loki** and **Tempo** datasources on
 >          nodeGraph:
 >            enabled: true
 >    ```
+>
 >    > NOTE on `$$`: in a Compose-interpolated file the `$` in `${__value.raw}` must be escaped as `$$` ONLY if this YAML is ever passed through `docker compose` interpolation. Since it is a **bind-mounted** file read directly by Grafana (not an `environment:` value), a single `$` is also correct — keep `$${__value.raw}` only if you observe Compose warning about it; otherwise use `${__value.raw}`.
+>
 > 2. Bring Grafana up (loki + tempo healthy from P1-2):
 >    ```bash
 >    docker compose up -d --wait grafana
@@ -528,7 +538,6 @@ Provision Grafana so it auto-registers the **Loki** and **Tempo** datasources on
 > - Reference Tempo from the derived field by stable `uid: tempo`, not by name.
 > - Spaces only in YAML.
 >   Verification:
->
 > - `docker compose up -d --wait grafana` — expected: exit 0 (healthy).
 > - `curl -fsS http://127.0.0.1:3000/api/datasources` — expected: JSON listing both `Loki` and `Tempo`.
 > - `grep -q "derivedFields" docker/grafana/provisioning/datasources/datasources.yml` — expected: match.
@@ -597,7 +606,6 @@ Create the Postgres init script that runs once on first container start (mounted
 > - Do NOT create application tables here — Prisma owns the schema (Phase 5).
 > - The `\gexec` meta-command requires `psql` (the init runner uses it) — keep the trailing `\gexec` on its own logical line.
 >   Verification:
->
 > - `docker compose up -d --wait postgres` — expected: exit 0.
 > - `docker compose exec -T postgres psql -U postgres -c "SELECT datname FROM pg_database WHERE datname='logger_example';"` — expected: one row `logger_example`.
 > - `docker compose exec -T postgres psql "postgresql://postgres:postgres@localhost:5432/logger_example" -c "SELECT 1;"` — expected: returns `1`.
@@ -651,6 +659,7 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 > Steps:
 >
 > 1. Create `/.env.example` covering every Appendix A variable:
+>
 >    ```bash
 >    # ── Runtime ────────────────────────────────────────────────────────────────
 >    NODE_ENV=development                 # drives isPretty + deployment.environment resource attr
@@ -682,6 +691,7 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 >    NEXT_PUBLIC_API_URL=http://localhost:3000        # dashboard → apps/api logs/ API base
 >    NEXT_PUBLIC_GRAFANA_URL=http://localhost:3000    # "View trace" deep-links via Grafana
 >    ```
+>
 > 2. Run the Phase 1 DoD gate:
 >    ```bash
 >    pnpm infra:up                         # docker compose up -d --wait
@@ -698,7 +708,6 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 > - Do NOT commit a real `.env`; only `.env.example`. Do NOT put real secrets in `SENTRY_DSN` (leave empty).
 > - If any service is unhealthy, fix the owning task (P1-1..P1-5) and re-run — do NOT relax a healthcheck to make the gate pass.
 >   Verification:
->
 > - `pnpm infra:up` — expected: exit 0, all five services healthy.
 > - `docker compose ps --format '{{.Service}} {{.Health}}'` — expected: `healthy` for all five.
 > - `curl -fsS http://127.0.0.1:3000/api/datasources` — expected: lists `Loki` and `Tempo`.

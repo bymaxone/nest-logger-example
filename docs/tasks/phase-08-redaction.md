@@ -8,12 +8,12 @@
 
 ## Task index
 
-| ID   | Task                                                                       | Status | Priority | Size | Depends on       |
-| ---- | -------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------- |
-| P8-1 | `pii-demo` default-path redaction (fields + sensitive headers → `[REDACTED]`) | 🔴     | High     | M    | Phase 6          |
-| P8-2 | Custom `redactPaths` merged with the 97 defaults (`*.webhookSignature`, `payload.creditCard.*`) | 🔴     | High     | S    | P8-1             |
-| P8-3 | Deep-nested depth 1→5 payload — depth-4 redacted vs depth-5 NOT-redacted boundary | 🔴     | High     | M    | P8-2             |
-| P8-4 | `LogAuditService.listEffectiveRedactPaths()` + CI "required PII paths present" assertion | 🔴     | High     | M    | P8-1             |
+| ID   | Task                                                                                                 | Status | Priority | Size | Depends on             |
+| ---- | ---------------------------------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
+| P8-1 | `pii-demo` default-path redaction (fields + sensitive headers → `[REDACTED]`)                        | 🔴     | High     | M    | Phase 6                |
+| P8-2 | Custom `redactPaths` merged with the 97 defaults (`*.webhookSignature`, `payload.creditCard.*`)      | 🔴     | High     | S    | P8-1                   |
+| P8-3 | Deep-nested depth 1→5 payload — depth-4 redacted vs depth-5 NOT-redacted boundary                    | 🔴     | High     | M    | P8-2                   |
+| P8-4 | `LogAuditService.listEffectiveRedactPaths()` + CI "required PII paths present" assertion             | 🔴     | High     | M    | P8-1                   |
 | P8-5 | Oversized-entry proof (`POST /pii-demo/huge` → `LOGGER_ENTRY_TRUNCATED`) + end-to-end no-raw-PII e2e | 🔴     | High     | L    | P8-1, P8-2, P8-3, P8-4 |
 
 ---
@@ -65,6 +65,7 @@ Prove the library's **97 default redact paths** scrub real PII end to end on the
 >    }
 >    ```
 > 2. In `apps/api/src/pii-demo/pii-demo.service.ts`, inject the logger and log the DTO as structured `meta`:
+>
 >    ```typescript
 >    import { Injectable } from '@nestjs/common'
 >    import { InjectLogger, PinoLoggerService } from '@bymax-one/nest-logger'
@@ -89,6 +90,7 @@ Prove the library's **97 default redact paths** scrub real PII end to end on the
 >      }
 >    }
 >    ```
+>
 > 3. In `apps/api/src/pii-demo/pii-demo.controller.ts`, expose `POST /pii-demo/signup` (calls `service.signup(dto)`) and `GET /pii-demo/echo-headers` that logs the request headers (so the HTTP interceptor's `req`/`res` serializers carry `authorization` / `x-api-key` / `set-cookie` through redaction), e.g.:
 >    ```typescript
 >    @Get('echo-headers')
@@ -138,7 +140,6 @@ Prove the library's **97 default redact paths** scrub real PII end to end on the
 > - `redactCensor` is the STRING `'[REDACTED]'`; a censor **function** does not typecheck in `0.1.0`.
 > - Do NOT assert on Loki/Postgres yet — that is P8-5. This task asserts on stdout only.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: the redaction spec passes (every secret `[REDACTED]`, `nome` cleartext).
 > - `pnpm --filter api lint && pnpm --filter api typecheck` — expected: exit 0.
 
@@ -233,7 +234,6 @@ Demonstrate **extending** redaction without losing the defaults. The library **m
 > - Do NOT set `shouldDisableDefaultRedact` here (that belongs to P8-4's dedicated test module only). The whole point is defaults + extensions coexist.
 > - `redactCensor` stays the STRING `'[REDACTED]'`.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: the merge spec passes (custom paths AND a default field both `[REDACTED]`).
 > - `pnpm --filter api typecheck` — expected: exit 0.
 
@@ -331,7 +331,6 @@ Make the **wildcard depth boundary** observable. The defaults list each common f
 > - The depth-5 value MUST be synthetic (`card-d5`), never a realistic card/credential — the proof must never emit real PII.
 > - `REDACT_MAX_DEPTH` is INTERNAL — reference it as an observed behavior, never import it.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: depths 1–4 absent, depth 5 present.
 > - `pnpm --filter api typecheck` — expected: exit 0.
 
@@ -386,6 +385,7 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 > Steps:
 >
 > 1. Create `apps/api/src/logger/log-audit.service.ts`:
+>
 >    ```typescript
 >    import { Inject, Injectable } from '@nestjs/common'
 >    import {
@@ -395,7 +395,13 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 >    } from '@bymax-one/nest-logger'
 >
 >    // The CI gate asserts every field here is effectively redacted (path present + serialized [REDACTED]).
->    export const EXPECTED_REDACTED_FIELDS = ['password', 'email', 'cpf', 'cardNumber', 'authorization'] as const
+>    export const EXPECTED_REDACTED_FIELDS = [
+>      'password',
+>      'email',
+>      'cpf',
+>      'cardNumber',
+>      'authorization',
+>    ] as const
 >
 >    @Injectable()
 >    export class LogAuditService {
@@ -417,14 +423,20 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 >      }
 >    }
 >    ```
+>
 > 2. Register `LogAuditService` as a provider in the appropriate module (e.g. a `LoggerSupportModule` or `AppModule`) so `LOGGER_OPTIONS_TOKEN` resolves.
 > 3. Create `apps/api/test/log-audit.e2e-spec.ts` — the required-paths gate:
+>
 >    ```typescript
 >    it('covers every EXPECTED_REDACTED_FIELDS path', () => {
 >      const effective = audit.listEffectiveRedactPaths()
 >      for (const field of EXPECTED_REDACTED_FIELDS) {
 >        // each required field appears as a path or path suffix in the effective list
->        expect(effective.some((p) => p === field || p.endsWith(`.${field}`) || p.includes(`"${field}"`)))
+>        expect(
+>          effective.some(
+>            (p) => p === field || p.endsWith(`.${field}`) || p.includes(`"${field}"`),
+>          ),
+>        )
 >          .withContext(`missing required redact path for "${field}"`)
 >          .toBe(true)
 >      }
@@ -434,7 +446,15 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 >      const stdout = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
 >      await request(app.getHttpServer())
 >        .post('/pii-demo/signup')
->        .send({ nome: 'X', email: 'a@b.com', password: 'p', cpf: 'c', cardNumber: 'n', cardCvv: 'v', payment: { cardNumber: 'n2' } })
+>        .send({
+>          nome: 'X',
+>          email: 'a@b.com',
+>          password: 'p',
+>          cpf: 'c',
+>          cardNumber: 'n',
+>          cardCvv: 'v',
+>          payment: { cardNumber: 'n2' },
+>        })
 >        .set('authorization', 'Bearer required-leak')
 >        .expect(201)
 >      const logs = stdout.mock.calls.map((c) => String(c[0])).join('')
@@ -443,6 +463,7 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 >      expect(logs).toContain('[REDACTED]')
 >    })
 >    ```
+>
 > 4. Create `apps/api/test/redaction-disabled.e2e-spec.ts` — dedicated opt-out module:
 >    ```typescript
 >    it('emits LOGGER_BOOTSTRAP_WARNING when defaults are disabled', async () => {
@@ -457,8 +478,13 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 >        ],
 >      }).compile()
 >      await moduleRef.init()
->      const audit = new LogAuditService({ shouldDisableDefaultRedact: true } as BymaxLoggerModuleOptions)
->      const out = stdout.mock.calls.concat(stderr.mock.calls).map((c) => String(c[0])).join('')
+>      const audit = new LogAuditService({
+>        shouldDisableDefaultRedact: true,
+>      } as BymaxLoggerModuleOptions)
+>      const out = stdout.mock.calls
+>        .concat(stderr.mock.calls)
+>        .map((c) => String(c[0]))
+>        .join('')
 >      stdout.mockRestore()
 >      stderr.mockRestore()
 >      expect(out).toContain('LOGGER_BOOTSTRAP_WARNING')
@@ -473,7 +499,6 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 > - `shouldDisableDefaultRedact: true` appears ONLY in the dedicated test module — NEVER in `apps/api/src/**`.
 > - Keep the method names exactly `listEffectiveRedactPaths` / `listConfiguredRedactPaths` / `hasDefaultRedactionDisabled` (the dashboard's redaction panel consumes them).
 >   Verification:
->
 > - `pnpm --filter api test` — expected: required-paths gate + opt-out warning test pass.
 > - `pnpm --filter api typecheck` — expected: exit 0.
 
@@ -551,10 +576,18 @@ Close Phase 8 with the two remaining proofs. (a) **Oversized entry:** `POST /pii
 >    ```typescript
 >    it('writes [REDACTED] (never raw PII) to Postgres and Loki', async () => {
 >      // fire a warn-level PII log so it reaches the Postgres (warn+) tier
->      await request(app.getHttpServer()).post('/pii-demo/signup').send({
->        nome: 'Y', email: 'leak@db.com', password: 'leak-pass', cpf: 'leak-cpf',
->        cardNumber: 'leak-card', cardCvv: 'leak-cvv', payment: { cardNumber: 'leak-card2' },
->      }).expect(201)
+>      await request(app.getHttpServer())
+>        .post('/pii-demo/signup')
+>        .send({
+>          nome: 'Y',
+>          email: 'leak@db.com',
+>          password: 'leak-pass',
+>          cpf: 'leak-cpf',
+>          cardNumber: 'leak-card',
+>          cardCvv: 'leak-cvv',
+>          payment: { cardNumber: 'leak-card2' },
+>        })
+>        .expect(201)
 >      await flushDestinations(app) // drain PrismaLogDestination + LokiDestination buffers
 >      const rows = await prisma.applicationLog.findMany()
 >      const dbDump = JSON.stringify(rows)
@@ -562,7 +595,9 @@ Close Phase 8 with the two remaining proofs. (a) **Oversized entry:** `POST /pii
 >      expect(dbDump).not.toContain('leak@db.com')
 >      expect(dbDump).not.toContain('leak-card')
 >      // Loki: query the proxy (or assert on the captured push body)
->      const loki = await request(app.getHttpServer()).get('/logs/loki').query({ query: '{service=~".+"}' })
+>      const loki = await request(app.getHttpServer())
+>        .get('/logs/loki')
+>        .query({ query: '{service=~".+"}' })
 >      expect(JSON.stringify(loki.body)).not.toContain('leak-pass')
 >    })
 >    ```
@@ -574,7 +609,6 @@ Close Phase 8 with the two remaining proofs. (a) **Oversized entry:** `POST /pii
 > - The leaking-candidate values MUST be synthetic markers (`leak-pass`, `leak-card`, …), never realistic credentials.
 > - Do NOT lower `maxEntrySizeBytes` or any threshold to make a test pass.
 >   Verification:
->
 > - `pnpm --filter api test:e2e` — expected: truncation spec + cross-sink no-raw-PII spec pass.
 > - `pnpm --filter api lint && pnpm --filter api typecheck` — expected: exit 0.
 

@@ -1,0 +1,45 @@
+{
+  "name": "nest-logger-example",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.8.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10.8"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present run dev",
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --if-present run test",
+    "test:cov": "pnpm -r --if-present run test:cov",
+    "test:e2e": "pnpm -r --if-present run test:e2e",
+    "mutation": "pnpm -r --if-present run mutation",
+    "mutation:incremental": "pnpm -r --if-present run mutation:incremental",
+    "mutation:dry-run": "pnpm -r --if-present run mutation:dry-run",
+    "audit:exports": "node scripts/audit-library-exports.mjs",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "infra:nuke": "docker compose down -v",
+    "infra:logs": "docker compose logs -f",
+    "infra:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "infra:test:down": "docker compose -f docker-compose.test.yml down -v",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.6",
+    "prettier": "^3",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.60.0"
+  }
+}
