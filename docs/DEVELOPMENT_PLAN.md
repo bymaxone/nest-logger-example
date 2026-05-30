@@ -2,7 +2,7 @@
 
 > **Scope:** the master phased plan for building `nest-logger-example`, the reference application for [`@bymax-one/nest-logger`](https://github.com/bymaxone/nest-logger).
 > **Source of truth:** this file. Per-phase task files live under [`docs/tasks/`](tasks/README.md); the product spec is [`OVERVIEW.md`](OVERVIEW.md); the dashboard spec is [`DASHBOARD.md`](DASHBOARD.md).
-> **Targeted library version:** `@bymax-one/nest-logger@^0.1.0` (alpha).
+> **Targeted library version:** `@bymax-one/nest-logger@^0.1.0` (0.1.0, implemented; consumed via local link until published).
 > **Document version:** 1.0 — authored before implementation.
 > **Status:** specification only.
 
@@ -117,7 +117,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 | **Mutation score**  | **Stryker thresholds `{ high: 100, low: 100, break: 100 }}`** — api (jest-runner) + web (vitest-runner) |
 | **Export audit**    | `scripts/audit-library-exports.mjs` + `.audit-ignore.json` — every lib export referenced in `apps/`  |
 | Dep automation      | `renovate.json` (weekend schedule; pin `@bymax-one/nest-logger`, group docker/actions)              |
-| Deps in the library | `@bymax-one/nest-logger` consumed from npm (`^0.1.0`); `file:` link only in local dev, never on `main` |
+| Deps in the library | `@bymax-one/nest-logger` via local `link:`/`file:` until published (not on npm yet), then `^0.1.0` |
 
 ---
 
@@ -162,9 +162,9 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Prerequisites:** Phase 0.
 **Deliverables:**
 
-- [ ] `apps/api` + `apps/worker` declare `@bymax-one/nest-logger` (`^0.1.0`); `file:` link documented for local dev.
+- [ ] `apps/api` + `apps/worker` declare `@bymax-one/nest-logger` (local `link:`/`file:` until published, then `^0.1.0`).
 - [ ] A typed "subpath probe" importing from `.` (`BymaxLoggerModule`, `PinoLoggerService`) and `/shared` (`LogLevel`, `LOG_KEYS_CONVENTION_REGEX`) to prove resolution.
-- [ ] Peer/optional deps installed: `pino`, `reflect-metadata`, `pino-pretty`, `pino-roll`, `@opentelemetry/*`.
+- [ ] Peer/optional deps installed: `pino`, `rxjs`, `reflect-metadata`, `pino-pretty`, `pino-roll`, `@opentelemetry/*`.
 
 **Definition of done:** `pnpm typecheck` resolves both subpaths; the probe compiles.
 
@@ -207,7 +207,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Deliverables:**
 
 - [ ] `prisma/schema.prisma` — `ApplicationLog` (dashboard-grade columns; see `DASHBOARD.md` §13) + `Order`/`Payment` + `SavedView`/`AlertRule`/`Incident`/`AuditEvent`.
-- [ ] Raw-SQL migration for **BRIN on `time`**, **composite `(time DESC, id DESC)`** keyset index, **GIN `jsonb_path_ops`** on `payload`.
+- [ ] Indexes via **native Prisma extended-index syntax** (BRIN on `time`, composite `(time DESC, id DESC)` keyset, GIN `jsonb_path_ops` on `payload`) — GA on PostgreSQL in Prisma 6/7; reserve raw SQL only for what Prisma can't model (BRIN `pages_per_range` tuning, partial indexes). See `DASHBOARD.md` §13.
 - [ ] `PrismaService`; `prisma/seed.ts` (demo tenants + sample orders).
 
 **Definition of done:** `prisma migrate dev` applies; `prisma db seed` populates; indexes present (`\d application_logs`).
@@ -223,7 +223,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 - [ ] `orders/` (`POST /orders`, `GET /orders/:id`, `GET /orders/slow`) — hot-path `info`, URL `:id` norm, slow flag.
 - [ ] `payments/` (`POST /payments`) — `@LogPerformance`, `errorStructured`, `HttpException`.
 - [ ] `pii-demo/` (signup/nested/echo-headers/huge) — redaction surfaces.
-- [ ] `downstream/` (`POST /downstream/dispatch`) — `@LogContext`, calls `apps/worker`.
+- [ ] `downstream/` (`POST /downstream/dispatch`) — `@LogContext(name)` class label + ctor `setContext()`, calls `apps/worker`.
 - [ ] `trigger/` (`/trigger/level`, `/trigger/status/:code`, `/trigger/fault/loki`, `/trigger/burst`) — Playground hooks.
 - [ ] `admin/` (`PATCH /admin/log-level` → `getRawLogger().level`).
 
