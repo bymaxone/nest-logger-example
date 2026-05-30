@@ -8,22 +8,24 @@
 
 > **📄 About this document.** This is the master **technical blueprint** for `nest-logger-example`. The repository does not exist yet — this file is the authoritative specification an engineer (or an AI agent) reads to build it end to end. It mirrors and improves the proven structure of the sibling [`nest-auth-example`](https://github.com/bymaxone/nest-auth-example) reference app, adapted to demonstrate the **logging** library instead of the **auth** library.
 >
-> **⚠️ Library status.** `@bymax-one/nest-logger` is **pre-1.0** (currently `0.1.0-alpha.x`, pre-implementation). The public API described here follows the library's `README.md` surface and technical specification. Until the library ships `1.0.0`, **verify option names, decorator signatures, and exports against the installed package's TypeScript types** when wiring the example. Where this document and the package types disagree, the package types win — and a documentation issue should be filed against the library.
+> **⚠️ Library status.** `@bymax-one/nest-logger` is **pre-1.0** (`0.1.0`, **implemented** — Phase 4 complete, `dist/` built, **not yet published to npm**). The public API in this document has been **reconciled against the shipped `0.1.0` TypeScript types** (`dist/server/index.d.ts` + `dist/shared/index.d.ts`), which are authoritative. Until the library publishes, the example consumes it through a **local link** (§7); switch to the semver range at first publish. Where any doc and the package types disagree, **the package types win.**
 >
-> **🔧 Known library API drift to reconcile (found in the May-2026 doc audit).** The library's own `README.md` and `technical_specification.md` currently **disagree** on several signatures; this example follows the README surface but the items below must be reconciled against the published types before/while building, and ideally fixed **upstream in the library first**:
+> **🔧 Reconciled against the shipped `0.1.0` types (May-2026 audit).** The earlier blueprint was authored pre-code against the library's `README.md`, which itself drifts from the shipped code. This document now follows the **code**; the corrections applied:
 >
-> | Symbol | README says | Spec says | This example uses | Action |
-> | ------ | ----------- | --------- | ----------------- | ------ |
-> | NestJS-logger bridge | `{ bufferLogs: true }`, no explicit call | option `shouldUseAsNestLogger` (default true) | the standard idiom `app.useLogger(app.get(PinoLoggerService))` (+ the option) — works either way | confirm whether a `BymaxLoggerModule.useNestLogger(app)` helper ships |
-> | Request-id middleware | hand-written middleware | exports `RequestIdMiddleware` class + `http.shouldGenerateRequestId` | `consumer.apply(RequestIdMiddleware).forRoutes('*')` (standard NestJS) | confirm the class name + the `http` option |
-> | `otel` auto-inject flag | `autoInjectTraceContext` | `shouldAutoInjectTraceContext` | `autoInjectTraceContext` (README) | reconcile to the `is/has/should/can` convention |
-> | `warnStructured` 2nd arg / 3rd arg | `(logKey, error, context?, meta?)` | `(logKey, message, userId?, meta?)` | README shape | reconcile message-vs-Error and userId-vs-context |
-> | `fatalStructured` | listed in the API table | not in the structured-API list | demonstrated (README) | confirm it exists, else use plain `fatal()` |
-> | `@LogContext` | `(store)` method decorator | `(name)` class decorator | README (method/store) | reconcile |
-> | `http.excludePaths` | `string[]` | `RegExp[]` | `string[]` (README) | confirm the published type |
-> | `DEFAULT_REDACT_PATHS` | not exported | not exported | **not imported** (example reads effective paths via `LOGGER_OPTIONS_TOKEN`) | keep internal unless the lib exports it |
+> | Symbol | Shipped `0.1.0` (authoritative) | Correction applied |
+> | ------ | ------------------------------- | ------------------ |
+> | NestJS-logger bridge | `app.useLogger(app.get(PinoLoggerService))` + option `shouldUseAsNestLogger` (default true) | no `BymaxLoggerModule.useNestLogger(app)` helper ships — use the idiom |
+> | Request-id middleware | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId`; `applyRequestIdMiddleware()` also exported | as documented |
+> | `otel` auto-inject flag | **`otel.shouldAutoInjectTraceContext`** (default true) | was `autoInjectTraceContext` |
+> | `warnStructured` | **`(logKey, message: string, userId?, meta?)`** | was `(logKey, error, context?)` — message+userId, not Error+context |
+> | structured fatal | **none** — use `fatal()` (variadic) or `errorStructured()` | `fatalStructured` does not exist |
+> | `@LogContext` | **class decorator `@LogContext(name)`** — records a label; `setContext()` applies it in `0.1.0` | was `(store)` method decorator |
+> | `http.excludePaths` | **`readonly RegExp[]`** (anchored, ReDoS-safe) | was `string[]` |
+> | `redactCensor` | **`string`** only | the censor-function form is not in the public type |
+> | `DEFAULT_REDACT_PATHS` | **exported** from the `.` subpath; the example references it | was wrongly called internal (the export-usage audit needs it) |
+> | `http.slowThresholdMs` / `http.userIdResolver` | **do not exist** in `HttpOptions` | slow = `@LogPerformance(ms)`; userId via `info(logKey, msg, userId, …)` |
 >
-> `TraceContextMixin` and `REDACT_MAX_DEPTH` are **internal** (not public exports) — the matrix references them as observable *behaviors*, not importable surface.
+> The library's own `README.md` still documents some of these incorrectly (`@LogContext(store)`, `warnStructured(error)`, `fatalStructured`, a `redactCensor` function) — a docs issue should be filed upstream. `TraceContextMixin`, `REDACT_MAX_DEPTH`, the composed mixin, and `LOGGER_ERROR_CODES` are **internal** (not public exports) — referenced as observable *behaviors*, not importable surface.
 
 ---
 
@@ -162,7 +164,7 @@ The three app services are independently deployable. All log/trace state is carr
 
 | Layer                  | Technology                              | Version            | Why                                                         |
 | ---------------------- | --------------------------------------- | ------------------ | ----------------------------------------------------------- |
-| **Logging library**    | `@bymax-one/nest-logger`                | `^0.1.0` (alpha)   | The library this project demonstrates                       |
+| **Logging library**    | `@bymax-one/nest-logger`                | `^0.1.0` (pre-1.0)   | The library this project demonstrates                       |
 | Logging engine         | Pino                                    | `^10.0`            | Library peer dep — ~750k logs/sec, JSON-native              |
 | Pretty dev output      | `pino-pretty`                           | `^13.0` (optional) | Human-readable logs in development                          |
 | Rolling files          | `pino-roll`                             | `^3.0` (optional)  | File destination with daily/size rotation                  |
@@ -310,29 +312,29 @@ Every row maps to a public feature/export of `@bymax-one/nest-logger`. Each one 
 | 2   | Async registration with `ConfigService`      | `BymaxLoggerModule.forRootAsync({ useFactory, inject, imports })` | `apps/api/src/app.module.ts` + `logger/logger.config.ts`                    | ✅     |
 | 3   | Global module flag                           | `isGlobal` (→ `DynamicModule.global`)                             | `forRootAsync` in `apps/api` (default `true`, set explicitly)                | ✅     |
 | 4   | NestJS internal-logger bridge                | `app.useLogger(app.get(PinoLoggerService))` (or option `shouldUseAsNestLogger`) + `{ bufferLogs: true }` | `apps/api/src/main.ts`, `apps/worker/src/main.ts`                            | ✅     |
-| 5   | Structured `info` / `warn` / `debug`         | `PinoLoggerService.info(logKey, msg, userId?, meta?)`            | `orders/orders.service.ts`                                                   | ✅     |
+| 5   | Structured `info` / `warnStructured`         | `PinoLoggerService.info(logKey, msg, userId?, meta?)`            | `orders/orders.service.ts`                                                   | ✅     |
 | 6   | Error logging with `Error` object            | `PinoLoggerService.errorStructured(logKey, error, userId?, meta?)`| `payments/payments.service.ts` catch block                                  | ✅     |
-| 7   | Warn / fatal with `Error` object             | `warnStructured` / `fatalStructured`                              | `payments` (retryable warn), bootstrap fatal path                            | ✅     |
+| 7   | Structured warn + variadic `fatal()`             | `warnStructured(logKey, msg, userId?, meta?)`; `fatal()` (no `fatalStructured`) | `payments` (retryable warn), bootstrap fatal path                            | ✅     |
 | 8   | NestJS `LoggerService` interface methods     | `log` / `verbose` (bridge → `info` / `trace`)                     | NestJS framework logs after the logger bridge                                | ✅     |
 | 9   | Per-class logger injection (child logger)    | `@InjectLogger(context)`                                          | every service constructor (e.g. `@InjectLogger(OrdersService.name)`)         | ✅     |
-| 10  | Method-scoped context                        | `@LogContext(store)`                                              | `downstream/downstream.service.ts`                                          | ✅     |
+| 10  | Class context label                          | `@LogContext(name)` (class decorator — records label; `setContext()` applies it) + `LOG_CONTEXT_METADATA_KEY` | `downstream/downstream.service.ts`                                          | ✅     |
 | 11  | Performance / slow-method logging            | `@LogPerformance(thresholdMs?)` → `METHOD_EXECUTION` / `_SLOW_`   | `payments/payments.service.ts` (intentionally slow path)                     | ✅     |
 | 12  | AsyncLocalStorage context propagation        | `LogContextService.run / set / get / getStore`                   | `RequestIdMiddleware` + `downstream` (manual `set`)                          | ✅     |
-| 13  | Automatic request-id middleware              | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId` | `apps/api/src/app.module.ts` `configure()`                                  | ✅     |
+| 13  | Automatic request-id middleware              | `RequestIdMiddleware` (via `consumer.apply(...)` / `applyRequestIdMiddleware()`) or `http.shouldGenerateRequestId` | `apps/api/src/app.module.ts` `configure()`                                  | ✅     |
 | 14  | HTTP request/response logging                | `HttpLoggingInterceptor` (`http.isEnabled: true`)                | global; visible on every `/orders` call                                      | ✅     |
 | 15  | HTTP log keys (start/success/redirect/4xx/5xx)| `HTTP_REQUEST_*` reserved keys                                    | exercised by 2xx/4xx/5xx demo routes                                          | ✅     |
 | 16  | Exception filter                             | `HttpExceptionFilter` (`HTTP_EXCEPTION_HANDLED` / `_UNHANDLED`)   | `payments` throws `HttpException`; `pii-demo` throws unexpected               | ✅     |
 | 17  | Double-log avoidance (filter ↔ interceptor)  | `__bymax_logger_handled` coordination                            | asserted in `test/http-logging.e2e-spec.ts`                                  | ✅     |
 | 18  | URL normalization (`:id` placeholder)        | `normalizeUrl` (UUID/ULID/nanoid/numeric → `/:id`)               | `/orders/:id` calls show `"url":"/orders/:id"`                              | ✅     |
-| 19  | Slow-request flag                            | `http.slowThresholdMs`                                            | `/orders/slow` exceeds threshold                                             | ✅     |
+| 19  | Slow-method flag                             | `@LogPerformance(thresholdMs)`                                    | `/orders/slow` exceeds threshold                                             | ✅     |
 | 20  | HTTP path exclusion                          | `http.excludePaths`                                              | `/health` and `/metrics` produce no access logs                              | ✅     |
-| 21  | OTel trace correlation (auto)                | `otel.autoInjectTraceContext` behavior (the mixin is internal)   | every log when SDK active → `traceId`/`spanId`/`traceFlags`                  | ✅     |
+| 21  | OTel trace correlation (auto)                | `otel.shouldAutoInjectTraceContext` behavior (the mixin is internal)   | every log when SDK active → `traceId`/`spanId`/`traceFlags`                  | ✅     |
 | 22  | Field-name format (camelCase / snake_case)   | `otel.fieldFormat` (+ per-field overrides)                        | `apps/worker` set to `snake_case` to contrast with `apps/api`                | ✅     |
 | 23  | Cross-service trace propagation              | W3C `traceparent` (auto-instrumentation + `propagation.inject`)  | `apps/api/downstream` → `apps/worker` share one `traceId`                    | ✅     |
 | 24  | Graceful OTel SDK shutdown                   | `sdk.shutdown()` on `SIGTERM`                                     | `instrumentation.ts` in both services                                        | ✅     |
-| 25  | Default PII redaction (97 paths)             | 97 default paths auto-applied (internal constant — **not** a public export)         | `pii-demo` logs password/cpf/cardNumber → `[REDACTED]`                       | ✅     |
+| 25  | Default PII redaction (97 paths)             | `DEFAULT_REDACT_PATHS` (exported from `.`; auto-applied)         | `pii-demo` logs password/cpf/cardNumber → `[REDACTED]`                       | ✅     |
 | 26  | Custom redact-path extension (merge)         | `redactPaths`                                                    | `logger.config.ts` adds `*.webhookSignature`, `payload.creditCard.*`         | ✅     |
-| 27  | Custom censor (string & function)            | `redactCensor`                                                  | string `'***'` in `api`; type-preserving function in a test variant          | ✅     |
+| 27  | Custom censor (string)                       | `redactCensor` (public type: `string`)                          | `'[REDACTED]'` string in `api`                                               | ✅     |
 | 28  | HTTP header redaction (bracket syntax)       | `req.headers["x-api-key"]`, `res.headers["set-cookie"]`         | `pii-demo` echoes headers; verified redacted                                 | ✅     |
 | 29  | Disable defaults (audit warning)             | `shouldDisableDefaultRedact` → `LOGGER_BOOTSTRAP_WARNING`        | documented + covered by a dedicated test module (never the default)          | ✅     |
 | 30  | Wildcard depth boundary (1–4)                | observable behavior — defaults redact to depth 4 (`REDACT_MAX_DEPTH` is internal) | nested-payload test asserts depth-4 redacted, depth-5 not                    | ✅     |
@@ -346,11 +348,11 @@ Every row maps to a public feature/export of `@bymax-one/nest-logger`. Each one 
 | 38  | Log-key convention validation                | `LOG_KEYS_CONVENTION_REGEX` (from `/shared`)                    | `scripts/audit-log-keys.mjs` (CI) + `apps/web/lib/log-keys.ts`              | ✅     |
 | 39  | Reserved log keys                            | `RESERVED_LOG_KEYS` (16) (from `/shared`)                       | CI guard: app code never reuses a reserved key                               | ✅     |
 | 40  | Error-code catalog awareness                 | `LOGGER_ERROR_CODES` (8) behaviors                              | `TROUBLESHOOTING.md` + tests assert each surfaces correctly                  | ✅     |
-| 41  | Isomorphic `/shared` types                   | `LogLevel`, `LogEntry`, `ServiceMetadata`                       | `apps/web` form types + `PrismaLogDestination` typing                        | ✅     |
+| 41  | Isomorphic `/shared` types                   | `LogLevel`, `LogEntry`, `ServiceMetadata`, `ReservedLogKey`     | `apps/web` form types + `PrismaLogDestination` typing                        | ✅     |
 | 42  | Runtime options audit                        | `@Inject(LOGGER_OPTIONS_TOKEN)`                                  | `logger/log-audit.service.ts` lists active redact paths                      | ✅     |
 | 43  | Raw Pino escape hatch                        | `getRawLogger()` (dynamic level, advanced)                      | `/admin/log-level` toggles `getRawLogger().level` at runtime                  | ✅     |
 | 44  | Sentry + OTel (optional)                     | `@sentry/opentelemetry` `SentryPropagator` + built-in `Sentry.pinoIntegration()` | gated behind `SENTRY_DSN`; documented in `OTEL.md`                            | ✅     |
-| 45a | `http` per-app options                       | `http.shouldCaptureExceptions` / `shouldGenerateRequestId` / `tenantIdHeader` / `userIdResolver` | `logger.config.ts` (§9) wires all four                              | ✅     |
+| 45a | `http` per-app options                       | `http.shouldCaptureExceptions` / `shouldGenerateRequestId` / `tenantIdHeader` / `excludePaths` | `logger.config.ts` (§9) wires all four                              | ✅     |
 | 45b | `otel` per-field name overrides              | `otel.traceIdField` / `spanIdField` / `traceFlagsField`          | `apps/worker` sets `traceIdField: 'trace_id'` (§14)                          | ✅     |
 | 45c | Custom serializers + timestamp + self-bridge | `serializers` / `timestamp` / `shouldUseAsNestLogger`            | `logger.config.ts` (§9)                                                      | ✅     |
 | 45d | Power-user logger methods                    | `PinoLoggerService.setContext(ctx)` / `child(bindings)`         | `setContext` in a service ctor; `child()` in a fan-out service               | ✅     |
@@ -369,19 +371,20 @@ Every row maps to a public feature/export of `@bymax-one/nest-logger`. Each one 
 
 ## 7. Library Consumption
 
-`@bymax-one/nest-logger` is consumed as a normal version-pinned dependency. Because the library is **pre-1.0**, this repository tracks the alpha line and documents the exact tested version per commit (see §18).
+`@bymax-one/nest-logger` is consumed as a normal dependency. **It is not yet published to npm**, so today the example consumes it through a **local link** (see below); once the library publishes, the example pins a semver range and records the exact tested version per commit (see §18).
 
-The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`, `pino` `^10`, `reflect-metadata` `^0.2`) and **optional peers** (`pino-pretty`, `@opentelemetry/api` — install them in the app to light up `PrettyDevDestination` / trace injection). `pino-roll` is **not** a library peer — it's an **example-only** dependency for this repo's own `RollingFileDestination`. The OTel SDK packages are likewise the consumer's own deps (the library only reads `@opentelemetry/api`).
+The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`, `pino` `^10`, `reflect-metadata` `^0.2`, `rxjs` `^7.8`) and **optional peers** (`pino-pretty`, `@opentelemetry/api` — install them in the app to light up `PrettyDevDestination` / trace injection). `pino-roll` is **not** a library peer — it's an **example-only** dependency for this repo's own `RollingFileDestination`. The OTel SDK packages are likewise the consumer's own deps (the library only reads `@opentelemetry/api`).
 
 ```jsonc
 // apps/api/package.json, apps/worker/package.json
 {
   "dependencies": {
-    "@bymax-one/nest-logger": "^0.1.0", // alpha — pin exactly in CI (see RELEASES.md)
+    "@bymax-one/nest-logger": "^0.1.0", // after publish; today use the local link below
     "@nestjs/common": "^11.0.0", // required peer of the library
     "@nestjs/core": "^11.0.0", // required peer of the library
     "pino": "^10.0.0", // required peer
     "reflect-metadata": "^0.2.0", // required peer
+    "rxjs": "^7.8.0", // required peer (also pulled transitively by @nestjs/core)
     // OTel SDK is the CONSUMER's dependency (lib only reads @opentelemetry/api):
     "@opentelemetry/sdk-node": "^0.218.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
@@ -397,43 +400,43 @@ The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`
 }
 ```
 
-### Day-to-day workflow
+### Current consumption — local link (pre-publish)
 
-Most contributors only edit this repository — `pnpm install` resolves the library exactly like any other dependency. There is nothing else to do.
-
-### Iterating on the library and the example side-by-side
-
-While the library is in active development, the example consumes it through a **`file:` link** (matching the Bymax monorepo convention) so changes are picked up immediately:
+`@bymax-one/nest-logger` is **not on npm yet**, so the example links the local checkout. Each app declares a link to the sibling library; the lib's already-built `dist/` resolves its types **and** runtime via the package `exports` map:
 
 ```jsonc
-// apps/api/package.json — local development only, never commit on `main`
+// apps/api/package.json and apps/worker/package.json — current, pre-publish
 {
   "dependencies": {
-    "@bymax-one/nest-logger": "file:../../../nest-logger"
+    // pnpm symlink to the sibling checkout (≈ `npm link`); `file:` resolves identically.
+    "@bymax-one/nest-logger": "link:../../../nest-logger"
   }
 }
 ```
 
 ```bash
-# in the library checkout
-cd ../../nest-logger
-pnpm install && pnpm build --watch    # tsup watch keeps dist/ fresh (ESM + CJS dual subpath)
+# 1) build the library once and keep it watching so dist/ stays fresh:
+cd ../nest-logger                    # sibling of nest-logger-example under …/bymax-one/
+pnpm install && pnpm build --watch   # tsup watch — ESM + CJS dual subpath
 
-# in this repository
-cd ../bymax-one/nest-logger-example
-pnpm install                          # resolves the file: link
-pnpm dev                              # nest start --watch picks up the rebuilt dist/
+# 2) in this repository, install (resolves the link:) and run:
+cd ../nest-logger-example
+pnpm install
+pnpm dev                             # nest start --watch picks up the rebuilt dist/
 ```
 
-When the library publishes to npm, revert to the semver range:
+> **Path note.** From `nest-logger-example/apps/api`, the library is three levels up (`../../../nest-logger`); from the repo root it is one level up (`../nest-logger`). Both repos are siblings under `…/bymax-one/`.
+
+### After the library publishes
+
+Switch each app to the semver range and drop the link:
 
 ```bash
-# restore the published version
-pnpm add @bymax-one/nest-logger@latest -w
+pnpm add @bymax-one/nest-logger@^0.1.0 --filter api --filter worker
 pnpm install
 ```
 
-> The `main` branch must always declare a published semver range (`^0.1.0` today, `^1.0.0` after GA) — never commit a `file:` link to `main`.
+> Until the first publish, the local `link:`/`file:` **is** what `main` uses — it is the only way to resolve the package. Once `@bymax-one/nest-logger` is on npm, `main` declares the published semver range (`^0.1.0`, `^1.0.0` after GA) and the link is reserved for side-by-side dev.
 
 ### Subpath imports
 
@@ -655,21 +658,25 @@ export function buildLoggerOptions(
     // Custom serializers merged with the library defaults (err/req/res). This is exactly the
     // hand-rolled "custom header serializer" drift §1 calls out — shown here as a one-liner.
     serializers: {
-      // keep only the safe shape of an outbound HTTP client error, for example
-      upstreamError: (e: { status?: number; code?: string }) => ({ status: e.status, code: e.code }),
+      // Serializer params are typed `unknown` (lib: Record<string, (input: unknown) => unknown>),
+      // so narrow inside the body rather than in the parameter signature (strictFunctionTypes).
+      upstreamError: (e) => {
+        const err = e as { status?: number; code?: string }
+        return { status: err.status, code: err.code }
+      },
     },
     timestamp: () => `,"time":"${new Date().toISOString()}"`, // ISO-8601 UTC (Pino timestamp fn)
     http: {
       isEnabled: true,
-      excludePaths: ['/health', '/metrics'], // README types this string[]; see the drift table in the header
-      slowThresholdMs: 1_000,
+      excludePaths: [/^\/health$/, /^\/metrics$/], // RegExp[] — anchored, ReDoS-safe (the lib .test()s each per request)
       shouldCaptureExceptions: true, // pair the HttpExceptionFilter with the interceptor
       shouldGenerateRequestId: false, // false: we wire RequestIdMiddleware ourselves (app.module configure())
       tenantIdHeader: 'x-tenant-id', // resolve tenantId into the ALS scope from this header
-      userIdResolver: (req: { user?: { id?: string } }) => req.user?.id, // resolve userId per request
+      // NOTE: HttpOptions has no `slowThresholdMs`/`userIdResolver` — slow detection is the
+      // `@LogPerformance(ms)` decorator; userId rides the structured `info(logKey, msg, userId, …)` arg.
     },
     otel: {
-      autoInjectTraceContext: true, // NOTE: README name; spec uses `shouldAutoInjectTraceContext` — see header drift table
+      shouldAutoInjectTraceContext: true, // detect @opentelemetry/api → inject traceId/spanId/traceFlags (default true)
       fieldFormat: config.get('OTEL_FIELD_FORMAT') === 'snake_case' ? 'snake_case' : 'camelCase',
       // per-field overrides also exist (traceIdField / spanIdField / traceFlagsField) — the
       // apps/worker config sets `traceIdField: 'trace_id'` explicitly to demonstrate them (§14).
@@ -696,13 +703,13 @@ To produce **realistic** logs (not `logger.info('hello')`), the example ships a 
 | Module       | Endpoint(s)                              | What it demonstrates                                                                 |
 | ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------ |
 | `orders`     | `POST /orders`, `GET /orders/:id`        | Hot-path structured logging; `requestId`/`tenantId` auto-propagation; URL `:id` norm |
-| `orders`     | `GET /orders/slow`                       | `http.slowThresholdMs` slow-request flag                                             |
+| `orders`     | `GET /orders/slow`                       | `@LogPerformance(ms)` → `METHOD_SLOW_EXECUTION` slow-method flag                     |
 | `payments`   | `POST /payments`                         | `@LogPerformance`, `errorStructured`, `HttpException` → `HTTP_EXCEPTION_HANDLED`     |
 | `pii-demo`   | `POST /pii-demo/signup`                  | Default redaction of `password`/`email`/`cpf`/`cardNumber`/`cardCvv`                 |
 | `pii-demo`   | `POST /pii-demo/nested`                  | Wildcard depth 1–4 coverage (and the depth-5 boundary)                              |
 | `pii-demo`   | `GET /pii-demo/echo-headers`             | Header redaction (`authorization`, `x-api-key`, `set-cookie`)                       |
 | `pii-demo`   | `POST /pii-demo/huge`                    | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                                        |
-| `downstream` | `POST /downstream/dispatch`              | Calls `apps/worker` → cross-service `traceId` correlation + `@LogContext`            |
+| `downstream` | `POST /downstream/dispatch`              | Calls `apps/worker` → cross-service `traceId` correlation + `@LogContext(name)` class label |
 | `admin`      | `PATCH /admin/log-level`                 | `getRawLogger().level` runtime level change                                          |
 | `trigger`    | `POST /trigger/level`, `/trigger/status/:code`, `/trigger/fault/loki`, `/trigger/burst` | Dashboard **Playground** hooks — fire any level, HTTP status, destination fault, or a load burst |
 | `logs`       | `GET /logs`, `/logs/aggregate`, `/logs/facets`, `/logs/context`, `/logs/stream` (SSE), `/logs/loki`, `/logs/export` | **Read-API** powering the dashboard — keyset paging, chart aggregations, facets, live tail, Loki proxy (`DASHBOARD.md` §12) |
@@ -930,16 +937,10 @@ redactPaths: [
   'req.headers["x-service-token"]', // hyphenated header → MUST use bracket syntax
 ],
 
-// Censor can be a string…
+// The censor is a string in the public type (BymaxLoggerModuleOptions.redactCensor?: string):
 redactCensor: '[REDACTED]',
-
-// …or a type-preserving function (keeps downstream JSON-schema validation happy):
-redactCensor: (value) => {
-  if (typeof value === 'number') return 0
-  if (typeof value === 'string') return ''
-  if (Array.isArray(value)) return []
-  return null
-},
+// NOTE: fast-redact itself also accepts a censor *function*, but `@bymax-one/nest-logger@0.1.0`
+// types `redactCensor` as `string` only — a function form would not typecheck.
 ```
 
 ### `pii-demo` in action
@@ -968,22 +969,30 @@ redactCensor: (value) => {
 
 `logger/log-audit.service.ts` injects the resolved options and exposes the effective path list — used by an e2e test as a CI gate that critical PII paths are present:
 
-The library's 97 default paths are an **internal** constant — they are auto-applied but **not** a public export (do not `import { DEFAULT_REDACT_PATHS }`). So the audit service reports only the example's *own* extensions from the resolved options, and the CI gate asserts critical PII coverage against an **example-owned** expected list:
+The library's 97 default paths are exported as **`DEFAULT_REDACT_PATHS`** from the `.` subpath (and auto-applied). The audit service imports it to report the **effective** path list (defaults + the example's own extensions); the CI gate asserts critical PII coverage. Referencing the export here also satisfies the export-usage audit (§6):
 
 ```typescript
 import { Inject, Injectable } from '@nestjs/common'
-import { LOGGER_OPTIONS_TOKEN, type BymaxLoggerModuleOptions } from '@bymax-one/nest-logger'
+import {
+  DEFAULT_REDACT_PATHS,
+  LOGGER_OPTIONS_TOKEN,
+  type BymaxLoggerModuleOptions,
+} from '@bymax-one/nest-logger'
 
-// This example owns its expected-coverage baseline (it does NOT re-export the lib's
-// internal default list). The e2e gate asserts every entry here is effectively redacted
-// by emitting a payload with these fields and checking the serialized output is [REDACTED].
+// The e2e gate asserts every entry here is effectively redacted by emitting a payload with
+// these fields and checking the serialized output is [REDACTED].
 export const EXPECTED_REDACTED_FIELDS = ['password', 'email', 'cpf', 'cardNumber', 'authorization'] as const
 
 @Injectable()
 export class LogAuditService {
   constructor(@Inject(LOGGER_OPTIONS_TOKEN) private readonly opts: BymaxLoggerModuleOptions) {}
 
-  /** The app-supplied extra redact paths merged on top of the library defaults. */
+  /** Effective redact paths = the library's exported defaults + the app-supplied extensions. */
+  listEffectiveRedactPaths(): readonly string[] {
+    return [...DEFAULT_REDACT_PATHS, ...(this.opts.redactPaths ?? [])]
+  }
+
+  /** Just the app-supplied extra redact paths merged on top of the library defaults. */
   listConfiguredRedactPaths(): readonly string[] {
     return this.opts.redactPaths ?? []
   }
@@ -1126,10 +1135,10 @@ Because the library is pre-1.0, branch tracking is explicit:
 
 | Branch   | Tracks library version | Notes                                                          |
 | -------- | ---------------------- | -------------------------------------------------------------- |
-| `main`   | `^0.1.0` (alpha)       | Current — consumes the published alpha (or `file:` link in dev) |
+| `main`   | `^0.1.0` (pre-1.0)       | Current — local `link:` until first publish, then the published `^0.1.0` |
 | `next`   | `^1.0.0` (when out)    | Pre-release tracking the GA library; expect breaking changes    |
 
-Every commit on `main` records the exact `@bymax-one/nest-logger` version it was tested against in `docs/RELEASES.md`. When the library reaches `1.0.0`, `main` flips its range to `^1.0.0`, the alpha branch is archived, and the matrix in §6 is re-audited against the GA export surface. Each future **major** of the library gets its own long-lived branch here.
+Every commit on `main` records the exact `@bymax-one/nest-logger` version it was tested against in `docs/RELEASES.md`. When the library reaches `1.0.0`, `main` flips its range to `^1.0.0`, the 0.x branch is archived, and the matrix in §6 is re-audited against the GA export surface. Each future **major** of the library gets its own long-lived branch here.
 
 ---
 
@@ -1157,7 +1166,7 @@ See `CONTRIBUTING.md` (to be added) for the full process.
 - **Third-party:** Pino, OpenTelemetry, Grafana Loki/Tempo, Prisma — see `THIRD_PARTY_NOTICES.md`.
 
 > **Document version:** 1.0 — initial technical blueprint, authored before implementation begins.
-> **Library version targeted:** `@bymax-one/nest-logger@^0.1.0` (alpha, pre-implementation).
+> **Library version targeted:** `@bymax-one/nest-logger@^0.1.0` (0.1.0, implemented; consumed via local link until published).
 > **Project status:** **specification only.** The repository currently contains `docs/` and `.git/`. This document is the product blueprint; the **authoritative, phased build plan with quality gates** is **[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)** (19 phases, 0–18, with a Progress dashboard and per-phase definition-of-done), and the per-phase task files live under [`docs/tasks/`](tasks/README.md) — mirroring the structure used in `nest-auth-example`.
 
 ### Suggested build order (for the implementer)

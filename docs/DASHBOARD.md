@@ -155,7 +155,7 @@ The on-call landing page. Strict top-left-first, general→specific. Every panel
 
 - **Health strip** — four golden-signal stat tiles, each with a sparkline and Δ vs the previous equal window; blue=good, red=bad. The **Errors** tile turns red above a 1% threshold. The **SLO** tile uses Google's multiwindow multi-burn-rate model (99.9% / 30-day budget; badges the 14.4 / 6 / 1 burn rates).
 - **Log volume** — the signature panel: stacked bar by level, doubles as the time selector. Drag-to-brush sets the global range.
-- **RED row** — left: Requests/min + Error-rate % (`(4xx+5xx)/total` per bucket, separate 4xx/5xx series); right: latency percentile **lines** + a latency **heatmap** + a slow-request stat (`durationMs > http.slowThresholdMs` ⇒ `METHOD_SLOW_EXECUTION`).
+- **RED row** — left: Requests/min + Error-rate % (`(4xx+5xx)/total` per bucket, separate 4xx/5xx series); right: latency percentile **lines** + a latency **heatmap** + a slow-request stat (`durationMs` > the `@LogPerformance(ms)` threshold ⇒ `METHOD_SLOW_EXECUTION`).
 - **Breakdown row** — level donut, top `logKey`s, top errors (`logKey` where `level ∈ {error,fatal}`), status-code stacked bar, top tenants (top-N + "other"). Bounded dimensions only.
 - **Pipeline health** — counts of `LOGGER_DESTINATION_WRITE_FAILED` / `_INIT_FAILED` / `LOGGER_ENTRY_TRUNCATED` + write lag, so the library's **fail-soft** behavior is observable when you inject a fault from the Trigger Center.
 
