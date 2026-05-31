@@ -1,0 +1,30 @@
+{
+  "name": "worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bymax-one/nest-logger": "link:../../../nest-logger",
+    "@nestjs/common": "^11",
+    "@nestjs/core": "^11",
+    "@opentelemetry/auto-instrumentations-node": "^0.76",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.218",
+    "@opentelemetry/resources": "^2",
+    "@opentelemetry/sdk-node": "^0.218",
+    "@opentelemetry/semantic-conventions": "^1",
+    "pino": "^10",
+    "reflect-metadata": "^0.2",
+    "rxjs": "^7.8"
+  },
+  "optionalDependencies": {
+    "@opentelemetry/api": ">=1.9.0 <1.10",
+    "pino-pretty": "^13",
+    "pino-roll": "^3"
+  }
+}

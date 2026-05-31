@@ -29,13 +29,13 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 14 / 133 tasks done (11%)**
+> **Overall progress: 18 / 133 tasks done (14%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
 | 0   | Repository Foundation & Tooling           | `phase-00-repo-foundation.md`     | 8 / 8        | 100% | 🟢     |
 | 1   | Local Observability Stack                 | `phase-01-observability-stack.md` | 6 / 6        | 100% | 🟢     |
-| 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md` | 0 / 4        | 0%   | 🔴     |
+| 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md` | 4 / 4        | 100% | 🟢     |
 | 3   | `apps/api` Skeleton + OTel Bootstrap      | `phase-03-api-skeleton.md`        | 0 / 6        | 0%   | 🔴     |
 | 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 0 / 6        | 0%   | 🔴     |
 | 5   | Prisma & Persistence                      | `phase-05-prisma-persistence.md`  | 0 / 6        | 0%   | 🔴     |
@@ -162,9 +162,9 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Prerequisites:** Phase 0.
 **Deliverables:**
 
-- [ ] `apps/api` + `apps/worker` declare `@bymax-one/nest-logger` (local `link:`/`file:` until published, then `^0.1.0`).
-- [ ] A typed "subpath probe" importing from `.` (`BymaxLoggerModule`, `PinoLoggerService`) and `/shared` (`LogLevel`, `LOG_KEYS_CONVENTION_REGEX`) to prove resolution.
-- [ ] Peer/optional deps installed: `pino`, `rxjs`, `reflect-metadata`, `pino-pretty`, `pino-roll`, `@opentelemetry/*`.
+- [x] `apps/api` + `apps/worker` declare `@bymax-one/nest-logger` (local `link:`/`file:` until published, then `^0.1.0`).
+- [x] A typed "subpath probe" importing from `.` (`BymaxLoggerModule`, `PinoLoggerService`) and `/shared` (`LogLevel`, `LOG_KEYS_CONVENTION_REGEX`) to prove resolution.
+- [x] Peer/optional deps installed: `pino`, `rxjs`, `reflect-metadata`, `pino-pretty`, `pino-roll`, `@opentelemetry/*`.
 
 **Definition of done:** `pnpm typecheck` resolves both subpaths; the probe compiles.
 

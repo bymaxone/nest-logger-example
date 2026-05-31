@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-2--library-consumption--workspace-bootstrap) §Phase 2
 > **Total tasks:** 4
-> **Progress:** 🔴 0 / 4 done (0%)
+> **Progress:** 🟢 4 / 4 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,16 +10,16 @@
 
 | ID   | Task                                                                        | Status | Priority | Size | Depends on |
 | ---- | --------------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
-| P2-1 | Scaffold `apps/api` + `apps/worker` package.json (local link) + tsconfigs   | 🔴     | High     | S    | Phase 0    |
-| P2-2 | Install required + optional peers + consumer OTel SDK deps in both apps     | 🔴     | High     | S    | P2-1       |
-| P2-3 | Typed subpath probe (`.` + `/shared`) proving both subpaths type-resolve    | 🔴     | High     | S    | P2-1, P2-2 |
-| P2-4 | Verification gate — `pnpm install` + `pnpm typecheck` resolve both subpaths | 🔴     | High     | S    | P2-1..P2-3 |
+| P2-1 | Scaffold `apps/api` + `apps/worker` package.json (local link) + tsconfigs   | 🟢     | High     | S    | Phase 0    |
+| P2-2 | Install required + optional peers + consumer OTel SDK deps in both apps     | 🟢     | High     | S    | P2-1       |
+| P2-3 | Typed subpath probe (`.` + `/shared`) proving both subpaths type-resolve    | 🟢     | High     | S    | P2-1, P2-2 |
+| P2-4 | Verification gate — `pnpm install` + `pnpm typecheck` resolve both subpaths | 🟢     | High     | S    | P2-1..P2-3 |
 
 ---
 
 ## P2-1 — Scaffold `apps/api` + `apps/worker` package.json (local link) + tsconfigs
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `Phase 0`
@@ -30,13 +30,13 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/package.json` exists with `"name": "api"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
-- [ ] `apps/worker/package.json` exists with `"name": "worker"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
-- [ ] Each app declares a `"typecheck": "tsc --noEmit"` script (consumed by the root `pnpm -r typecheck` fan-out from P0-1).
-- [ ] `apps/api/tsconfig.json` and `apps/worker/tsconfig.json` each `"extends": "../../tsconfig.base.json"` and add a local `include` (e.g. `["src/**/*.ts"]`).
-- [ ] Each app tsconfig sets `compilerOptions.outDir` (e.g. `dist`) and the NestJS decorator pair `experimentalDecorators: true` + `emitDecoratorMetadata: true` (the base intentionally omits them — see P0-3).
-- [ ] The local link path is **three levels up** (`../../../nest-logger`) — correct relative to `apps/{api,worker}/`.
-- [ ] No `paths` aliases are added (Phase 2 consumes the library as a real package, never a monorepo path alias).
+- [x] `apps/api/package.json` exists with `"name": "api"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
+- [x] `apps/worker/package.json` exists with `"name": "worker"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
+- [x] Each app declares a `"typecheck": "tsc --noEmit"` script (consumed by the root `pnpm -r typecheck` fan-out from P0-1).
+- [x] `apps/api/tsconfig.json` and `apps/worker/tsconfig.json` each `"extends": "../../tsconfig.base.json"` and add a local `include` (e.g. `["src/**/*.ts"]`).
+- [x] Each app tsconfig sets `compilerOptions.outDir` (e.g. `dist`) and the NestJS decorator pair `experimentalDecorators: true` + `emitDecoratorMetadata: true` (the base intentionally omits them — see P0-3).
+- [x] The local link path is **three levels up** (`../../../nest-logger`) — correct relative to `apps/{api,worker}/`.
+- [x] No `paths` aliases are added (Phase 2 consumes the library as a real package, never a monorepo path alias).
 
 ### Files to create / modify
 
@@ -115,7 +115,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P2-2 — Install required + optional peers + consumer OTel SDK deps in both apps
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P2-1`
@@ -126,12 +126,12 @@ Install the library's peer dependencies plus the consumer-owned OpenTelemetry SD
 
 ### Acceptance Criteria
 
-- [ ] Both `apps/api` and `apps/worker` declare the **required peers** as `dependencies`: `@nestjs/common@^11`, `@nestjs/core@^11`, `pino@^10`, `reflect-metadata@^0.2`, `rxjs@^7.8`.
-- [ ] Both apps declare the consumer OTel SDK deps: `@opentelemetry/sdk-node@^0.218`, `@opentelemetry/exporter-trace-otlp-http@^0.218`, `@opentelemetry/auto-instrumentations-node@^0.76`, `@opentelemetry/resources`, `@opentelemetry/semantic-conventions`.
-- [ ] Both apps declare the **optional peers / example-only** deps: `pino-pretty@^13`, `@opentelemetry/api@^1.9` (with the `<1.10` cap respected), `pino-roll@^3`.
-- [ ] `@opentelemetry/auto-instrumentations-node` resolves on the `0.7x` line, distinct from the `0.2xx` core packages (no accidental `^0.218` on it).
-- [ ] `@bymax-one/nest-logger` stays `link:../../../nest-logger` (P2-1) — these peer installs do not replace it.
-- [ ] `pnpm install` completes with **zero unmet-peer-dependency errors** for `@bymax-one/nest-logger`.
+- [x] Both `apps/api` and `apps/worker` declare the **required peers** as `dependencies`: `@nestjs/common@^11`, `@nestjs/core@^11`, `pino@^10`, `reflect-metadata@^0.2`, `rxjs@^7.8`.
+- [x] Both apps declare the consumer OTel SDK deps: `@opentelemetry/sdk-node@^0.218`, `@opentelemetry/exporter-trace-otlp-http@^0.218`, `@opentelemetry/auto-instrumentations-node@^0.76`, `@opentelemetry/resources`, `@opentelemetry/semantic-conventions`.
+- [x] Both apps declare the **optional peers / example-only** deps: `pino-pretty@^13`, `@opentelemetry/api@^1.9` (with the `<1.10` cap respected), `pino-roll@^3`.
+- [x] `@opentelemetry/auto-instrumentations-node` resolves on the `0.7x` line, distinct from the `0.2xx` core packages (no accidental `^0.218` on it).
+- [x] `@bymax-one/nest-logger` stays `link:../../../nest-logger` (P2-1) — these peer installs do not replace it.
+- [x] `pnpm install` completes with **zero unmet-peer-dependency errors** for `@bymax-one/nest-logger`.
 
 ### Files to create / modify
 
@@ -193,7 +193,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P2-3 — Typed subpath probe (`.` + `/shared`) proving both subpaths type-resolve
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P2-1`, `P2-2`
@@ -204,12 +204,12 @@ Add a single typed **subpath probe** file to `apps/api` that imports from **both
 
 ### Acceptance Criteria
 
-- [ ] A probe file exists at `apps/api/src/library-probe.ts`.
-- [ ] It imports `BymaxLoggerModule` and `PinoLoggerService` from `'@bymax-one/nest-logger'` (the `.` subpath).
-- [ ] It imports the value `LOG_KEYS_CONVENTION_REGEX` and the **type** `LogLevel` from `'@bymax-one/nest-logger/shared'` (the `/shared` subpath), using a `type`-modifier import for `LogLevel` (satisfies `verbatimModuleSyntax`).
-- [ ] Every import is **used** (no unused-symbol errors): e.g. reference `BymaxLoggerModule.name`, reference `PinoLoggerService` in a type position, call `LOG_KEYS_CONVENTION_REGEX.test(...)`, and annotate a value with `LogLevel`.
-- [ ] The file exports at least one symbol (so it is not treated as a side-effect-only module) and contains a brief comment stating it is a Phase 2 type-resolution probe (replaced/removed once real wiring lands).
-- [ ] `pnpm --filter api typecheck` passes with the probe present (no `@ts-ignore`, no `eslint-disable`).
+- [x] A probe file exists at `apps/api/src/library-probe.ts`.
+- [x] It imports `BymaxLoggerModule` and `PinoLoggerService` from `'@bymax-one/nest-logger'` (the `.` subpath).
+- [x] It imports the value `LOG_KEYS_CONVENTION_REGEX` and the **type** `LogLevel` from `'@bymax-one/nest-logger/shared'` (the `/shared` subpath), using a `type`-modifier import for `LogLevel` (satisfies `verbatimModuleSyntax`).
+- [x] Every import is **used** (no unused-symbol errors): e.g. reference `BymaxLoggerModule.name`, reference `PinoLoggerService` in a type position, call `LOG_KEYS_CONVENTION_REGEX.test(...)`, and annotate a value with `LogLevel`.
+- [x] The file exports at least one symbol (so it is not treated as a side-effect-only module) and contains a brief comment stating it is a Phase 2 type-resolution probe (replaced/removed once real wiring lands).
+- [x] `pnpm --filter api typecheck` passes with the probe present (no `@ts-ignore`, no `eslint-disable`).
 
 ### Files to create / modify
 
@@ -283,7 +283,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P2-4 — Verification gate — `pnpm install` + `pnpm typecheck` resolve both subpaths
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P2-1`, `P2-2`, `P2-3`
@@ -294,11 +294,11 @@ Phase 2 "Definition of done" gate (per `DEVELOPMENT_PLAN.md` §Phase 2): prove t
 
 ### Acceptance Criteria
 
-- [ ] The sibling library is built (`../nest-logger/dist/server/index.d.ts` and `../nest-logger/dist/shared/index.d.ts` exist) so the link resolves types + runtime.
-- [ ] `pnpm install` (or `pnpm install --frozen-lockfile` on the committed lockfile) exits 0 with the `link:` resolved and no unmet-peer errors for `@bymax-one/nest-logger`.
-- [ ] `pnpm typecheck` exits 0 across the workspace (the `apps/api` probe compiles, resolving both `.` and `/shared`).
-- [ ] `apps/worker` typechecks too (its tsconfig + linked library + peers resolve), even though its `src/` is still empty.
-- [ ] No `@ts-ignore`, `eslint-disable`, `--no-verify`, or lowered threshold was used to make any check pass.
+- [x] The sibling library is built (`../nest-logger/dist/server/index.d.ts` and `../nest-logger/dist/shared/index.d.ts` exist) so the link resolves types + runtime.
+- [x] `pnpm install` (or `pnpm install --frozen-lockfile` on the committed lockfile) exits 0 with the `link:` resolved and no unmet-peer errors for `@bymax-one/nest-logger`.
+- [x] `pnpm typecheck` exits 0 across the workspace (the `apps/api` probe compiles, resolving both `.` and `/shared`).
+- [x] `apps/worker` typechecks too (its tsconfig + linked library + peers resolve), even though its `src/` is still empty.
+- [x] No `@ts-ignore`, `eslint-disable`, `--no-verify`, or lowered threshold was used to make any check pass.
 
 ### Files to create / modify
 
@@ -357,4 +357,7 @@ When this task is 🟢, Phase 2 is 4/4 — switch the Phase 2 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P2-1 ✅ 2026-05-31 — Scaffolded `apps/api` + `apps/worker` (private ESM manifests, `typecheck` script, `link:../../../nest-logger`) and tsconfigs extending `tsconfig.base.json` with Nest decorator options; no `paths`/`references`.
+- P2-2 ✅ 2026-05-31 — Installed required peers (`@nestjs/common`/`@nestjs/core` `^11`, `pino` `^10`, `reflect-metadata` `^0.2`, `rxjs` `^7.8`) + consumer OTel SDK (`sdk-node`/`exporter-trace-otlp-http` `^0.218`, `auto-instrumentations-node` `^0.76`, `resources` `^2`, `semantic-conventions` `^1`) under `dependencies`, and the optional library peers + example-only dep (`pino-pretty` `^13`, `@opentelemetry/api` pinned `>=1.9.0 <1.10`, `pino-roll` `^3`) under `optionalDependencies` — matching the `docs/OVERVIEW.md` §7 canonical block (they install by default; the split only documents that they are not hard runtime requirements of the consumer). Both apps also declare `engines.node >=24`. Zero unmet peers.
+- P2-3 ✅ 2026-05-31 — Added `apps/api/src/library-probe.ts` importing from both subpaths (`.`: `BymaxLoggerModule`/`PinoLoggerService`; `/shared`: `LOG_KEYS_CONVENTION_REGEX` value + `LogLevel` type); `--traceResolution` confirms hits on `dist/server` and `dist/shared`.
+- P2-4 ✅ 2026-05-31 — Closed the gate: `pnpm install --frozen-lockfile` + `pnpm typecheck` exit 0 across the workspace, both subpaths resolve through the `link:` symlink to the sibling checkout; `apps/worker` typechecks as a no-op via explicit `files: []`.
