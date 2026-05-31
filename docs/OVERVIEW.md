@@ -501,7 +501,7 @@ All runtime configuration is environment-variable driven and validated at startu
 | Variable                  | Service      | Example                                                        | Used for                                                                 |
 | ------------------------- | ------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `NODE_ENV`                | all          | `development`                                                  | Drives `isPretty` default + `deployment.environment` resource attr       |
-| `PORT`                    | api / worker | `3000` / `3001`                                                | HTTP listen port                                                         |
+| `PORT`                    | api / worker | `3001` / `3002`                                                | HTTP listen port (Grafana owns `3000`)                                   |
 | `LOG_LEVEL`               | all          | `debug`                                                        | `BymaxLoggerModuleOptions.level`                                         |
 | `OTEL_SERVICE_NAME`       | all          | `nest-logger-example-api`                                      | `service.name` + OTel resource `service.name`                            |
 | `RELEASE_SHA`             | all          | `$(git rev-parse --short HEAD)`                                | `service.version` + OTel resource `service.version`                      |
@@ -514,7 +514,7 @@ All runtime configuration is environment-variable driven and validated at startu
 | `RETENTION_DAYS`          | api          | `30`                                                           | TTL sweep over `application_logs` (Maintenance page)                     |
 | `OTEL_FIELD_FORMAT`       | all          | `camelCase` \| `snake_case`                                    | `otel.fieldFormat`                                                       |
 | `SENTRY_DSN`              | api          | _(unset)_                                                      | Optional — enables the Sentry + OTel integration                         |
-| `NEXT_PUBLIC_API_URL`     | web          | `http://localhost:3000`                                        | Dashboard → `apps/api` `logs/` API base (queries, SSE, aggregates)       |
+| `NEXT_PUBLIC_API_URL`     | web          | `http://localhost:3001`                                        | Dashboard → `apps/api` `logs/` API base (queries, SSE, aggregates)       |
 | `NEXT_PUBLIC_GRAFANA_URL` | web          | `http://localhost:3000` (Grafana)                              | "View trace" deep-links to Tempo via Grafana                             |
 
 > **Env-name note.** The library README/spec reference both `OTEL_SERVICE_NAME`/`RELEASE_SHA` and `SERVICE_NAME`/`GIT_SHA` in different examples. This example standardizes on the **OTel-aligned names** (`OTEL_SERVICE_NAME`, `RELEASE_SHA`) so the same variables feed both the logger's `service` block and the OTel SDK `Resource`. The mapping lives in `apps/api/src/logger/logger.config.ts`.
@@ -581,7 +581,7 @@ async function bootstrap() {
       .finally(() => process.exit(0))
   })
 
-  await app.listen(process.env.PORT ?? 3000)
+  await app.listen(process.env.PORT ?? 3001)
 }
 
 void bootstrap()

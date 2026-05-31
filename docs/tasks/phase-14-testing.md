@@ -880,10 +880,10 @@ Write the `apps/web` **Playwright** end-to-end journeys that exercise the dashbo
 >
 >    export default defineConfig({
 >      testDir: './e2e',
->      use: { baseURL: process.env.WEB_BASE_URL ?? 'http://localhost:3001' },
+>      use: { baseURL: process.env.WEB_BASE_URL ?? 'http://localhost:3003' },
 >      webServer: {
 >        command: 'pnpm dev',
->        url: process.env.WEB_BASE_URL ?? 'http://localhost:3001',
+>        url: process.env.WEB_BASE_URL ?? 'http://localhost:3003',
 >        reuseExistingServer: !process.env.CI,
 >        timeout: 120_000,
 >      },

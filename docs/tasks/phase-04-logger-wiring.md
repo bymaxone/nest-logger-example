@@ -291,7 +291,7 @@ Open the per-request `AsyncLocalStorage` scope by applying the library's `Reques
 > - Do NOT set `shouldGenerateRequestId: true` (that would double-wire request-id generation).
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
-> - `pnpm --filter api dev` then `curl -s -D - http://localhost:3000/health -o /dev/null` — expected: 200 (later phases assert the propagated `requestId` on a logged route; `/health` is excluded from access logs but still scoped).
+> - `pnpm --filter api dev` then `curl -s -D - http://localhost:3001/health -o /dev/null` — expected: 200 (later phases assert the propagated `requestId` on a logged route; `/health` is excluded from access logs but still scoped).
 
 ### Completion Protocol
 
@@ -463,7 +463,7 @@ Activate the library's HTTP observability pair globally: the `HttpLoggingInterce
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - Throwaway stdout-capture check — expected: a logged route shows `"logKey":"HTTP_REQUEST_START"` + a terminal `HTTP_REQUEST_*` key; an `HttpException` shows `"logKey":"HTTP_EXCEPTION_HANDLED"` exactly once.
-> - `curl -s http://localhost:3000/health` while spying stdout — expected: no `HTTP_REQUEST_*` line for `/health`.
+> - `curl -s http://localhost:3001/health` while spying stdout — expected: no `HTTP_REQUEST_*` line for `/health`.
 
 ### Completion Protocol
 

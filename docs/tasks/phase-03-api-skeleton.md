@@ -260,7 +260,7 @@ Create `apps/api/src/main.ts`, the application entrypoint. `import './instrument
 - [ ] Logger bridged with `app.useLogger(app.get(PinoLoggerService))` (imported from `@bymax-one/nest-logger`).
 - [ ] `app.enableShutdownHooks()` is called.
 - [ ] A single `process.once('SIGTERM', …)` handler runs `app.close()` → `.then(() => otelSdk.shutdown())` → `.finally(() => process.exit(0))` — in that order.
-- [ ] App listens on `process.env.PORT ?? 3000`.
+- [ ] App listens on `process.env.PORT ?? 3001`.
 - [ ] Only `PinoLoggerService` is imported from `@bymax-one/nest-logger` (no invented exports).
 - [ ] `pnpm --filter api typecheck` exits 0.
 
@@ -304,7 +304,7 @@ Create `apps/api/src/main.ts`, the application entrypoint. `import './instrument
 >          .finally(() => process.exit(0))
 >      })
 >
->      await app.listen(process.env.PORT ?? 3000)
+>      await app.listen(process.env.PORT ?? 3001)
 >    }
 >
 >    void bootstrap()
@@ -429,7 +429,7 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 - [ ] `apps/api/src/config/env.schema.ts` exists; `zod` is declared in `apps/api/package.json` dependencies.
 - [ ] Exports an `envSchema` (Zod object) and a `validateEnv(config: Record<string, unknown>): Env` function used by `ConfigModule.forRoot({ validate })`.
 - [ ] Exports an `Env` type via `z.infer<typeof envSchema>`.
-- [ ] Schema fields: `NODE_ENV` (`enum ['development','test','production']`, default `development`), `PORT` (coerced number, default `3000`), `LOG_LEVEL` (`enum ['fatal','error','warn','info','debug','trace']`, default `info`), `OTEL_SERVICE_NAME` (string, default `nest-logger-example-api`), `RELEASE_SHA` (string, default `dev`), `OTLP_TRACE_ENDPOINT` (url string, default `http://localhost:4318/v1/traces`).
+- [ ] Schema fields: `NODE_ENV` (`enum ['development','test','production']`, default `development`), `PORT` (coerced number, default `3001`), `LOG_LEVEL` (`enum ['fatal','error','warn','info','debug','trace']`, default `info`), `OTEL_SERVICE_NAME` (string, default `nest-logger-example-api`), `RELEASE_SHA` (string, default `dev`), `OTLP_TRACE_ENDPOINT` (url string, default `http://localhost:4318/v1/traces`).
 - [ ] `validateEnv` throws (non-zero startup) on an invalid value, with an aggregated message naming the offending key(s).
 - [ ] `pnpm --filter api typecheck` exits 0.
 
@@ -453,7 +453,7 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 >
 >    export const envSchema = z.object({
 >      NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
->      PORT: z.coerce.number().int().positive().default(3000),
+>      PORT: z.coerce.number().int().positive().default(3001),
 >      LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 >      OTEL_SERVICE_NAME: z.string().min(1).default('nest-logger-example-api'),
 >      RELEASE_SHA: z.string().min(1).default('dev'),
@@ -487,7 +487,7 @@ Create `apps/api/src/config/env.schema.ts`, the **Zod** schema that validates `p
 > - Use the `zod` API as written; do NOT pull in `@nestjs/config`'s `Joi` path.
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exits 0.
-> - `node --input-type=module -e "const {validateEnv}=await import('./apps/api/dist/config/env.schema.js'); console.log(validateEnv({}).PORT)"` (after `pnpm --filter api build`) — expected: prints `3000` (defaults applied).
+> - `node --input-type=module -e "const {validateEnv}=await import('./apps/api/dist/config/env.schema.js'); console.log(validateEnv({}).PORT)"` (after `pnpm --filter api build`) — expected: prints `3001` (defaults applied).
 > - `node --input-type=module -e "const {validateEnv}=await import('./apps/api/dist/config/env.schema.js'); try{validateEnv({PORT:'-1'})}catch(e){console.log('threw')}"` — expected: prints `threw`.
 
 ### Completion Protocol
@@ -524,7 +524,7 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 - [ ] `HealthModule` is imported by `AppModule` (P3-4); no logger dependency is required for these routes to respond.
 - [ ] `pnpm --filter api build` exits 0 and `pnpm --filter api typecheck` exits 0.
 - [ ] With `pnpm infra:up` running, `pnpm --filter api dev` boots without unhandled errors.
-- [ ] `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/health` returns `200`.
+- [ ] `curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health` returns `200`.
 - [ ] After one or more requests, a span for the `api` service is visible in Tempo (via Grafana Explore → Tempo, or the Tempo API) — confirming `instrumentation.ts` patched Express before NestJS loaded.
 
 ### Files to create / modify
@@ -575,7 +575,7 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 >    - `pnpm infra:up` (Phase 1 — Postgres/Loki/Tempo/OTel-Collector/Grafana).
 >    - `pnpm --filter api dev` (leave running).
 > 5. Verify the route + the trace:
->    - `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health` → expect `200`.
+>    - `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/health` → expect `200`.
 >    - Hit `/health` a few times, then open Grafana (`http://localhost:3000` Grafana, NOT the API) → Explore → **Tempo** → search by `service.name = nest-logger-example-api` and confirm a span for `GET /health` exists. (Equivalently query the Tempo API: `curl -s "http://localhost:3200/api/search?tags=service.name%3Dnest-logger-example-api" | head`.)
 >      Constraints:
 >
@@ -586,7 +586,7 @@ Create the `apps/api/src/health/` module exposing `GET /health` and `GET /metric
 >   Verification:
 > - `pnpm --filter api build` — expected: exits 0.
 > - `pnpm --filter api typecheck` — expected: exits 0.
-> - `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/health` — expected: `200`.
+> - `curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health` — expected: `200`.
 > - Tempo shows at least one `nest-logger-example-api` span for `GET /health` (Grafana Explore → Tempo, or the Tempo `/api/search` query above).
 
 ### Completion Protocol
