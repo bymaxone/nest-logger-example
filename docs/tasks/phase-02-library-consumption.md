@@ -30,8 +30,8 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 
 ### Acceptance Criteria
 
-- [x] `apps/api/package.json` exists with `"name": "api"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
-- [x] `apps/worker/package.json` exists with `"name": "worker"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
+- [x] `apps/api/package.json` exists with `"name": "@nest-logger-example/api"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
+- [x] `apps/worker/package.json` exists with `"name": "@nest-logger-example/worker"`, `"private": true`, `"type": "module"` and declares `"@bymax-one/nest-logger": "link:../../../nest-logger"` under `dependencies`.
 - [x] Each app declares a `"typecheck": "tsc --noEmit"` script (consumed by the root `pnpm -r typecheck` fan-out from P0-1).
 - [x] `apps/api/tsconfig.json` and `apps/worker/tsconfig.json` each `"extends": "../../tsconfig.base.json"` and add a local `include` (e.g. `["src/**/*.ts"]`).
 - [x] Each app tsconfig sets `compilerOptions.outDir` (e.g. `dist`) and the NestJS decorator pair `experimentalDecorators: true` + `emitDecoratorMetadata: true` (the base intentionally omits them — see P0-3).
@@ -55,7 +55,7 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 > 1. Create `apps/api/package.json`:
 >    ```jsonc
 >    {
->      "name": "api",
+>      "name": "@nest-logger-example/api",
 >      "version": "0.0.0",
 >      "private": true,
 >      "type": "module",
@@ -69,7 +69,7 @@ Create the two backend workspace packages — `apps/api` and `apps/worker` — t
 >      },
 >    }
 >    ```
-> 2. Create `apps/worker/package.json` identically, with `"name": "worker"` (same `link:../../../nest-logger` — the relative depth is the same from `apps/worker/`).
+> 2. Create `apps/worker/package.json` identically, with `"name": "@nest-logger-example/worker"` (same `link:../../../nest-logger` — the relative depth is the same from `apps/worker/`).
 > 3. Create `apps/api/tsconfig.json`:
 >    ```json
 >    {
@@ -357,7 +357,7 @@ When this task is 🟢, Phase 2 is 4/4 — switch the Phase 2 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- P2-1 ✅ 2026-05-31 — Scaffolded `apps/api` + `apps/worker` (private ESM manifests, `typecheck` script, `link:../../../nest-logger`) and tsconfigs extending `tsconfig.base.json` with Nest decorator options; no `paths`/`references`.
-- P2-2 ✅ 2026-05-31 — Installed required peers (`@nestjs/common`/`@nestjs/core` `^11`, `pino` `^10`, `reflect-metadata` `^0.2`, `rxjs` `^7.8`) + consumer OTel SDK (`sdk-node`/`exporter-trace-otlp-http` `^0.218`, `auto-instrumentations-node` `^0.76`, `resources` `^2`, `semantic-conventions` `^1`) under `dependencies`, and the optional library peers + example-only dep (`pino-pretty` `^13`, `@opentelemetry/api` pinned `>=1.9.0 <1.10`, `pino-roll` `^3`) under `optionalDependencies` — matching the `docs/OVERVIEW.md` §7 canonical block (they install by default; the split only documents that they are not hard runtime requirements of the consumer). Both apps also declare `engines.node >=24`. Zero unmet peers.
+- P2-1 ✅ 2026-05-31 — Scaffolded `apps/api` + `apps/worker` (private ESM manifests named `@nest-logger-example/{api,worker}`, `typecheck` script, `link:../../../nest-logger`) and tsconfigs extending `tsconfig.base.json` with Nest decorator options; no `paths`/`references`.
+- P2-2 ✅ 2026-05-31 — Installed required peers (`@nestjs/common`/`@nestjs/core` `^11`, `pino` `^10`, `reflect-metadata` `^0.2`, `rxjs` `^7.8`) + consumer OTel SDK (`sdk-node`/`exporter-trace-otlp-http` `^0.218`, `auto-instrumentations-node` `^0.76`, `resources` `^2`, `semantic-conventions` `^1`, `@opentelemetry/api` pinned `>=1.9.0 <1.10`) under `dependencies` — `@opentelemetry/api` lives here because this app starts the SDK itself and `sdk-node` hard-peers it (immune to `--no-optional`) — and the genuinely-optional destination deps (`pino-pretty` `^13`, example-only `pino-roll` `^3`) under `optionalDependencies`. Both apps also declare `engines.node >=24`. Zero unmet peers.
 - P2-3 ✅ 2026-05-31 — Added `apps/api/src/library-probe.ts` importing from both subpaths (`.`: `BymaxLoggerModule`/`PinoLoggerService`; `/shared`: `LOG_KEYS_CONVENTION_REGEX` value + `LogLevel` type); `--traceResolution` confirms hits on `dist/server` and `dist/shared`.
 - P2-4 ✅ 2026-05-31 — Closed the gate: `pnpm install --frozen-lockfile` + `pnpm typecheck` exit 0 across the workspace, both subpaths resolve through the `link:` symlink to the sibling checkout; `apps/worker` typechecks as a no-op via explicit `files: []`.
