@@ -176,9 +176,9 @@ Create the `orders/` feature — the canonical "structured logging on the hot pa
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - With the stack up (`pnpm infra:up`) and the API running, `curl -s -XPOST localhost:3000/orders -H 'content-type: application/json' -d '{"amount":1299,"tenantId":"t_acme","userId":"u_1"}'` — expected: the stdout JSON contains `"logKey":"ORDER_CREATE_SUCCESS"` plus a propagated `requestId`.
-> - `curl -s localhost:3000/orders/slow` then grep stdout — expected: a line with `"logKey":"METHOD_SLOW_EXECUTION"`.
-> - `curl -s localhost:3000/orders/<some-id>` — expected: the access log line shows `"url":"/orders/:id"`.
+> - With the stack up (`pnpm infra:up`) and the API running, `curl -s -XPOST localhost:3001/orders -H 'content-type: application/json' -d '{"amount":1299,"tenantId":"t_acme","userId":"u_1"}'` — expected: the stdout JSON contains `"logKey":"ORDER_CREATE_SUCCESS"` plus a propagated `requestId`.
+> - `curl -s localhost:3001/orders/slow` then grep stdout — expected: a line with `"logKey":"METHOD_SLOW_EXECUTION"`.
+> - `curl -s localhost:3001/orders/<some-id>` — expected: the access log line shows `"url":"/orders/:id"`.
 
 ### Completion Protocol
 
@@ -321,7 +321,7 @@ Create the `payments/` feature — the "error path + performance" demo. `POST /p
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - `curl -s -XPOST localhost:3000/payments -H 'content-type: application/json' -d '{"orderId":"o_1","amount":500,"userId":"u_1"}'` returns 502; stdout contains `"logKey":"PAYMENT_CHARGE_FAILED"`, `"logKey":"METHOD_EXECUTION"`, and exactly **one** `"logKey":"HTTP_EXCEPTION_HANDLED"`.
+> - `curl -s -XPOST localhost:3001/payments -H 'content-type: application/json' -d '{"orderId":"o_1","amount":500,"userId":"u_1"}'` returns 502; stdout contains `"logKey":"PAYMENT_CHARGE_FAILED"`, `"logKey":"METHOD_EXECUTION"`, and exactly **one** `"logKey":"HTTP_EXCEPTION_HANDLED"`.
 
 ### Completion Protocol
 
@@ -497,8 +497,8 @@ Create the `pii-demo/` feature — the endpoints that **emit** PII so Phase 8 ca
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - `curl -s -XPOST localhost:3000/pii-demo/signup -H 'content-type: application/json' -d '{"email":"a@b.com","password":"p@ss","cpf":"000","cardNumber":"4111","cardCvv":"123"}'` — expected: a `"logKey":"USER_SIGNUP_ATTEMPT"` line on stdout (Phase 8 asserts the values are `[REDACTED]`).
-> - `curl -s -XPOST localhost:3000/pii-demo/huge` then grep stdout — expected: a `"logKey":"LOGGER_ENTRY_TRUNCATED"` envelope rather than a 70 KB line.
+> - `curl -s -XPOST localhost:3001/pii-demo/signup -H 'content-type: application/json' -d '{"email":"a@b.com","password":"p@ss","cpf":"000","cardNumber":"4111","cardCvv":"123"}'` — expected: a `"logKey":"USER_SIGNUP_ATTEMPT"` line on stdout (Phase 8 asserts the values are `[REDACTED]`).
+> - `curl -s -XPOST localhost:3001/pii-demo/huge` then grep stdout — expected: a `"logKey":"LOGGER_ENTRY_TRUNCATED"` envelope rather than a 70 KB line.
 
 ### Completion Protocol
 
@@ -573,7 +573,7 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 >        // STUB: apps/worker is built in Phase 9. The W3C traceparent propagation + real worker
 >        // round-trip land there; for now do a fail-soft outbound call so the endpoint is real
 >        // without depending on a service that does not exist yet.
->        const workerUrl = process.env.WORKER_URL ?? 'http://localhost:3001/tasks/dispatch'
+>        const workerUrl = process.env.WORKER_URL ?? 'http://localhost:3002/tasks/dispatch'
 >        try {
 >          await fetch(workerUrl, {
 >            method: 'POST',
@@ -643,7 +643,7 @@ Create the `downstream/` feature — the cross-service-correlation surface. `POS
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - With the worker NOT running, `curl -s -XPOST localhost:3000/downstream/dispatch` — expected: HTTP 2xx; stdout shows `"logKey":"DOWNSTREAM_DISPATCH_ATTEMPT"` and `"logKey":"DOWNSTREAM_DISPATCH_DEGRADED"` (proving fail-soft) without crashing the API.
+> - With the worker NOT running, `curl -s -XPOST localhost:3001/downstream/dispatch` — expected: HTTP 2xx; stdout shows `"logKey":"DOWNSTREAM_DISPATCH_ATTEMPT"` and `"logKey":"DOWNSTREAM_DISPATCH_DEGRADED"` (proving fail-soft) without crashing the API.
 
 ### Completion Protocol
 
@@ -825,8 +825,8 @@ Create the `trigger/` feature — the backend hooks the `apps/web` Trigger Cente
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - `curl -s -XPOST localhost:3000/trigger/level -H 'content-type: application/json' -d '{"level":"warn","count":3}'` — expected: three `"logKey":"TRIGGER_LEVEL_FIRED"` warn lines on stdout.
-> - `curl -s -o /dev/null -w '%{http_code}' localhost:3000/trigger/status/503` — expected: `503`, and stdout shows the library's 5xx `HTTP_REQUEST_*` key.
+> - `curl -s -XPOST localhost:3001/trigger/level -H 'content-type: application/json' -d '{"level":"warn","count":3}'` — expected: three `"logKey":"TRIGGER_LEVEL_FIRED"` warn lines on stdout.
+> - `curl -s -o /dev/null -w '%{http_code}' localhost:3001/trigger/status/503` — expected: `503`, and stdout shows the library's 5xx `HTTP_REQUEST_*` key.
 
 ### Completion Protocol
 
@@ -953,8 +953,8 @@ Create the `admin/` feature — the runtime-level-change demo. `PATCH /admin/log
 >   Verification:
 > - `pnpm --filter api typecheck` — expected: exit 0.
 > - `pnpm --filter api lint` — expected: exit 0.
-> - `curl -s -XPATCH localhost:3000/admin/log-level -H 'content-type: application/json' -d '{"level":"debug"}'` — expected: `{"previous":"info","current":"debug"}` and an `ADMIN_LOG_LEVEL_CHANGED` line; subsequent `debug` logs now appear.
-> - `curl -s -o /dev/null -w '%{http_code}' -XPATCH localhost:3000/admin/log-level -H 'content-type: application/json' -d '{"level":"loud"}'` — expected: `400` (invalid level rejected).
+> - `curl -s -XPATCH localhost:3001/admin/log-level -H 'content-type: application/json' -d '{"level":"debug"}'` — expected: `{"previous":"info","current":"debug"}` and an `ADMIN_LOG_LEVEL_CHANGED` line; subsequent `debug` logs now appear.
+> - `curl -s -o /dev/null -w '%{http_code}' -XPATCH localhost:3001/admin/log-level -H 'content-type: application/json' -d '{"level":"loud"}'` — expected: `400` (invalid level rejected).
 
 ### Completion Protocol
 

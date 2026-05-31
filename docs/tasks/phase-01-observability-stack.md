@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-1--local-observability-stack) §Phase 1
 > **Total tasks:** 6
-> **Progress:** 🔴 0 / 6 done (0%)
+> **Progress:** 🟢 6 / 6 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,18 +10,18 @@
 
 | ID   | Task                                                                                | Status | Priority | Size | Depends on |
 | ---- | ----------------------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
-| P1-1 | `docker-compose.yml` — 5-service stack (healthchecks, 127.0.0.1 ports, volumes)     | 🔴     | High     | M    | Phase 0    |
-| P1-2 | `docker/loki/loki-config.yml` + `docker/tempo/tempo-config.yml`                     | 🔴     | High     | M    | P1-1       |
-| P1-3 | `docker/otel-collector/config.yml` (OTLP → Tempo + Loki via `otlphttp`)             | 🔴     | High     | M    | P1-1, P1-2 |
-| P1-4 | `docker/grafana/provisioning/` — Loki + Tempo datasources + `traceId` derived field | 🔴     | High     | M    | P1-1, P1-2 |
-| P1-5 | `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`)                      | 🔴     | Medium   | XS   | P1-1       |
-| P1-6 | Root `.env.example` (every Appendix A variable) + `pnpm infra:up` green gate        | 🔴     | High     | S    | P1-1..P1-5 |
+| P1-1 | `docker-compose.yml` — 5-service stack (healthchecks, 127.0.0.1 ports, volumes)     | 🟢     | High     | M    | Phase 0    |
+| P1-2 | `docker/loki/loki-config.yml` + `docker/tempo/tempo-config.yml`                     | 🟢     | High     | M    | P1-1       |
+| P1-3 | `docker/otel-collector/config.yml` (OTLP → Tempo + Loki via `otlphttp`)             | 🟢     | High     | M    | P1-1, P1-2 |
+| P1-4 | `docker/grafana/provisioning/` — Loki + Tempo datasources + `traceId` derived field | 🟢     | High     | M    | P1-1, P1-2 |
+| P1-5 | `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`)                      | 🟢     | Medium   | XS   | P1-1       |
+| P1-6 | Root `.env.example` (every Appendix A variable) + `pnpm infra:up` green gate        | 🟢     | High     | S    | P1-1..P1-5 |
 
 ---
 
 ## P1-1 — `docker-compose.yml` — 5-service stack (healthchecks, 127.0.0.1 ports, volumes)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `Phase 0`
@@ -32,14 +32,14 @@ Author the root `docker-compose.yml` that defines the full local observability b
 
 ### Acceptance Criteria
 
-- [ ] `docker-compose.yml` at repo root defines services `postgres`, `loki`, `tempo`, `otel-collector`, `grafana`.
-- [ ] Images pinned per spec: `postgres:18-alpine`, `grafana/loki:latest`, `grafana/tempo:latest`, `otel/opentelemetry-collector:latest`, `grafana/grafana:latest`.
-- [ ] Every published port is bound to `127.0.0.1` — `postgres 5432`, `loki 3100`, `tempo 3200`, `otel-collector 4317` (gRPC) + `4318` (HTTP), `grafana 3000`.
-- [ ] Every service has a `healthcheck` block (with `interval`/`timeout`/`retries`/`start_period`).
-- [ ] Named volumes declared for `postgres`, `loki`, `tempo`, `grafana` data.
-- [ ] Config bind mounts wired: `./docker/loki/loki-config.yml`, `./docker/tempo/tempo-config.yml`, `./docker/otel-collector/config.yml`, `./docker/grafana/provisioning`, `./docker/postgres/init.sql`.
-- [ ] `otel-collector depends_on` (with `condition: service_healthy`) `loki` + `tempo`; `grafana depends_on` `loki` + `tempo`.
-- [ ] `docker compose config` validates the file (exit 0) with no interpolation warnings.
+- [x] `docker-compose.yml` at repo root defines services `postgres`, `loki`, `tempo`, `otel-collector`, `grafana`.
+- [x] Images pinned per spec: `postgres:18-alpine`, `grafana/loki:latest`, `grafana/tempo:latest`, `otel/opentelemetry-collector:latest`, `grafana/grafana:latest`.
+- [x] Every published port is bound to `127.0.0.1` — `postgres 5432`, `loki 3100`, `tempo 3200`, `otel-collector 4317` (gRPC) + `4318` (HTTP), `grafana 3000`.
+- [x] Every service has a `healthcheck` block (with `interval`/`timeout`/`retries`/`start_period`).
+- [x] Named volumes declared for `postgres`, `loki`, `tempo`, `grafana` data.
+- [x] Config bind mounts wired: `./docker/loki/loki-config.yml`, `./docker/tempo/tempo-config.yml`, `./docker/otel-collector/config.yml`, `./docker/grafana/provisioning`, `./docker/postgres/init.sql`.
+- [x] `otel-collector depends_on` (with `condition: service_healthy`) `loki` + `tempo`; `grafana depends_on` `loki` + `tempo`.
+- [x] `docker compose config` validates the file (exit 0) with no interpolation warnings.
 
 ### Files to create / modify
 
@@ -190,7 +190,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P1-2 — `docker/loki/loki-config.yml` + `docker/tempo/tempo-config.yml`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P1-1`
@@ -201,12 +201,12 @@ Author the Loki and Tempo server configs that back the bind mounts wired in P1-1
 
 ### Acceptance Criteria
 
-- [ ] `docker/loki/loki-config.yml` — single-binary (`filesystem` object store), `auth_enabled: false`, HTTP on `3100`.
-- [ ] Loki `limits_config.allow_structured_metadata: true` (mandatory for native OTLP ingest).
-- [ ] Loki retention enabled: `compactor.retention_enabled: true` **and** a configured `delete_request_store` (e.g. `filesystem`).
-- [ ] `docker/tempo/tempo-config.yml` — `server.http_listen_port: 3200`, `distributor.receivers.otlp` with `grpc` (`0.0.0.0:4317` inside the container network namespace is fine — only Compose publishes ports) + `http`, `storage.trace.backend: local`.
-- [ ] Both files contain only valid YAML (no tabs); `docker compose config -q` still passes with the mounts present.
-- [ ] Bringing up just these two services reaches healthy: `docker compose up -d --wait loki tempo` returns 0.
+- [x] `docker/loki/loki-config.yml` — single-binary (`filesystem` object store), `auth_enabled: false`, HTTP on `3100`.
+- [x] Loki `limits_config.allow_structured_metadata: true` (mandatory for native OTLP ingest).
+- [x] Loki retention enabled: `compactor.retention_enabled: true` **and** a configured `delete_request_store` (e.g. `filesystem`).
+- [x] `docker/tempo/tempo-config.yml` — `server.http_listen_port: 3200`, `distributor.receivers.otlp` with `grpc` (`0.0.0.0:4317` inside the container network namespace is fine — only Compose publishes ports) + `http`, `storage.trace.backend: local`.
+- [x] Both files contain only valid YAML (no tabs); `docker compose config -q` still passes with the mounts present.
+- [x] Bringing up just these two services reaches healthy: `docker compose up -d --wait loki tempo` returns 0.
 
 ### Files to create / modify
 
@@ -340,7 +340,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P1-3 — `docker/otel-collector/config.yml` (OTLP → Tempo + Loki via `otlphttp`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P1-1`, `P1-2`
@@ -351,14 +351,14 @@ Author the OpenTelemetry Collector config: an **OTLP receiver** (gRPC `4317` + H
 
 ### Acceptance Criteria
 
-- [ ] `docker/otel-collector/config.yml` defines `receivers.otlp` with both `grpc` (`0.0.0.0:4317`) and `http` (`0.0.0.0:4318`).
-- [ ] `exporters.otlp` (or `otlp/tempo`) targets `tempo:4317` with `tls.insecure: true` for traces.
-- [ ] `exporters.otlphttp` (or `otlphttp/loki`) targets `endpoint: http://loki:3100/otlp` for logs.
-- [ ] The deprecated `loki` exporter is **absent** (grep proves no `loki:` exporter key).
-- [ ] `extensions.health_check` listens on `0.0.0.0:13133` and is listed under `service.extensions`.
-- [ ] `service.pipelines.traces` → `[otlp receiver] → [otlp/tempo exporter]`; `service.pipelines.logs` → `[otlp receiver] → [otlphttp/loki exporter]`.
-- [ ] A `batch` processor is wired into both pipelines.
-- [ ] `docker compose up -d --wait otel-collector` reaches healthy (depends_on loki+tempo already healthy).
+- [x] `docker/otel-collector/config.yml` defines `receivers.otlp` with both `grpc` (`0.0.0.0:4317`) and `http` (`0.0.0.0:4318`).
+- [x] `exporters.otlp` (or `otlp/tempo`) targets `tempo:4317` with `tls.insecure: true` for traces.
+- [x] `exporters.otlphttp` (or `otlphttp/loki`) targets `endpoint: http://loki:3100/otlp` for logs.
+- [x] The deprecated `loki` exporter is **absent** (grep proves no `loki:` exporter key).
+- [x] `extensions.health_check` listens on `0.0.0.0:13133` and is listed under `service.extensions`.
+- [x] `service.pipelines.traces` → `[otlp receiver] → [otlp/tempo exporter]`; `service.pipelines.logs` → `[otlp receiver] → [otlphttp/loki exporter]`.
+- [x] A `batch` processor is wired into both pipelines.
+- [x] `docker compose up -d --wait otel-collector` reaches healthy (depends_on loki+tempo already healthy).
 
 ### Files to create / modify
 
@@ -453,7 +453,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P1-4 — `docker/grafana/provisioning/` — Loki + Tempo datasources + `traceId` derived field
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P1-1`, `P1-2`
@@ -464,12 +464,12 @@ Provision Grafana so it auto-registers the **Loki** and **Tempo** datasources on
 
 ### Acceptance Criteria
 
-- [ ] `docker/grafana/provisioning/datasources/datasources.yml` registers a **Loki** datasource (`url: http://loki:3100`) and a **Tempo** datasource (`url: http://tempo:3200`).
-- [ ] The Loki datasource declares a **derived field** named `traceId` with a `matcherRegex` capturing the trace id and `datasourceUid` pointing at the Tempo datasource UID.
-- [ ] The Tempo datasource sets `tracesToLogsV2` (or equivalent) back to Loki so the reverse pivot ("logs for this trace") works.
-- [ ] Datasource UIDs are stable/explicit (e.g. `loki` and `tempo`) so the derived field can reference Tempo by UID.
-- [ ] `apiVersion: 1` and the `datasources:` list shape are valid Grafana provisioning YAML.
-- [ ] After `docker compose up -d --wait grafana`, `GET /api/datasources` lists both `loki` and `tempo`.
+- [x] `docker/grafana/provisioning/datasources/datasources.yml` registers a **Loki** datasource (`url: http://loki:3100`) and a **Tempo** datasource (`url: http://tempo:3200`).
+- [x] The Loki datasource declares a **derived field** named `traceId` with a `matcherRegex` capturing the trace id and `datasourceUid` pointing at the Tempo datasource UID.
+- [x] The Tempo datasource sets `tracesToLogsV2` (or equivalent) back to Loki so the reverse pivot ("logs for this trace") works.
+- [x] Datasource UIDs are stable/explicit (e.g. `loki` and `tempo`) so the derived field can reference Tempo by UID.
+- [x] `apiVersion: 1` and the `datasources:` list shape are valid Grafana provisioning YAML.
+- [x] After `docker compose up -d --wait grafana`, `GET /api/datasources` lists both `loki` and `tempo`.
 
 ### Files to create / modify
 
@@ -561,7 +561,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P1-5 — `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** Medium
 - **Size:** XS (<30 min)
 - **Depends on:** `P1-1`
@@ -572,10 +572,10 @@ Create the Postgres init script that runs once on first container start (mounted
 
 ### Acceptance Criteria
 
-- [ ] `docker/postgres/init.sql` issues `CREATE DATABASE logger_example;`.
-- [ ] Guarded so a re-run on an existing DB does not hard-fail (e.g. a `\gexec` `SELECT … WHERE NOT EXISTS` guard or a documented "first-boot only" comment — `CREATE DATABASE` has no `IF NOT EXISTS` in Postgres).
-- [ ] After a clean `docker compose up -d --wait postgres`, the `logger_example` database exists.
-- [ ] The connection string `postgresql://postgres:postgres@localhost:5432/logger_example` (the `DATABASE_URL` default from Appendix A) connects.
+- [x] `docker/postgres/init.sql` issues `CREATE DATABASE logger_example;`.
+- [x] Guarded so a re-run on an existing DB does not hard-fail (e.g. a `\gexec` `SELECT … WHERE NOT EXISTS` guard or a documented "first-boot only" comment — `CREATE DATABASE` has no `IF NOT EXISTS` in Postgres).
+- [x] After a clean `docker compose up -d --wait postgres`, the `logger_example` database exists.
+- [x] The connection string `postgresql://postgres:postgres@localhost:5432/logger_example` (the `DATABASE_URL` default from Appendix A) connects.
 
 ### Files to create / modify
 
@@ -628,7 +628,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P1-6 — Root `.env.example` (every Appendix A variable) + `pnpm infra:up` green gate
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P1-1`, `P1-2`, `P1-3`, `P1-4`, `P1-5`
@@ -639,13 +639,13 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 
 ### Acceptance Criteria
 
-- [ ] `.env.example` at repo root defines, with sane defaults + a one-line comment each: `NODE_ENV`, `PORT`, `LOG_LEVEL`, `OTEL_SERVICE_NAME`, `RELEASE_SHA`, `OTLP_TRACE_ENDPOINT`, `LOG_EXTRA_REDACT_PATHS`, `LOKI_URL`, `LOKI_QUERY_URL`, `DATABASE_URL`, `LOG_DB_MIN_LEVEL`, `RETENTION_DAYS`, `OTEL_FIELD_FORMAT`, `SENTRY_DSN`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_GRAFANA_URL`.
-- [ ] Values align with §9 examples (e.g. `OTLP_TRACE_ENDPOINT=http://localhost:4318/v1/traces`, `LOKI_URL=http://localhost:3100/loki/api/v1/push`, `LOKI_QUERY_URL=http://localhost:3100`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/logger_example`, `LOG_DB_MIN_LEVEL=warn`, `RETENTION_DAYS=30`).
-- [ ] `SENTRY_DSN` is present but empty (optional integration, unset by default).
-- [ ] `git check-ignore .env.example` produces no match (it is committed; real `.env` stays ignored).
-- [ ] `pnpm infra:up` exits 0 with all five services healthy (`postgres`, `loki`, `tempo`, `otel-collector`, `grafana`).
-- [ ] Grafana `GET /api/datasources` returns both `Loki` and `Tempo` (the §1 DoD).
-- [ ] `pnpm infra:down` tears the stack down cleanly afterward.
+- [x] `.env.example` at repo root defines, with sane defaults + a one-line comment each: `NODE_ENV`, `PORT`, `LOG_LEVEL`, `OTEL_SERVICE_NAME`, `RELEASE_SHA`, `OTLP_TRACE_ENDPOINT`, `LOG_EXTRA_REDACT_PATHS`, `LOKI_URL`, `LOKI_QUERY_URL`, `DATABASE_URL`, `LOG_DB_MIN_LEVEL`, `RETENTION_DAYS`, `OTEL_FIELD_FORMAT`, `SENTRY_DSN`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_GRAFANA_URL`.
+- [x] Values align with §9 examples (e.g. `OTLP_TRACE_ENDPOINT=http://localhost:4318/v1/traces`, `LOKI_URL=http://localhost:3100/loki/api/v1/push`, `LOKI_QUERY_URL=http://localhost:3100`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/logger_example`, `LOG_DB_MIN_LEVEL=warn`, `RETENTION_DAYS=30`).
+- [x] `SENTRY_DSN` is present but empty (optional integration, unset by default).
+- [x] `git check-ignore .env.example` produces no match (it is committed; real `.env` stays ignored).
+- [x] `pnpm infra:up` exits 0 with all five services healthy (`postgres`, `loki`, `tempo`, `otel-collector`, `grafana`).
+- [x] Grafana `GET /api/datasources` returns both `Loki` and `Tempo` (the §1 DoD).
+- [x] `pnpm infra:down` tears the stack down cleanly afterward.
 
 ### Files to create / modify
 
@@ -663,7 +663,7 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 >    ```bash
 >    # ── Runtime ────────────────────────────────────────────────────────────────
 >    NODE_ENV=development                 # drives isPretty + deployment.environment resource attr
->    PORT=3000                            # apps/api HTTP port (worker uses 3001)
+>    PORT=3001                            # apps/api HTTP port (worker uses 3002; Grafana owns 3000)
 >    LOG_LEVEL=debug                      # BymaxLoggerModuleOptions.level
 >
 >    # ── Service identity / OTel ────────────────────────────────────────────────
@@ -688,7 +688,7 @@ Author the root `.env.example` documenting **every** variable in the Appendix A 
 >    SENTRY_DSN=                          # unset → Sentry+OTel integration disabled
 >
 >    # ── Dashboard (apps/web) ───────────────────────────────────────────────────
->    NEXT_PUBLIC_API_URL=http://localhost:3000        # dashboard → apps/api logs/ API base
+>    NEXT_PUBLIC_API_URL=http://localhost:3001        # dashboard → apps/api logs/ API base
 >    NEXT_PUBLIC_GRAFANA_URL=http://localhost:3000    # "View trace" deep-links via Grafana
 >    ```
 >
@@ -734,4 +734,11 @@ When this task is 🟢, Phase 1 is 6/6 — switch the Phase 1 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P1-1 ✅ 2026-05-31 — Root `docker-compose.yml`: 5-service stack, all ports 127.0.0.1-bound, named volumes, depends_on health gating; `docker compose config` validates.
+- P1-2 ✅ 2026-05-31 — Loki (native OTLP ingest + `allow_structured_metadata` + retention) & Tempo configs; Tempo rewritten for v3.0 (removed `ingester`/`compactor` blocks); both reach `/ready`.
+- P1-3 ✅ 2026-05-31 — OTel Collector OTLP receiver → Tempo (otlp) + Loki (`otlphttp` → `/otlp`, no deprecated `loki` exporter); health_check extension verified ready (HTTP 200) on the Compose network.
+- P1-4 ✅ 2026-05-31 — Grafana provisioning auto-registers Loki + Tempo with the `traceId` derived field and `tracesToLogsV2` reverse pivot; `/api/datasources` lists both.
+- P1-5 ✅ 2026-05-31 — `docker/postgres/init.sql` creates `logger_example` via the `\gexec` guard; DB exists and connects on a clean boot.
+- P1-6 ✅ 2026-05-31 — Root `.env.example` covers all 16 Appendix-A vars; `pnpm infra:up` brings all five services healthy with both datasources, `pnpm infra:down` tears down cleanly. Healthchecks adapted to distroless images (loki/tempo `-health`, collector liveness).
+- post-review ✅ 2026-05-31 — Applied code-review fixes: resolved the apps/api↔Grafana `:3000` port collision (api→`3001`, worker→`3002`, Grafana keeps `3000`) across `.env.example` + canonical `OVERVIEW.md §9`; tightened the Grafana `traceId` derived-field regex `[a-f0-9]+`→`[a-f0-9]{32}` (W3C, matches the P9-2 spec); documented the `tracesToLogsV2` `service` label (matches `LokiDestination`'s `stream: { service }`). Re-verified: stack healthy, datasources + regex provisioned.
+- port-reconcile ✅ 2026-05-31 — Reconciled the whole `docs/` corpus to one dev port scheme — **Grafana 3000 · api 3001 · worker 3002 · web 3003** (all 127.0.0.1-bound). 39 edits across phases 3/4/6/9/11/14/16 (api `:3000`→`:3001`, worker `:3001`→`:3002`, web `:3000`/`:3001`→`:3003`); phases 12/13 were already on api `:3001`. Global audit: consistent, 0 issues. The **production** scheme in phase-17 (`apps/api` EXPOSE 4000, prod web container `:3000`) is intentionally separate and untouched.

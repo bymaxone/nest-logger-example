@@ -206,7 +206,7 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 - [ ] `apps/worker` exists as a NestJS 11 + Express 5 app: `package.json`, `tsconfig.json` (extends `tsconfig.base.json` + decorator metadata), `nest-cli.json`, `src/main.ts`, `src/app.module.ts`.
 - [ ] `apps/worker/package.json` declares `@bymax-one/nest-logger` via the same local `link:` mechanism as `apps/api`, plus the required peers (`@nestjs/common`, `@nestjs/core`, `pino`, `reflect-metadata`, `rxjs`) and the consumer-owned OTel SDK deps (`@opentelemetry/sdk-node`, `-exporter-trace-otlp-http`, `-auto-instrumentations-node`, `-resources`, `-semantic-conventions`, optional-peer `@opentelemetry/api`).
 - [ ] `src/instrumentation.ts` exports `otelSdk`, starts a `NodeSDK` **before any NestJS import**, ships spans to `OTLP_TRACE_ENDPOINT`, disables `@opentelemetry/instrumentation-fs`, and has **no** `process.exit` (NestJS owns termination).
-- [ ] `src/main.ts` imports `./instrumentation` on the **first line**, creates the app with `{ bufferLogs: true }`, bridges `app.useLogger(app.get(PinoLoggerService))`, calls `app.enableShutdownHooks()`, registers a single `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit, and listens on `PORT` (default `3001`).
+- [ ] `src/main.ts` imports `./instrumentation` on the **first line**, creates the app with `{ bufferLogs: true }`, bridges `app.useLogger(app.get(PinoLoggerService))`, calls `app.enableShutdownHooks()`, registers a single `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit, and listens on `PORT` (default `3002`).
 - [ ] `src/app.module.ts` registers `BymaxLoggerModule.forRoot({ ... })` **synchronously** with `service`, `level`, and an `otel` block: `shouldAutoInjectTraceContext: true`, `fieldFormat: 'snake_case'`, `traceIdField: 'trace_id'`.
 - [ ] A worker log emitted inside an active span prints `trace_id` / `span_id` / `trace_flags` (snake_case) — asserted by a worker unit/e2e test with stdout capture; `pnpm --filter worker test:cov` is 100%.
 - [ ] `pnpm --filter worker dev` boots; `GET /health` returns 200. Root `dev`/`build`/`typecheck` fan-out (`pnpm -r`) now includes the worker.
@@ -305,7 +305,7 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 >          .then(() => otelSdk.shutdown())
 >          .finally(() => process.exit(0))
 >      })
->      await app.listen(process.env.PORT ?? 3001)
+>      await app.listen(process.env.PORT ?? 3002)
 >    }
 >
 >    void bootstrap()
@@ -361,7 +361,7 @@ Scaffold `apps/worker` — the second NestJS service whose only reason to exist 
 > - `pnpm install` — expected: exit 0; the `link:` to the library resolves.
 > - `pnpm --filter worker build` — expected: exit 0.
 > - `pnpm --filter worker test:cov` — expected: 100% coverage; the snake_case assertion passes.
-> - `pnpm --filter worker dev` then `curl -s localhost:3001/health` — expected: `200` `{"status":"ok"}` (manual smoke).
+> - `pnpm --filter worker dev` then `curl -s localhost:3002/health` — expected: `200` `{"status":"ok"}` (manual smoke).
 
 ### Completion Protocol
 
@@ -496,7 +496,7 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/downstream/downstream.service.ts` makes an outbound `POST` to the worker's `POST /tasks/process`, reading the worker base URL from config (e.g. `WORKER_URL`, default `http://localhost:3001`).
+- [ ] `apps/api/src/downstream/downstream.service.ts` makes an outbound `POST` to the worker's `POST /tasks/process`, reading the worker base URL from config (e.g. `WORKER_URL`, default `http://localhost:3002`).
 - [ ] **Auto path:** a plain outbound HTTP call (no hand-set trace header) propagates `traceparent` via auto-instrumentation — asserted by capturing the request the worker receives (or by asserting the shared id in the integration test).
 - [ ] **Manual path:** a second, clearly-labeled code path builds a headers object and calls `propagation.inject(context.active(), headers)` from `@opentelemetry/api` before sending, demonstrating the non-instrumented client case.
 - [ ] `downstream.service.ts` is annotated `@LogContext('DownstreamService')` (or the class name) and calls `setContext(...)` in its constructor; `@InjectLogger(DownstreamService.name)` is used.
@@ -507,7 +507,7 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 
 - `apps/api/src/downstream/downstream.service.ts` — outbound hop (auto path) + manual `propagation.inject` path + `@LogContext` / `setContext`.
 - `apps/api/src/downstream/downstream.controller.ts` / `downstream.module.ts` — `POST /downstream/dispatch` (create or extend if Phase 6 stubbed it).
-- `apps/api/src/config/env.schema.ts` — add `WORKER_URL` (Zod, default `http://localhost:3001`).
+- `apps/api/src/config/env.schema.ts` — add `WORKER_URL` (Zod, default `http://localhost:3002`).
 - `.env.example` — document `WORKER_URL`.
 - `apps/api/src/downstream/*.spec.ts` — manual-inject header-shape assertion + service unit coverage.
 
@@ -518,7 +518,7 @@ Wire the **caller** side: `apps/api`'s `downstream` module makes the HTTP hop to
 > Objective: Implement the api→worker hop with an auto-instrumented call and a manual `propagation.inject` example, sharing one trace id across both services.
 > Steps:
 >
-> 1. Add `WORKER_URL` to `apps/api/src/config/env.schema.ts` (Zod): `WORKER_URL: z.string().url().default('http://localhost:3001')`. Document it in `.env.example` (`WORKER_URL=http://localhost:3001  # apps/api → apps/worker hop`).
+> 1. Add `WORKER_URL` to `apps/api/src/config/env.schema.ts` (Zod): `WORKER_URL: z.string().url().default('http://localhost:3002')`. Document it in `.env.example` (`WORKER_URL=http://localhost:3002  # apps/api → apps/worker hop`).
 > 2. In `apps/api/src/downstream/downstream.service.ts`, decorate the class and set context in the ctor (Feature Matrix rows 10/12):
 >
 >    ```typescript
@@ -639,8 +639,8 @@ Phase 9 "Definition of done" gate (`DEVELOPMENT_PLAN.md` §Phase 9): **one reque
 > 2. Assert correlatability: group all captured lines by the shared trace value and assert the group spans both services (≥1 api line by `service` name + ≥1 worker line). This is the automated stand-in for "interleaved in Grafana Explore".
 > 3. Document the manual Grafana walkthrough in `docs/OTEL.md` (append a "Cross-service correlation in Grafana" subsection):
 >    ````markdown
->    1. `pnpm infra:up && pnpm dev` (api on :3000, worker on :3001).
->    2. `curl -XPOST localhost:3000/downstream/dispatch` — note the `traceId` printed on stdout.
+>    1. `pnpm infra:up && pnpm dev` (api on :3001, worker on :3002).
+>    2. `curl -XPOST localhost:3001/downstream/dispatch` — note the `traceId` printed on stdout.
 >    3. Grafana → Explore → Loki, query:
 >       ```logql
 >       {service=~"nest-logger-example-.*"} | json | traceId="<that-id>"

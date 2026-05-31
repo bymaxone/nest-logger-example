@@ -29,12 +29,12 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 8 / 133 tasks done (6%)**
+> **Overall progress: 14 / 133 tasks done (11%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
 | 0   | Repository Foundation & Tooling           | `phase-00-repo-foundation.md`     | 8 / 8        | 100% | 🟢     |
-| 1   | Local Observability Stack                 | `phase-01-observability-stack.md` | 0 / 6        | 0%   | 🔴     |
+| 1   | Local Observability Stack                 | `phase-01-observability-stack.md` | 6 / 6        | 100% | 🟢     |
 | 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md` | 0 / 4        | 0%   | 🔴     |
 | 3   | `apps/api` Skeleton + OTel Bootstrap      | `phase-03-api-skeleton.md`        | 0 / 6        | 0%   | 🔴     |
 | 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 0 / 6        | 0%   | 🔴     |
@@ -145,12 +145,12 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Prerequisites:** Phase 0.
 **Deliverables:**
 
-- [ ] `docker-compose.yml` — `postgres:18-alpine`, `grafana/loki`, `grafana/tempo`, `otel/opentelemetry-collector`, `grafana/grafana` (healthchecks, `127.0.0.1`-bound ports, named volumes).
-- [ ] `docker/otel-collector/config.yml` (OTLP receiver → Tempo traces + Loki logs).
-- [ ] `docker/loki/loki-config.yml`, `docker/tempo/tempo-config.yml`.
-- [ ] `docker/grafana/provisioning/` — auto-registered Loki + Tempo datasources **+ the `traceId` derived field** linking Loki logs → Tempo.
-- [ ] `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`).
-- [ ] `.env.example` (root) covering every variable in [Appendix A](#appendix-a--environment-variable-registry).
+- [x] `docker-compose.yml` — `postgres:18-alpine`, `grafana/loki`, `grafana/tempo`, `otel/opentelemetry-collector`, `grafana/grafana` (healthchecks, `127.0.0.1`-bound ports, named volumes).
+- [x] `docker/otel-collector/config.yml` (OTLP receiver → Tempo traces + Loki logs).
+- [x] `docker/loki/loki-config.yml`, `docker/tempo/tempo-config.yml`.
+- [x] `docker/grafana/provisioning/` — auto-registered Loki + Tempo datasources **+ the `traceId` derived field** linking Loki logs → Tempo.
+- [x] `docker/postgres/init.sql` (`CREATE DATABASE logger_example;`).
+- [x] `.env.example` (root) covering every variable in [Appendix A](#appendix-a--environment-variable-registry).
 
 **Definition of done:** `pnpm infra:up` reports all services healthy; Grafana at `:3000` shows Loki + Tempo datasources.
 

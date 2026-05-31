@@ -37,8 +37,8 @@ Write the "first five minutes" onboarding doc: from a clean clone to a NestJS AP
 - [ ] `docs/GETTING_STARTED.md` exists with an H1 and a one-line promise ("clean clone → first correlated trace in ~5 minutes").
 - [ ] **Prerequisites** section: Node ≥ 24 (`nvm use`), pnpm ≥ 10.8, Docker Compose v2 — **plus** the sibling `nest-logger` checkout + `pnpm build --watch` (the lib is not on npm; cross-links to `OVERVIEW.md` §7).
 - [ ] **Quick start** fenced block with the real ordered commands: build the linked lib → `pnpm install` → `pnpm infra:up` → `cp .env.example apps/api/.env` → `pnpm --filter api prisma:migrate` + `prisma:seed` → `pnpm dev`.
-- [ ] **"What you should see"** lists the real URLs: web `http://localhost:3000`, API health `http://localhost:3000/health` (or the configured `PORT`), Grafana `http://localhost:3000` Grafana note, worker `:3001`.
-- [ ] **First correlated trace** walkthrough: `curl -X POST http://localhost:3000/orders …` → shows the `HTTP_REQUEST_START` / `ORDER_CREATE_SUCCESS` / `HTTP_REQUEST_SUCCESS` lines sharing one `requestId` + one `traceId` → open Grafana → filter Loki by `traceId` → click the derived field → land on the Tempo trace.
+- [ ] **"What you should see"** lists the real URLs: web `http://localhost:3003`, API health `http://localhost:3001/health` (or the configured `PORT`), Grafana `http://localhost:3000` Grafana note, worker `:3002`.
+- [ ] **First correlated trace** walkthrough: `curl -X POST http://localhost:3001/orders …` → shows the `HTTP_REQUEST_START` / `ORDER_CREATE_SUCCESS` / `HTTP_REQUEST_SUCCESS` lines sharing one `requestId` + one `traceId` → open Grafana → filter Loki by `traceId` → click the derived field → land on the Tempo trace.
 - [ ] A "fire it from the dashboard instead" note pointing at `apps/web` Trigger Center (forward-link to `FEATURES.md`).
 - [ ] **Common snags** tail with 3–4 entries, each linking into `TROUBLESHOOTING.md` (created in P16-6) — e.g. "no `traceId` in my logs", "Loki shows nothing", "`Cannot find module '@bymax-one/nest-logger'`".
 - [ ] All internal links resolve (relative `./FILE.md#anchor`); no link to a doc that will not exist after Phase 16.
@@ -75,10 +75,10 @@ Write the "first five minutes" onboarding doc: from a clean clone to a NestJS AP
 >    # 5. Start api + worker + web together
 >    pnpm dev
 >    ```
-> 4. **What you should see** — bullet the live endpoints (web `http://localhost:3000`, API health `http://localhost:3000/health`, `apps/worker` on `:3001`, Grafana via the compose stack). Note `/health` and `/metrics` emit **no** access logs (they are in `http.excludePaths`).
+> 4. **What you should see** — bullet the live endpoints (web `http://localhost:3003`, API health `http://localhost:3001/health`, `apps/worker` on `:3002`, Grafana via the compose stack). Note `/health` and `/metrics` emit **no** access logs (they are in `http.excludePaths`).
 > 5. **Your first correlated trace** — a numbered walkthrough:
 >    ```bash
->    curl -sS -X POST http://localhost:3000/orders \
+>    curl -sS -X POST http://localhost:3001/orders \
 >      -H 'content-type: application/json' \
 >      -H 'x-tenant-id: t_acme' \
 >      -d '{"amount": 4200}'
@@ -155,7 +155,7 @@ Write the guided tour that walks every demonstrated library feature **and** the 
 >    - **Intent** (one line).
 >    - **Fire it** — the exact `curl`, e.g. for the error journey:
 >      ```bash
->      curl -sS -X POST http://localhost:3000/payments \
+>      curl -sS -X POST http://localhost:3001/payments \
 >        -H 'content-type: application/json' \
 >        -d '{"orderId":"ord_1","amount":-1}'   # forced failure
 >      ```

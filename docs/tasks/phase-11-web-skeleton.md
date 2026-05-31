@@ -1180,7 +1180,7 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 >    ```
 >
 > 2. Run the verification suite below. All must pass.
-> 3. Start `pnpm --filter web dev`, open `http://localhost:3000/`, and confirm visually: forced-dark background, 64px topbar + orange brand mark + `nest-logger-example` gradient wordmark, 250px sidebar with the six logger nav items, orange active state on Overview, glass cards/buttons. Compare side-by-side with a `nest-auth-example` screenshot — the chrome must be indistinguishable.
+> 3. Start `pnpm --filter web dev`, open `http://localhost:3003/`, and confirm visually: forced-dark background, 64px topbar + orange brand mark + `nest-logger-example` gradient wordmark, 250px sidebar with the six logger nav items, orange active state on Overview, glass cards/buttons. Compare side-by-side with a `nest-auth-example` screenshot — the chrome must be indistinguishable.
 > 4. If any check fails, fix it in the corresponding earlier task file (P11-1..P11-6), then return here. Do NOT silence a failure with `@ts-ignore`/`eslint-disable`/`--no-verify` or by lowering a threshold.
 >    Constraints:
 >
@@ -1191,7 +1191,7 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 > - `pnpm --filter web exec tsc --noEmit` — expected: exit 0.
 > - `pnpm --filter web lint` — expected: exit 0.
 > - `pnpm --filter web build` — expected: exit 0 (Next 16 production build succeeds).
-> - `pnpm --filter web dev` then `curl -sSf http://localhost:3000/ >/dev/null` — expected: 200 (the route renders); visually confirm the forced-dark orange/glass shell + brand + the six nav items.
+> - `pnpm --filter web dev` then `curl -sSf http://localhost:3003/ >/dev/null` — expected: 200 (the route renders); visually confirm the forced-dark orange/glass shell + brand + the six nav items.
 
 ### Completion Protocol
 
