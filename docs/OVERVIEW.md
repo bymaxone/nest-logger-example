@@ -391,10 +391,12 @@ The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`
     "@opentelemetry/auto-instrumentations-node": "^0.76.0", // ← separate 0.7x line
     "@opentelemetry/resources": "^2.0.0",
     "@opentelemetry/semantic-conventions": "^1.30.0",
+    // This app starts the SDK itself, and sdk-node hard-peers @opentelemetry/api,
+    // so it is a real dependency HERE (vs an optional peer of the library); cap <1.10:
+    "@opentelemetry/api": ">=1.9.0 <1.10",
   },
   "optionalDependencies": {
     "pino-pretty": "^13.0.0", // optional PEER of the lib (PrettyDevDestination)
-    "@opentelemetry/api": ">=1.9.0 <1.10", // optional PEER of the lib (trace injection); explicit cap
     "pino-roll": "^3.0.0", // EXAMPLE-only — for this repo's RollingFileDestination, NOT a lib peer
   },
 }
