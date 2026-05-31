@@ -24,9 +24,8 @@ const sampleLevel: LogLevel = 'info'
 
 /**
  * Runtime-value proof for the `/shared` subpath: invoking the exported regex
- * forces the isomorphic value import to be resolved.
- *
- * @returns `true` when the sample key satisfies `LOG_KEYS_CONVENTION_REGEX`.
+ * forces the isomorphic value import to be resolved. Holds `true` because the
+ * sample key satisfies `LOG_KEYS_CONVENTION_REGEX`.
  */
 export const isWellFormedKey: boolean = LOG_KEYS_CONVENTION_REGEX.test('ORDER_CREATE_SUCCESS')
 
