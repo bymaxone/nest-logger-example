@@ -44,16 +44,19 @@ async function bootstrap(): Promise<void> {
     app.flushLogs()
   }
 
-  // SINGLE coordinated shutdown owner (no competing handler in instrumentation.ts):
-  // app.close() runs NestJS onApplicationShutdown hooks (the library drains its
-  // destinations there) → THEN flush the OTel SDK → THEN exit. Ordered, no race.
-  // Registered for both SIGTERM (orchestrator stop) and SIGINT (local Ctrl-C) so spans
-  // and log destinations drain on either signal.
-  app.enableShutdownHooks()
+  // SINGLE coordinated shutdown owner for SIGTERM (orchestrator stop) and SIGINT (Ctrl-C):
+  // `app.close()` runs the NestJS shutdown lifecycle (`onApplicationShutdown`, where the
+  // library drains its destinations) → THEN flush the OTel SDK → THEN exit 0. Ordered, once.
+  //
+  // We deliberately do NOT call `app.enableShutdownHooks()`: that registers NestJS's own
+  // signal listeners which run `app.close()` and then RE-RAISE the signal
+  // (`process.kill(pid, signal)`), terminating the process by signal before this handler's
+  // `otelSdk.shutdown()` + `process.exit(0)` can run — a race that drops the final span
+  // flush. `app.close()` triggers the same lifecycle hooks on its own, so this manual
+  // handler is the sole, correct owner (see `docs/OVERVIEW.md` §16).
   let isShuttingDown = false
   const shutdown = (): void => {
-    // Idempotent: if both signals arrive, only the first runs the sequence.
-    if (isShuttingDown) return
+    if (isShuttingDown) return // idempotent: if both signals arrive, run the sequence once
     isShuttingDown = true
     void app
       .close()
