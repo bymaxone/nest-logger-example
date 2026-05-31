@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  // The worker has no `src/` yet (its app lands in Phase 9). The explicit empty
+  // `files` array makes `tsc --noEmit` a clean no-op instead of erroring TS18003
+  // ("No inputs were found"); the `include` glob still picks up real sources later.
+  "files": [],
+  "include": ["src/**/*.ts"]
+}

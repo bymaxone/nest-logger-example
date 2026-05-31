@@ -394,7 +394,7 @@ The library declares **required peers** (`@nestjs/common` & `@nestjs/core` `^11`
   },
   "optionalDependencies": {
     "pino-pretty": "^13.0.0", // optional PEER of the lib (PrettyDevDestination)
-    "@opentelemetry/api": "^1.9.0", // optional PEER of the lib (trace injection); cap <1.10
+    "@opentelemetry/api": ">=1.9.0 <1.10", // optional PEER of the lib (trace injection); explicit cap
     "pino-roll": "^3.0.0", // EXAMPLE-only — for this repo's RollingFileDestination, NOT a lib peer
   },
 }
