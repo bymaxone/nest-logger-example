@@ -569,7 +569,7 @@ Replace the Phase 0 README stub with the full root `README.md` in the **`nest-au
 ### Acceptance Criteria
 
 - [ ] Root `README.md` rewritten (no longer the Phase 0 scaffolding stub): centered badge block + title + one-line tagline.
-- [ ] Badges cover (at least): library `@bymax-one/nest-logger`, license, TypeScript-strict, Node 24+, NestJS 11, Next.js 16, React 19, Prisma 6, Tailwind 4 — plus a nav line (`📦 Library · 🚀 Quick Start · ✅ Features · 🏗️ Architecture · 📖 Docs`).
+- [ ] Badges cover (at least): library `@bymax-one/nest-logger`, license, TypeScript-strict, Node 24+, NestJS 11, Next.js 16, React 19, Prisma 7, Tailwind 4 — plus a nav line (`📦 Library · 🚀 Quick Start · ✅ Features · 🏗️ Architecture · 📖 Docs`).
 - [ ] **Quick start** fenced block: `git clone …`, `cd nest-logger-example`, `pnpm install && pnpm infra:up && pnpm dev` — with a one-line note that the lib is consumed via local `link:` pre-publish (link to `GETTING_STARTED.md`).
 - [ ] **Feature checklist** ("what's inside"): ✅ bullets grouped — structured `MODULE_ACTION_RESULT` logging; 97-path PII redaction; pluggable destinations (stdout/pretty/Loki/Prisma/rolling-file); OTel `traceId` correlation + cross-service `apps/worker`; the `apps/web` Log Explorer + Trigger Playground; 100% coverage + 100% Stryker.
 - [ ] **ASCII architecture** block: the `apps/web` → `apps/api` (+`apps/worker`) → Collector/Loki/Tempo/Postgres → Grafana topology (trimmed from `OVERVIEW.md` §3), inside a fenced code block.
@@ -613,7 +613,7 @@ Replace the Phase 0 README stub with the full root `README.md` in the **`nest-au
 >    Constraints:
 >
 > - English only; reconciled `0.1.0` only in any snippet.
-> - Match the `nest-auth-example` README structure/tone; keep badges accurate to THIS repo's stack (Pino 10, OTel, Loki/Tempo/Grafana, Prisma 6 — not auth/Redis).
+> - Match the `nest-auth-example` README structure/tone; keep badges accurate to THIS repo's stack (Pino 10, OTel, Loki/Tempo/Grafana, Prisma 7 — not auth/Redis).
 > - Do NOT overstate test numbers — reference "100% coverage + 100% Stryker" (the gates), not invented suite counts.
 > - This replaces the P0-7 stub; keep the same links-into-`docs/` intent but expand fully.
 >   Verification:

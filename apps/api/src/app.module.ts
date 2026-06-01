@@ -1,13 +1,9 @@
 /**
  * Root application module for `apps/api`.
  *
- * Layer: app/root. Wires global config validation, the logger (with its HTTP
- * interceptor + exception filter), the request-id middleware (ALS scope), and
- * the health routes. Feature modules are added as the application grows.
- *
- * The `PrismaService` is currently a placeholder stub. When database support is
- * added, replace `new PrismaService()` with an injected instance and add
- * `PrismaService` to the `inject` array of `BymaxLoggerModule.forRootAsync`.
+ * Layer: app/root. Wires global config validation, the Prisma database client, the
+ * logger (with its HTTP interceptor + exception filter), the request-id middleware
+ * (ALS scope), and the health routes. Feature modules are added as the application grows.
  */
 import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
@@ -18,17 +14,18 @@ import { validateEnv } from './config/env.schema.js'
 import { HealthModule } from './health/health.module.js'
 import { LoggerModule } from './logger/logger.module.js'
 import { buildLoggerOptions } from './logger/logger.config.js'
-import { PrismaService } from './prisma/prisma.service.js'
+import { PrismaModule } from './prisma/prisma.module.js'
+import { PrismaService } from './prisma/prisma.service.js' // needed in forRootAsync inject array
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    PrismaModule,
     BymaxLoggerModule.forRootAsync({
       imports: [ConfigModule],
-      // TODO: add PrismaService to inject + pass the real instance to buildLoggerOptions
-      //   once database client integration is available.
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => buildLoggerOptions(config, new PrismaService()),
+      inject: [ConfigService, PrismaService],
+      useFactory: (config: ConfigService, prisma: PrismaService) =>
+        buildLoggerOptions(config, prisma),
     }),
     HealthModule,
     LoggerModule,
@@ -43,7 +40,8 @@ import { PrismaService } from './prisma/prisma.service.js'
 })
 export class AppModule implements NestModule {
   /**
-   * Apply the request-id middleware to every route, opening the per-request ALS scope.
+   * Register the request-id middleware on every route, which opens the per-request ALS
+   * scope on each incoming request.
    *
    * @param consumer - The NestJS middleware consumer used to register middleware.
    */
