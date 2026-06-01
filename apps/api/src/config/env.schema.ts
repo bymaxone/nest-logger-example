@@ -38,19 +38,25 @@ export const envSchema = z
       })
     }
     // Reject a loopback DATABASE_URL in production — the dev default credential would
-    // silently connect to nothing (or worse, a local DB on the prod host). Covers both
-    // IPv4 (127.0.0.1) and IPv6 (::1 / [::1]) loopback forms used in PostgreSQL DSNs.
-    if (
-      env.NODE_ENV === 'production' &&
-      (env.DATABASE_URL.includes('localhost') ||
-        env.DATABASE_URL.includes('127.0.0.1') ||
-        env.DATABASE_URL.includes('::1'))
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['DATABASE_URL'],
-        message: 'must not point to localhost in production',
-      })
+    // silently connect to nothing (or worse, a local DB on the prod host). Parse the URL
+    // and inspect only the hostname so credentials or query-params containing "localhost"
+    // do not produce false positives.
+    if (env.NODE_ENV === 'production') {
+      try {
+        const { hostname } = new URL(env.DATABASE_URL)
+        const isLoopback =
+          hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+        if (isLoopback) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['DATABASE_URL'],
+            message: 'must not point to localhost in production',
+          })
+        }
+      } catch {
+        // URL parse failed — already caught by z.string().url() above, so this branch
+        // is unreachable in practice; swallowing here avoids a duplicate error message.
+      }
     }
   })
 

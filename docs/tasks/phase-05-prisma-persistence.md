@@ -35,7 +35,7 @@ Add Prisma 6 to `apps/api` and create the `prisma/schema.prisma` shell: the `gen
 
 - [x] `apps/api/package.json` declares `prisma@^7` (dev) and `@prisma/client@^7` (runtime).
 - [x] `apps/api/prisma/schema.prisma` exists with a `generator client { provider = "prisma-client-js" }` block.
-- [x] `datasource db` block: `provider = "postgresql"`, `url = env("DATABASE_URL")`.
+- [x] `datasource db` block: `provider = "postgresql"` only — URL moved to `prisma.config.ts` (Prisma 7).
 - [x] A `db:*` script surface exists in `apps/api/package.json` (`db:generate`, `db:migrate`, `db:seed`, `db:studio`) delegating to the local `prisma` binary.
 - [x] `DATABASE_URL` is validated in `apps/api/src/config/env.schema.ts` (Zod, URL string) — wired in Phase 3.
 - [x] `pnpm --filter api exec prisma validate` exits 0.

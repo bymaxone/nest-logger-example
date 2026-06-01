@@ -49,6 +49,8 @@ main()
     const raw = err instanceof Error ? err.message : String(err)
     const sanitized = raw.replace(/postgr(?:es(?:ql)?):\/\/[^\s"']*/gi, '[redacted]')
     console.error('Seed failed:', sanitized)
-    process.exit(1)
+    // Set exitCode instead of calling process.exit(1) so the .finally() cleanup
+    // (prisma.$disconnect) can complete before the process terminates.
+    process.exitCode = 1
   })
-  .finally(() => void prisma.$disconnect())
+  .finally(() => prisma.$disconnect())
