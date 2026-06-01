@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-6--demo-domain) §Phase 6
 > **Total tasks:** 8
-> **Progress:** 🔴 0 / 8 done (0%)
+> **Progress:** 🟢 8 / 8 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,20 +10,20 @@
 
 | ID   | Task                                                                  | Status | Priority | Size | Depends on       |
 | ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ---------------- |
-| P6-1 | `orders/` module (hot-path `info`, `:id` norm, slow path)             | 🔴     | High     | M    | Phase 4, Phase 5 |
-| P6-2 | `payments/` module (`@LogPerformance`, `errorStructured`, throw)      | 🔴     | High     | M    | P6-1             |
-| P6-3 | `pii-demo/` module (signup/nested/echo-headers/huge surfaces)         | 🔴     | High     | M    | P6-1             |
-| P6-4 | `downstream/` module (`@LogContext` + ctor `setContext`, worker stub) | 🔴     | High     | M    | P6-1             |
-| P6-5 | `trigger/` module (level/status/fault/burst Playground hooks)         | 🔴     | High     | M    | P6-1             |
-| P6-6 | `admin/` module (`PATCH /admin/log-level` → `getRawLogger().level`)   | 🔴     | Medium   | S    | P6-1             |
-| P6-7 | Shared demo wiring (DTOs, error helpers, AppModule registration)      | 🔴     | High     | S    | P6-1..P6-6       |
-| P6-8 | Verification gate (each endpoint emits expected `logKey`s + context)  | 🔴     | High     | M    | P6-1..P6-7       |
+| P6-1 | `orders/` module (hot-path `info`, `:id` norm, slow path)             | 🟢     | High     | M    | Phase 4, Phase 5 |
+| P6-2 | `payments/` module (`@LogPerformance`, `errorStructured`, throw)      | 🟢     | High     | M    | P6-1             |
+| P6-3 | `pii-demo/` module (signup/nested/echo-headers/huge surfaces)         | 🟢     | High     | M    | P6-1             |
+| P6-4 | `downstream/` module (`@LogContext` + ctor `setContext`, worker stub) | 🟢     | High     | M    | P6-1             |
+| P6-5 | `trigger/` module (level/status/fault/burst Playground hooks)         | 🟢     | High     | M    | P6-1             |
+| P6-6 | `admin/` module (`PATCH /admin/log-level` → `getRawLogger().level`)   | 🟢     | Medium   | S    | P6-1             |
+| P6-7 | Shared demo wiring (DTOs, error helpers, AppModule registration)      | 🟢     | High     | S    | P6-1..P6-6       |
+| P6-8 | Verification gate (each endpoint emits expected `logKey`s + context)  | 🟢     | High     | M    | P6-1..P6-7       |
 
 ---
 
 ## P6-1 — `orders/` Module (hot-path `info`, `:id` normalization, slow path)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `Phase 4`, `Phase 5`
@@ -198,7 +198,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-2 — `payments/` Module (`@LogPerformance`, `errorStructured`, throw → `HTTP_EXCEPTION_HANDLED`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P6-1`
@@ -341,7 +341,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-3 — `pii-demo/` Module (signup / nested / echo-headers / huge redaction surfaces)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P6-1`
@@ -518,7 +518,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-4 — `downstream/` Module (`@LogContext(name)` class label + ctor `setContext()`, worker stub)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P6-1`
@@ -663,7 +663,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-5 — `trigger/` Module (level / status / fault / burst Playground hooks)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P6-1`
@@ -846,7 +846,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-6 — `admin/` Module (`PATCH /admin/log-level` → `getRawLogger().level` runtime change)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** Medium
 - **Size:** S (30–90 min)
 - **Depends on:** `P6-1`
@@ -974,7 +974,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-7 — Shared Demo Wiring (DTOs, error helpers, AppModule registration)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P6-1`, `P6-2`, `P6-3`, `P6-4`, `P6-5`, `P6-6`
@@ -1100,7 +1100,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P6-8 — Verification Gate (each endpoint emits the expected `logKey`s + propagated context)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P6-1`, `P6-2`, `P6-3`, `P6-4`, `P6-5`, `P6-6`, `P6-7`
@@ -1184,4 +1184,11 @@ When this task is 🟢, Phase 6 is 8/8 — switch the Phase 6 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P6-1 ✅ 2026-06-01 — `orders/` module: hot-path `info`, NUMERIC_ID_REGEX URL normalisation, `@LogPerformance(50)` slow detection
+- P6-2 ✅ 2026-06-01 — `payments/` module: `@LogPerformance()`, `errorStructured`, 402 throw → `HTTP_EXCEPTION_HANDLED` (double-log avoidance proven)
+- P6-3 ✅ 2026-06-01 — `pii-demo/` module: signup/nested/echo-headers PII surfaces + `errorStructured` huge path triggering `LOGGER_ENTRY_TRUNCATED`
+- P6-4 ✅ 2026-06-01 — `downstream/` module: `@LogContext` class label + `setContext()` idiom + fail-soft worker stub
+- P6-5 ✅ 2026-06-01 — `trigger/` module: level/status/fault/burst Playground hooks; status uses `HttpException` (not `@Res()`) so interceptor sees the error
+- P6-6 ✅ 2026-06-01 — `admin/` module: `PATCH /admin/log-level` → `getRawLogger().level` runtime change
+- P6-7 ✅ 2026-06-01 — Shared wiring: `ZodValidationFilter` (→ 400 + `DOMAIN_VALIDATION_FAILED`), `app-log-keys.ts` + spec, `AppModule` with all six demo modules
+- P6-8 ✅ 2026-06-01 — Verification gate: 11 e2e stdout-capture tests all green; jest + supertest infrastructure added to `apps/api`
