@@ -1,8 +1,9 @@
 /**
  * Health module — wires the `/health` + `/metrics` routes into `AppModule`.
  *
- * Layer: app/health. No providers and no logger dependency: the controller must
- * respond on the bare Phase-3 skeleton before the Phase-4 logger wiring exists.
+ * Layer: app/health. No providers and no logger dependency: the controller is
+ * intentionally self-contained so liveness and metrics remain available even
+ * when the logging module is not yet initialized.
  */
 import { Module } from '@nestjs/common'
 
