@@ -27,7 +27,7 @@ export class PaymentsService {
    * Decorated with `@LogPerformance()` so every call emits `METHOD_EXECUTION`.
    *
    * @param dto - Validated payment request.
-   * @throws HttpException 502 after logging the underlying failure.
+   * @throws HttpException 402 after logging the underlying failure.
    */
   @LogPerformance()
   async charge(dto: CreatePaymentDto): Promise<never> {

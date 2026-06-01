@@ -1,14 +1,15 @@
 /**
  * Trigger controller — Playground hooks for the `apps/web` Trigger Center.
  *
- * The `/status/:code` route throws an `HttpException` for non-2xx codes so the library
- * interceptor observes the exception and logs the matching `HTTP_REQUEST_CLIENT_ERROR` /
- * `HTTP_REQUEST_SERVER_ERROR` key. Using `@Res()` + `res.status()` would bypass the
- * interceptor's Observable error path and prevent the access-log keys from appearing.
+ * For 2xx codes, `/status/:code` uses `@Res({ passthrough: true })` to set the exact HTTP
+ * status without bypassing interceptors. For non-2xx codes it throws an `HttpException` so
+ * the library interceptor observes the exception and logs the matching
+ * `HTTP_REQUEST_CLIENT_ERROR` / `HTTP_REQUEST_SERVER_ERROR` key.
  *
  * @module
  */
-import { Body, Controller, Get, HttpException, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, HttpException, Param, Post, Res } from '@nestjs/common'
+import type { Response } from 'express'
 
 import { triggerBurstSchema, triggerLevelSchema } from './dto/trigger.dto.js'
 import { TriggerService } from './trigger.service.js'
@@ -30,22 +31,24 @@ export class TriggerController {
   }
 
   /**
-   * Throw an `HttpException` with the requested status code so the library interceptor
-   * logs the matching `HTTP_REQUEST_*` key (CLIENT_ERROR / SERVER_ERROR). Returns normally
-   * for 2xx codes (interceptor logs `HTTP_REQUEST_SUCCESS`).
+   * Return or throw the requested HTTP status code so the library interceptor logs the
+   * matching `HTTP_REQUEST_*` key (SUCCESS / CLIENT_ERROR / SERVER_ERROR).
    *
    * @param code - Requested status code as a URL parameter string.
+   * @param res - Express response (passthrough — interceptors still run).
    * @throws HttpException for any non-2xx status code.
    */
   @Get('status/:code')
-  status(@Param('code') code: string): { status: number } {
+  status(
+    @Param('code') code: string,
+    @Res({ passthrough: true }) res: Response,
+  ): { status: number } {
     const parsed = Number.parseInt(code, 10)
     const httpStatus = Number.isFinite(parsed) && parsed >= 200 && parsed <= 599 ? parsed : 400
     if (httpStatus >= 200 && httpStatus < 300) {
+      res.status(httpStatus)
       return { status: httpStatus }
     }
-    // Throw so the library interceptor can observe the exception and emit the HTTP_REQUEST_*
-    // key. Using @Res() + res.status() would bypass the interceptor's error path.
     throw new HttpException({ status: httpStatus }, httpStatus)
   }
 

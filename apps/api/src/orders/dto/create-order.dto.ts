@@ -12,5 +12,5 @@ export const createOrderSchema = z.object({
   userId: z.string().min(1).optional(),
 })
 
-/** Typed inferred from {@link createOrderSchema}. */
+/** Type inferred from {@link createOrderSchema}. */
 export type CreateOrderDto = z.infer<typeof createOrderSchema>
