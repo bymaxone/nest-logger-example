@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ApplicationLog {
+  id         String   @id @default(cuid())
+  time       DateTime // event time (from the log entry, NOT a DB default)
+  level      String // 'warn' | 'error' | 'fatal' (this tier is warn+)
+  logKey     String
+  message    String
+  service    String
+  tenantId   String?
+  requestId  String?
+  traceId    String?
+  spanId     String?
+  status     Int? // HTTP status when present (status-class charts)
+  durationMs Int? // when present (latency charts)
+  payload    Json // full, already-REDACTED entry
+
+  // Native Prisma extended-index syntax — GA on PostgreSQL since Prisma 4, no preview flag in 7.x.
+  @@index([time(ops: raw("timestamp_minmax_ops"))], type: Brin) // tiny, append-only time series
+  @@index([time(sort: Desc), id(sort: Desc)]) // keyset pagination (newest-first)
+  @@index([payload(ops: JsonbPathOps)], type: Gin) // arbitrary-metadata containment
+  @@index([level])
+  @@index([logKey])
+  @@index([traceId])
+  @@index([tenantId, time])
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  tenantId  String
+  amount    Int // cents
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  // orderId is intentionally a loose string reference (no FK) so the demo can create
+  // payments for arbitrary orders without enforcing referential integrity constraints.
+  orderId   String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model SavedView {
+  id        String   @id @default(cuid())
+  name      String
+  tenantId  String?
+  // Consumers MUST re-validate this field against the typed LogQuery Zod schema before
+  // using it to construct any downstream SQL or LogQL query — never trust stored JSON blindly.
+  query     Json // the compiled LogQuery (SQL+LogQL filter object)
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model AlertRule {
+  id          String     @id @default(cuid())
+  name        String
+  // Write paths MUST validate `expr` against the alert expression grammar before persistence.
+  expr        String @db.VarChar(1024) // e.g. count(level in {error,fatal}) by logKey
+  threshold   Int
+  forDuration String // e.g. '5m'
+  severity    String // 'critical' | 'warning'
+  isEnabled   Boolean    @default(true)
+  channels    String[] // notification channel ids
+  createdAt   DateTime   @default(now())
+  incidents   Incident[]
+}
+
+model Incident {
+  id         String    @id @default(cuid())
+  ruleId     String
+  rule       AlertRule @relation(fields: [ruleId], references: [id])
+  status     String // 'triggered' | 'acknowledged' | 'snoozed' | 'resolved'
+  logKey     String?
+  openedAt   DateTime  @default(now())
+  resolvedAt DateTime?
+  // Consumers MUST re-validate this field against a typed Zod schema before using it in
+  // any presentation or query context — never trust stored JSON without re-parsing.
+  timeline   Json // immutable list of { actor, action, at } transitions
+
+  @@index([ruleId])
+  @@index([status])
+}
+
+model AuditEvent {
+  id       String   @id @default(cuid())
+  actor    String
+  action   String // exported | rule.created | role.switched | retention.changed | …
+  target   String
+  tenantId String?
+  at       DateTime @default(now())
+
+  @@index([at])
+}

@@ -14,6 +14,10 @@ export default tseslint.config(
       // Stryker mutation-testing artefacts.
       '**/.stryker-tmp',
       '**/reports',
+      // Prisma CLI config — loaded by the Prisma CLI runtime, not by the app's
+      // TypeScript compiler. Excluded from project-service type checking for the
+      // same reason eslint.config.mjs is: it is a build-tool config file.
+      '**/prisma.config.ts',
     ],
   },
   js.configs.recommended,
