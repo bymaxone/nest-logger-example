@@ -45,8 +45,8 @@ importers:
   apps/api:
     dependencies:
       '@bymax-one/nest-logger':
-        specifier: link:../../../nest-logger
-        version: link:../../../nest-logger
+        specifier: file:../../../nest-logger
+        version: file:../nest-logger(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(@opentelemetry/api@1.9.1)(pino-pretty@13.1.3)(pino@10.3.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/common':
         specifier: ^11
         version: 11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -113,8 +113,8 @@ importers:
   apps/worker:
     dependencies:
       '@bymax-one/nest-logger':
-        specifier: link:../../../nest-logger
-        version: link:../../../nest-logger
+        specifier: file:../../../nest-logger
+        version: file:../nest-logger(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(@opentelemetry/api@1.9.1)(pino-pretty@13.1.3)(pino@10.3.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/common':
         specifier: ^11
         version: 11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -186,6 +186,23 @@ packages:
 
   '@borewit/text-codec@0.2.2':
     resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
+
+  '@bymax-one/nest-logger@file:../nest-logger':
+    resolution: {directory: ../nest-logger, type: directory}
+    engines: {node: '>=24.0.0'}
+    peerDependencies:
+      '@nestjs/common': ^11.0.0
+      '@nestjs/core': ^11.0.0
+      '@opentelemetry/api': ^1.9.0
+      pino: ^10.0.0
+      pino-pretty: ^13.0.0
+      reflect-metadata: ^0.2.0
+      rxjs: ^7.8.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      pino-pretty:
+        optional: true
 
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
@@ -2946,6 +2963,17 @@ snapshots:
   '@babel/helper-validator-identifier@7.29.7': {}
 
   '@borewit/text-codec@0.2.2': {}
+
+  '@bymax-one/nest-logger@file:../nest-logger(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(@opentelemetry/api@1.9.1)(pino-pretty@13.1.3)(pino@10.3.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)':
+    dependencies:
+      '@nestjs/common': 11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.24)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      pino: 10.3.1
+      reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      pino-pretty: 13.1.3
 
   '@colors/colors@1.5.0':
     optional: true

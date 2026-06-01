@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 24 / 133 tasks done (18%)**
+> **Overall progress: 30 / 133 tasks done (23%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -37,7 +37,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 1   | Local Observability Stack                 | `phase-01-observability-stack.md` | 6 / 6        | 100% | 🟢     |
 | 2   | Library Consumption & Workspace Bootstrap | `phase-02-library-consumption.md` | 4 / 4        | 100% | 🟢     |
 | 3   | `apps/api` Skeleton + OTel Bootstrap      | `phase-03-api-skeleton.md`        | 6 / 6        | 100% | 🟢     |
-| 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 0 / 6        | 0%   | 🔴     |
+| 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 6 / 6        | 100% | 🟢     |
 | 5   | Prisma & Persistence                      | `phase-05-prisma-persistence.md`  | 0 / 6        | 0%   | 🔴     |
 | 6   | Demo Domain                               | `phase-06-demo-domain.md`         | 0 / 8        | 0%   | 🔴     |
 | 7   | Destinations                              | `phase-07-destinations.md`        | 0 / 7        | 0%   | 🔴     |
