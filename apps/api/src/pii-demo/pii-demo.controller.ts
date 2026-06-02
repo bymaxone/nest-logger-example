@@ -3,7 +3,7 @@
  *
  * @module
  */
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common'
+import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common'
 
 import { signupSchema } from './dto/signup.dto.js'
 import { PiiDemoService } from './pii-demo.service.js'
@@ -25,7 +25,19 @@ export class PiiDemoController {
   }
 
   /**
-   * Log a payload with `password` at depths 1–5 to expose the depth boundary.
+   * Log a payload that mixes a custom redact path, a nested custom path, and a default
+   * field — proving `redactPaths` MERGES with (never replaces) the 97 defaults.
+   *
+   * @returns Constant ok response.
+   */
+  @Post('webhook')
+  @HttpCode(201)
+  webhook() {
+    return this.pii.webhook()
+  }
+
+  /**
+   * Log a payload with `cardNumber` at depths 1–5 to expose the depth-4/5 boundary.
    *
    * @returns Constant ok response.
    */

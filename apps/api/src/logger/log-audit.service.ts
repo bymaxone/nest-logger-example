@@ -16,6 +16,22 @@ import {
 } from '@bymax-one/nest-logger'
 
 /**
+ * Required PII fields that must be present in the effective redact-path list.
+ *
+ * The CI redaction gate asserts every entry here:
+ *   1. Appears as a path or path suffix in `listEffectiveRedactPaths()`.
+ *   2. Is effectively serialized as `[REDACTED]` when logged (end-to-end proof).
+ */
+export const EXPECTED_REDACTED_FIELDS = [
+  'password',
+  'email',
+  'cpf',
+  'cardNumber',
+  'cardCvv',
+  'authorization',
+] as const
+
+/**
  * Injectable that exposes the effective PII-redaction posture of the running app.
  *
  * Injects `LOGGER_OPTIONS_TOKEN` — available globally because `BymaxLoggerModule`
