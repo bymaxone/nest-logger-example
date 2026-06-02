@@ -272,13 +272,13 @@ describe('Demo Domain (e2e)', () => {
 
   // ─── POST /downstream/dispatch (worker down) ────────────────────────────────
 
-  it('POST /downstream/dispatch returns 2xx and logs DISPATCH_ATTEMPT + DISPATCH_DEGRADED when worker is unreachable', async () => {
+  it('POST /downstream/dispatch returns 2xx and logs DISPATCH_START + DISPATCH_DEGRADED when worker is unreachable', async () => {
     const logs = await captureStdout(async () => {
       // Fail-soft: the endpoint always returns 2xx even if the worker is down.
       await request(app.getHttpServer()).post('/downstream/dispatch').expect(201)
     })
 
-    expect(logs).toContain('"logKey":"DOWNSTREAM_DISPATCH_ATTEMPT"')
+    expect(logs).toContain('"logKey":"DOWNSTREAM_DISPATCH_START"')
     // Worker is not running in tests — expect the degraded fallback.
     expect(logs).toContain('"logKey":"DOWNSTREAM_DISPATCH_DEGRADED"')
   })

@@ -7,6 +7,8 @@
  */
 import { z } from 'zod'
 
+import { DEV_WORKER_URL } from './env.defaults.js'
+
 /**
  * Development default for the OTLP trace endpoint. Exported so the production guard in
  * {@link envSchema} can detect "left at the dev default" and reject it on a real deploy.
@@ -27,6 +29,7 @@ export const envSchema = z
     OTEL_FIELD_FORMAT: z.enum(['camelCase', 'snake_case']).default('camelCase'),
     LOKI_URL: z.url().default('http://localhost:3100/loki/api/v1/push'),
     LOG_DB_MIN_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('warn'),
+    WORKER_URL: z.url().default(DEV_WORKER_URL), // apps/api → apps/worker hop
   })
   .superRefine((env, ctx) => {
     // Fail fast in production if the OTLP endpoint was left at the localhost dev default:
@@ -50,6 +53,26 @@ export const envSchema = z
           ctx.addIssue({
             code: 'custom',
             path: ['LOKI_URL'],
+            message: 'must not point to localhost in production',
+          })
+        }
+      } catch {
+        // URL parse failed — already caught by z.url() above.
+      }
+    }
+    // Reject a loopback WORKER_URL in production — the cross-service hop must point at
+    // a real peer service address, not localhost (which would fail silently in a container).
+    if (env.NODE_ENV === 'production') {
+      try {
+        const workerHostname = new URL(env.WORKER_URL).hostname
+        const isWorkerLoopback =
+          workerHostname === 'localhost' ||
+          workerHostname === '127.0.0.1' ||
+          workerHostname === '::1'
+        if (isWorkerLoopback) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['WORKER_URL'],
             message: 'must not point to localhost in production',
           })
         }

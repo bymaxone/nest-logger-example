@@ -8,6 +8,6 @@ import { Module } from '@nestjs/common'
 import { DownstreamController } from './downstream.controller.js'
 import { DownstreamService } from './downstream.service.js'
 
-/** Encapsulates the cross-service correlation demo with a fail-soft worker stub. */
+/** Encapsulates the cross-service correlation demo (auto + manual propagation paths). */
 @Module({ controllers: [DownstreamController], providers: [DownstreamService] })
 export class DownstreamModule {}

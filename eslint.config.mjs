@@ -33,9 +33,9 @@ export default tseslint.config(
   },
   {
     // TypeScript sources get the full type-checked ruleset via the project
-    // service. Scoping (not global application) is what keeps `pnpm lint`
-    // green on a config-only tree and mirrors the nest-auth-example template.
+    // service. Test files are scoped to app tsconfig.test.json blocks below.
     files: ['**/*.{ts,tsx,mts,cts}'],
+    ignores: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/test/**'],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       globals: { ...globals.node },
@@ -43,9 +43,31 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/api/**/*.spec.ts', 'apps/api/test/**/*.ts'],
+    extends: [...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: {
+        project: ['./apps/api/tsconfig.test.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ['apps/worker/**/*.spec.ts', 'apps/worker/test/**/*.ts'],
+    extends: [...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: {
+        project: ['./apps/worker/tsconfig.test.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
     // Relax unsafe-type and explicit-any rules in tests: Jest/Vitest globals and
     // mock objects are unresolvable at the ESLint level without full type
-    // augmentation, producing false-positive no-unsafe-* / no-explicit-any errors.
+    // augmentation, producing false-positive errors.
     files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/test/**'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
@@ -53,6 +75,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
+      // Test assertions on parsed JSON use `!` and String() on `unknown` values; these
+      // are intentional and safe in the context of test fixtures.
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-base-to-string': 'off',
     },
   },
   prettier,
