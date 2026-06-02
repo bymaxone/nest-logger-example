@@ -256,11 +256,13 @@ describe('Demo Domain (e2e)', () => {
       await request(app.getHttpServer())
         .post('/pii-demo/signup')
         .send({
+          nome: 'Ada Lovelace',
           email: 'a@example.com',
           password: 'p@ss',
           cpf: '000.000.000-00',
           cardNumber: '4111111111111111',
           cardCvv: '123',
+          payment: { cardNumber: '5500005555555559' },
         })
         .expect(201)
     })

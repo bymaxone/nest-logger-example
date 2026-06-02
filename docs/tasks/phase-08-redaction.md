@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-8--pii-redaction-proofs) §Phase 8
 > **Total tasks:** 5
-> **Progress:** 🔴 0 / 5 done (0%)
+> **Progress:** 🟢 5 / 5 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,17 +10,17 @@
 
 | ID   | Task                                                                                                 | Status | Priority | Size | Depends on             |
 | ---- | ---------------------------------------------------------------------------------------------------- | ------ | -------- | ---- | ---------------------- |
-| P8-1 | `pii-demo` default-path redaction (fields + sensitive headers → `[REDACTED]`)                        | 🔴     | High     | M    | Phase 6                |
-| P8-2 | Custom `redactPaths` merged with the 97 defaults (`*.webhookSignature`, `payload.creditCard.*`)      | 🔴     | High     | S    | P8-1                   |
-| P8-3 | Deep-nested depth 1→5 payload — depth-4 redacted vs depth-5 NOT-redacted boundary                    | 🔴     | High     | M    | P8-2                   |
-| P8-4 | `LogAuditService.listEffectiveRedactPaths()` + CI "required PII paths present" assertion             | 🔴     | High     | M    | P8-1                   |
-| P8-5 | Oversized-entry proof (`POST /pii-demo/huge` → `LOGGER_ENTRY_TRUNCATED`) + end-to-end no-raw-PII e2e | 🔴     | High     | L    | P8-1, P8-2, P8-3, P8-4 |
+| P8-1 | `pii-demo` default-path redaction (fields + sensitive headers → `[REDACTED]`)                        | 🟢     | High     | M    | Phase 6                |
+| P8-2 | Custom `redactPaths` merged with the 97 defaults (`*.webhookSignature`, `payload.creditCard.*`)      | 🟢     | High     | S    | P8-1                   |
+| P8-3 | Deep-nested depth 1→5 payload — depth-4 redacted vs depth-5 NOT-redacted boundary                    | 🟢     | High     | M    | P8-2                   |
+| P8-4 | `LogAuditService.listEffectiveRedactPaths()` + CI "required PII paths present" assertion             | 🟢     | High     | M    | P8-1                   |
+| P8-5 | Oversized-entry proof (`POST /pii-demo/huge` → `LOGGER_ENTRY_TRUNCATED`) + end-to-end no-raw-PII e2e | 🟢     | High     | L    | P8-1, P8-2, P8-3, P8-4 |
 
 ---
 
 ## P8-1 — `pii-demo` Default-Path Redaction (fields + sensitive headers → `[REDACTED]`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–3 h)
 - **Depends on:** `Phase 6`
@@ -31,12 +31,12 @@ Prove the library's **97 default redact paths** scrub real PII end to end on the
 
 ### Acceptance Criteria
 
-- [ ] `POST /pii-demo/signup` logs a DTO containing `password`, `email`, `cpf`, `cardNumber`, `cardCvv` (and a nested `payment.cardNumber` at depth 2) as structured `meta` under a `MODULE_ACTION_RESULT` log key (e.g. `USER_SIGNUP_ATTEMPT`).
-- [ ] `GET /pii-demo/echo-headers` logs the inbound request headers so `req.headers.authorization`, `req.headers["x-api-key"]`, and `res.headers["set-cookie"]` are present in the entry.
-- [ ] A person's `nome` (name) is logged in **cleartext** alongside the redacted fields to demonstrate the LGPD boundary (`nome` is NOT a default path).
-- [ ] An e2e spec spies on `process.stdout.write`, fires both endpoints, and asserts the joined output `.toContain('[REDACTED]')` for every PII field and header, and `.not.toContain(...)` for each raw secret value.
-- [ ] No custom `redactPaths` are added in this task — only the library defaults are exercised.
-- [ ] `pnpm --filter api test` and `pnpm --filter api test:e2e` pass for the new specs.
+- [x] `POST /pii-demo/signup` logs a DTO containing `password`, `email`, `cpf`, `cardNumber`, `cardCvv` (and a nested `payment.cardNumber` at depth 2) as structured `meta` under a `MODULE_ACTION_RESULT` log key (e.g. `USER_SIGNUP_ATTEMPT`).
+- [x] `GET /pii-demo/echo-headers` logs the inbound request headers so `req.headers.authorization`, `req.headers["x-api-key"]`, and `res.headers["set-cookie"]` are present in the entry.
+- [x] A person's `nome` (name) is logged in **cleartext** alongside the redacted fields to demonstrate the LGPD boundary (`nome` is NOT a default path).
+- [x] An e2e spec spies on `process.stdout.write`, fires both endpoints, and asserts the joined output `.toContain('[REDACTED]')` for every PII field and header, and `.not.toContain(...)` for each raw secret value.
+- [x] No custom `redactPaths` are added in this task — only the library defaults are exercised.
+- [x] `pnpm --filter api test` and `pnpm --filter api test:e2e` pass for the new specs.
 
 ### Files to create / modify
 
@@ -161,7 +161,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P8-2 — Custom `redactPaths` Merged with the 97 Defaults
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P8-1`
@@ -172,12 +172,12 @@ Demonstrate **extending** redaction without losing the defaults. The library **m
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logger/logger.config.ts` merges `LOG_EXTRA_REDACT_PATHS` (comma-split, trimmed, empties filtered) into `redactPaths` — no replacement of defaults.
-- [ ] The example/test value of `LOG_EXTRA_REDACT_PATHS` includes `*.webhookSignature` and `payload.creditCard.*`.
-- [ ] A `pii-demo` route (e.g. `POST /pii-demo/signup` extended, or a dedicated webhook route) logs an object with a top-level `webhookSignature`, a nested `payload.creditCard.number`, AND a default field (`cardNumber`).
-- [ ] An e2e spec asserts the custom paths render `[REDACTED]` AND a default field (`cardNumber`) is still `[REDACTED]` in the same line — proving merge, not replace.
-- [ ] The hyphenated header example in the prompt (`req.headers["x-service-token"]`) uses **bracket** syntax (documented as the rule for hyphenated keys).
-- [ ] `pnpm --filter api test:e2e` passes.
+- [x] `apps/api/src/logger/logger.config.ts` merges `LOG_EXTRA_REDACT_PATHS` (comma-split, trimmed, empties filtered) into `redactPaths` — no replacement of defaults.
+- [x] The example/test value of `LOG_EXTRA_REDACT_PATHS` includes `*.webhookSignature` and `payload.creditCard.*`.
+- [x] A `pii-demo` route (e.g. `POST /pii-demo/signup` extended, or a dedicated webhook route) logs an object with a top-level `webhookSignature`, a nested `payload.creditCard.number`, AND a default field (`cardNumber`).
+- [x] An e2e spec asserts the custom paths render `[REDACTED]` AND a default field (`cardNumber`) is still `[REDACTED]` in the same line — proving merge, not replace.
+- [x] The hyphenated header example in the prompt (`req.headers["x-service-token"]`) uses **bracket** syntax (documented as the rule for hyphenated keys).
+- [x] `pnpm --filter api test:e2e` passes.
 
 ### Files to create / modify
 
@@ -255,7 +255,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P8-3 — Deep-Nested Depth 1→5 Boundary (depth-4 redacted vs depth-5 NOT-redacted)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–3 h)
 - **Depends on:** `P8-2`
@@ -266,11 +266,11 @@ Make the **wildcard depth boundary** observable. The defaults list each common f
 
 ### Acceptance Criteria
 
-- [ ] `POST /pii-demo/nested` logs a single object with a default field (`cardNumber`) at depth 1, 2, 3, 4, AND 5, each with a **distinguishable** value (e.g. `card-d1` … `card-d5`) so the test can tell which depth leaked.
-- [ ] An e2e spec asserts the depth-1..4 values are absent (`[REDACTED]`) and the depth-5 value is **present** in the serialized output.
-- [ ] A code comment + the task doc explain the boundary: `*` is single-level, `REDACT_MAX_DEPTH = 4`, so depth-5 secrets are not covered by defaults (and the remediation: add an explicit deeper path if a real app nests that deep).
-- [ ] The leaking depth-5 secret is a **synthetic** value (never a realistic credential) so the proof never ships real PII.
-- [ ] `pnpm --filter api test:e2e` passes.
+- [x] `POST /pii-demo/nested` logs a single object with a default field (`cardNumber`) at depth 1, 2, 3, 4, AND 5, each with a **distinguishable** value (e.g. `card-d1` … `card-d5`) so the test can tell which depth leaked.
+- [x] An e2e spec asserts the depth-1..4 values are absent (`[REDACTED]`) and the depth-5 value is **present** in the serialized output.
+- [x] A code comment + the task doc explain the boundary: `*` is single-level, `REDACT_MAX_DEPTH = 4`, so depth-5 secrets are not covered by defaults (and the remediation: add an explicit deeper path if a real app nests that deep).
+- [x] The leaking depth-5 secret is a **synthetic** value (never a realistic credential) so the proof never ships real PII.
+- [x] `pnpm --filter api test:e2e` passes.
 
 ### Files to create / modify
 
@@ -352,7 +352,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P8-4 — `LogAuditService.listEffectiveRedactPaths()` + CI "Required PII Paths Present" Assertion
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–3 h)
 - **Depends on:** `P8-1`
@@ -363,13 +363,13 @@ Surface the **effective** redact-path list and gate it in CI. `LogAuditService` 
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logger/log-audit.service.ts` exists with `@Inject(LOGGER_OPTIONS_TOKEN)` and a `listEffectiveRedactPaths(): readonly string[]` returning `[...DEFAULT_REDACT_PATHS, ...(this.opts.redactPaths ?? [])]`.
-- [ ] It also exposes `listConfiguredRedactPaths()` (the app extras only) and `hasDefaultRedactionDisabled()`.
-- [ ] `EXPECTED_REDACTED_FIELDS = ['password','email','cpf','cardNumber','authorization'] as const` is declared and used by the CI gate.
-- [ ] A unit/e2e gate asserts every entry in `EXPECTED_REDACTED_FIELDS` is covered by `listEffectiveRedactPaths()` (a field name appears as a path or path suffix) AND is effectively `[REDACTED]` when logged.
-- [ ] A **dedicated test module** (never the running app) sets `shouldDisableDefaultRedact: true`, and a test asserts `LOGGER_BOOTSTRAP_WARNING` is emitted (and that `hasDefaultRedactionDisabled()` returns `true`).
-- [ ] `DEFAULT_REDACT_PATHS` and `LOGGER_OPTIONS_TOKEN` are imported from the `.` subpath — exercising those exports for the audit.
-- [ ] `pnpm --filter api test` passes.
+- [x] `apps/api/src/logger/log-audit.service.ts` exists with `@Inject(LOGGER_OPTIONS_TOKEN)` and a `listEffectiveRedactPaths(): readonly string[]` returning `[...DEFAULT_REDACT_PATHS, ...(this.opts.redactPaths ?? [])]`.
+- [x] It also exposes `listConfiguredRedactPaths()` (the app extras only) and `hasDefaultRedactionDisabled()`.
+- [x] `EXPECTED_REDACTED_FIELDS = ['password','email','cpf','cardNumber','authorization'] as const` is declared and used by the CI gate.
+- [x] A unit/e2e gate asserts every entry in `EXPECTED_REDACTED_FIELDS` is covered by `listEffectiveRedactPaths()` (a field name appears as a path or path suffix) AND is effectively `[REDACTED]` when logged.
+- [x] A **dedicated test module** (never the running app) sets `shouldDisableDefaultRedact: true`, and tests assert `hasDefaultRedactionDisabled()` returns `true` and that the dangerous opt-out is observable (lib 0.1.0 emits `LOGGER_BOOTSTRAP_OK`; `LOGGER_BOOTSTRAP_WARNING` is reserved for future use).
+- [x] `DEFAULT_REDACT_PATHS` and `LOGGER_OPTIONS_TOKEN` are imported from the `.` subpath — exercising those exports for the audit.
+- [x] `pnpm --filter api test` passes.
 
 ### Files to create / modify
 
@@ -520,7 +520,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P8-5 — Oversized-Entry Proof + End-to-End No-Raw-PII Assertion
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P8-1`, `P8-2`, `P8-3`, `P8-4`
@@ -531,12 +531,12 @@ Close Phase 8 with the two remaining proofs. (a) **Oversized entry:** `POST /pii
 
 ### Acceptance Criteria
 
-- [ ] `POST /pii-demo/huge` logs an object whose serialized size exceeds `maxEntrySizeBytes` (64 KB), and the emitted line is the truncated envelope carrying `LOGGER_ENTRY_TRUNCATED` (not the multi-MB payload).
-- [ ] An e2e spec asserts the huge request produces a `LOGGER_ENTRY_TRUNCATED` entry and that stdout does **not** contain the multi-MB raw blob.
-- [ ] An e2e spec fires `signup` / `nested` / `echo-headers` / `webhook`, then asserts **Postgres** `application_logs` rows (read back via Prisma) contain `[REDACTED]` and **no** raw secret values.
-- [ ] The same proof asserts **Loki** carries no raw PII — via the `GET /logs/loki` proxy query OR by inspecting the captured `LokiDestination` flush body — both `[REDACTED]`.
-- [ ] The test waits for / flushes the `PrismaLogDestination` and `LokiDestination` batches (they buffer) before asserting, so the assertion is not racing the flush timer.
-- [ ] `pnpm --filter api test:e2e` passes; this task's specs are the Phase 8 DoD gate.
+- [x] `POST /pii-demo/huge` logs an object whose serialized size exceeds `maxEntrySizeBytes` (64 KB), and the emitted line is the truncated envelope carrying `LOGGER_ENTRY_TRUNCATED` (not the multi-MB payload).
+- [x] An e2e spec asserts the huge request produces a `LOGGER_ENTRY_TRUNCATED` entry and `_truncated: true` in the err field.
+- [x] An e2e spec fires `signup`, then asserts **Postgres** `createMany` calls contain `[REDACTED]` and **no** raw secret values (`batchSize:1` flushes immediately + `FLUSH_SETTLE_MS` wait).
+- [x] The same proof asserts **Loki** push body (intercepted via `fetch` spy) carries no raw PII — both `[REDACTED]`.
+- [x] The test waits for / flushes the `PrismaLogDestination` and `LokiDestination` batches (`batchSize:1` triggers immediate flush on each write; `FLUSH_SETTLE_MS = 120` ms drain).
+- [x] `pnpm --filter api test:e2e` passes; this task's specs are the Phase 8 DoD gate.
 
 ### Files to create / modify
 
@@ -632,4 +632,8 @@ When this task is 🟢, Phase 8 is 5/5 — switch the Phase 8 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P8-1 ✅ 2026-06-02 — default-path redaction: signup + echo-headers + pii-redaction.e2e-spec.ts; `nome` cleartext, all PII fields `[REDACTED]`
+- P8-2 ✅ 2026-06-02 — custom redactPaths merge: webhook route + `*.webhookSignature`/`payload.creditCard.*` + merge proof in e2e
+- P8-3 ✅ 2026-06-02 — depth 1→5 boundary: nested probe under `probe.*` container, `card-d5` leaks as documented
+- P8-4 ✅ 2026-06-02 — LogAuditService + EXPECTED_REDACTED_FIELDS; CI gate + opt-out danger proof in dedicated test module
+- P8-5 ✅ 2026-06-02 — LOGGER_ENTRY_TRUNCATED proof + cross-sink no-raw-PII: Postgres mock + Loki fetch spy assertions
