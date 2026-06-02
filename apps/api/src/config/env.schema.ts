@@ -21,10 +21,12 @@ export const envSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     OTEL_SERVICE_NAME: z.string().min(1).default('nest-logger-example-api'),
     RELEASE_SHA: z.string().min(1).default('dev'),
-    OTLP_TRACE_ENDPOINT: z.string().url().default(DEV_OTLP_TRACE_ENDPOINT),
-    DATABASE_URL: z.string().url(),
+    OTLP_TRACE_ENDPOINT: z.url().default(DEV_OTLP_TRACE_ENDPOINT),
+    DATABASE_URL: z.url(),
     LOG_EXTRA_REDACT_PATHS: z.string().default(''),
     OTEL_FIELD_FORMAT: z.enum(['camelCase', 'snake_case']).default('camelCase'),
+    LOKI_URL: z.url().default('http://localhost:3100/loki/api/v1/push'),
+    LOG_DB_MIN_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('warn'),
   })
   .superRefine((env, ctx) => {
     // Fail fast in production if the OTLP endpoint was left at the localhost dev default:
@@ -32,10 +34,28 @@ export const envSchema = z
     // local collector. Dev/test keep the convenient default.
     if (env.NODE_ENV === 'production' && env.OTLP_TRACE_ENDPOINT === DEV_OTLP_TRACE_ENDPOINT) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['OTLP_TRACE_ENDPOINT'],
         message: 'must be set explicitly in production (not the localhost dev default)',
       })
+    }
+    // Reject a loopback LOKI_URL in production — log data pushed over plaintext HTTP to
+    // localhost would be silently black-holed (or sent to an unintended local service).
+    if (env.NODE_ENV === 'production') {
+      try {
+        const lokiHostname = new URL(env.LOKI_URL).hostname
+        const isLokiLoopback =
+          lokiHostname === 'localhost' || lokiHostname === '127.0.0.1' || lokiHostname === '::1'
+        if (isLokiLoopback) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['LOKI_URL'],
+            message: 'must not point to localhost in production',
+          })
+        }
+      } catch {
+        // URL parse failed — already caught by z.url() above.
+      }
     }
     // Reject a loopback DATABASE_URL in production — the dev default credential would
     // silently connect to nothing (or worse, a local DB on the prod host). Parse the URL
@@ -48,13 +68,13 @@ export const envSchema = z
           hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
         if (isLoopback) {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             path: ['DATABASE_URL'],
             message: 'must not point to localhost in production',
           })
         }
       } catch {
-        // URL parse failed — already caught by z.string().url() above, so this branch
+        // URL parse failed — already caught by z.url() above, so this branch
         // is unreachable in practice; swallowing here avoids a duplicate error message.
       }
     }
