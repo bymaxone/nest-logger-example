@@ -90,12 +90,12 @@ export class RollingFileDestination implements ILogDestination {
     if (!this.stream) return
     const stream = this.stream
     stream.end()
-    // Race 'finish' against 'error' so a disk-full / permission error on final flush
-    // does not hang the shutdown indefinitely.
-    await Promise.race([
-      once(stream, 'finish'),
-      new Promise<void>((_, reject) => stream.once('error', reject)),
-    ]).catch((err: unknown) => {
+    // `events.once(stream, 'finish')` already registers an internal 'error' listener that
+    // rejects the promise and removes BOTH listeners on settlement — no manual error
+    // listener needed. Using Promise.race + a separate new Promise leaves the loser's
+    // 'error' listener attached, which causes an unhandled rejection if 'error' fires
+    // after 'finish' has already won the race.
+    await once(stream, 'finish').catch((err: unknown) => {
       process.stderr.write(
         `{"level":"warn","logKey":"LOGGER_DESTINATION_WRITE_FAILED","destination":"rolling-file","reason":${JSON.stringify(String(err))}}\n`,
       )

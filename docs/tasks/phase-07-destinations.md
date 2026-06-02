@@ -8,15 +8,15 @@
 
 ## Task index
 
-| ID   | Task                                                                  | Status | Priority | Size | Depends on         |
-| ---- | --------------------------------------------------------------------- | ------ | -------- | ---- | ------------------ |
-| P7-1 | `LokiDestination` — batched HTTP push + flush timer + fail-soft       | 🟢     | High     | M    | P4 (Logger Wiring) |
-| P7-2 | `PrismaLogDestination` — `warn`+ durable tier, batched `createMany`   | 🟢     | High     | M    | P5 (Prisma), P7-1  |
-| P7-3 | `RollingFileDestination` — `pino-roll`, async `onInit`, rotation      | 🟢     | Medium   | M    | P7-1               |
-| P7-4 | Wire all three into `logger.config.ts` `destinations[]`               | 🟢     | High     | S    | P7-1, P7-2, P7-3   |
-| P7-5 | Lifecycle — `enableShutdownHooks()` + reverse drain + `_SHUTDOWN_OK`  | 🟢     | High     | S    | P7-4               |
-| P7-6 | Fail-soft proof — bad `LOKI_URL` → `_WRITE_FAILED`, app keeps serving | 🟢     | High     | S    | P7-4               |
-| P7-7 | Verification — stdout + Loki + Postgres `warn` row + debug minLevel   | 🟢     | High     | M    | P7-1..P7-6         |
+| ID   | Task                                                                      | Status | Priority | Size | Depends on         |
+| ---- | ------------------------------------------------------------------------- | ------ | -------- | ---- | ------------------ |
+| P7-1 | `LokiDestination` — batched HTTP push + flush timer + fail-soft           | 🟢     | High     | M    | P4 (Logger Wiring) |
+| P7-2 | `PrismaLogDestination` — `warn`+ durable tier, batched `createMany`       | 🟢     | High     | M    | P5 (Prisma), P7-1  |
+| P7-3 | `RollingFileDestination` — `pino-roll`, async `onInit`, rotation          | 🟢     | Medium   | M    | P7-1               |
+| P7-4 | Wire all three into `logger.config.ts` `destinations[]`                   | 🟢     | High     | S    | P7-1, P7-2, P7-3   |
+| P7-5 | Lifecycle — reverse drain + `LOGGER_BOOTSTRAP_OK` + ordered SIGTERM owner | 🟢     | High     | S    | P7-4               |
+| P7-6 | Fail-soft proof — bad `LOKI_URL` → `_WRITE_FAILED`, app keeps serving     | 🟢     | High     | S    | P7-4               |
+| P7-7 | Verification — stdout + Loki + Postgres `warn` row + debug minLevel       | 🟢     | High     | M    | P7-1..P7-6         |
 
 ---
 
@@ -517,7 +517,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ---
 
-## P7-5 — Lifecycle — `enableShutdownHooks()` + reverse drain + `LOGGER_SHUTDOWN_OK`
+## P7-5 — Lifecycle — reverse drain + `LOGGER_BOOTSTRAP_OK` + ordered SIGTERM owner
 
 - **Status:** 🔴 Not Started
 - **Priority:** High
