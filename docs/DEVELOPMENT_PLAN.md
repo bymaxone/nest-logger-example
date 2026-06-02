@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 44 / 133 tasks done (33%)**
+> **Overall progress: 51 / 133 tasks done (38%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -40,7 +40,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 4   | Logger Wiring                             | `phase-04-logger-wiring.md`       | 6 / 6        | 100% | 🟢     |
 | 5   | Prisma & Persistence                      | `phase-05-prisma-persistence.md`  | 6 / 6        | 100% | 🟢     |
 | 6   | Demo Domain                               | `phase-06-demo-domain.md`         | 8 / 8        | 100% | 🟢     |
-| 7   | Destinations                              | `phase-07-destinations.md`        | 0 / 7        | 0%   | 🔴     |
+| 7   | Destinations                              | `phase-07-destinations.md`        | 7 / 7        | 100% | 🟢     |
 | 8   | PII Redaction Proofs                      | `phase-08-redaction.md`           | 0 / 5        | 0%   | 🔴     |
 | 9   | OpenTelemetry Correlation + `apps/worker` | `phase-09-otel-correlation.md`    | 0 / 6        | 0%   | 🔴     |
 | 10  | `logs/` Read-API                          | `phase-10-logs-api.md`            | 0 / 9        | 0%   | 🔴     |

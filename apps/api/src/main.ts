@@ -30,14 +30,14 @@ import { otelSdk } from './instrumentation.js'
 async function bootstrap(): Promise<void> {
   // `abortOnError: false` so a failed provider lookup re-throws (caught below) instead of
   // calling `process.exit(1)` inside NestJS's ExceptionsZone — needed because the
-  // `PinoLoggerService` bridge is best-effort until `BymaxLoggerModule` is wired in Phase 4.
+  // `PinoLoggerService` bridge is best-effort: if `BymaxLoggerModule` is absent (e.g. a
+  // minimal harness without the module), the guard falls back to flushing buffered logs.
   const app = await NestFactory.create(AppModule, { bufferLogs: true, abortOnError: false })
 
-  // Bridge NestJS's internal logger to the library logger. `PinoLoggerService` is
-  // provided by `BymaxLoggerModule`, which is wired in Phase 4 — in this Phase-3
-  // skeleton the provider is absent, so guard the lookup and fall back to flushing the
-  // buffered logs so the app still boots (`/health`). Once Phase 4 adds the module the
-  // lookup succeeds (and the library also self-bridges via `shouldUseAsNestLogger`).
+  // Bridge NestJS's internal logger to the library logger. Guard the lookup: if
+  // `BymaxLoggerModule` is not in scope the provider is absent and the catch falls back
+  // to flushing buffered logs so the process still boots. The library also self-bridges
+  // via `shouldUseAsNestLogger: true`, making this line belt-and-suspenders.
   try {
     app.useLogger(app.get(PinoLoggerService))
   } catch {
@@ -48,12 +48,12 @@ async function bootstrap(): Promise<void> {
   // `app.close()` runs the NestJS shutdown lifecycle (`onApplicationShutdown`, where the
   // library drains its destinations) → THEN flush the OTel SDK → THEN exit 0. Ordered, once.
   //
-  // We deliberately do NOT call `app.enableShutdownHooks()`: that registers NestJS's own
-  // signal listeners which run `app.close()` and then RE-RAISE the signal
-  // (`process.kill(pid, signal)`), terminating the process by signal before this handler's
-  // `otelSdk.shutdown()` + `process.exit(0)` can run — a race that drops the final span
-  // flush. `app.close()` triggers the same lifecycle hooks on its own, so this manual
-  // handler is the sole, correct owner (see `docs/OVERVIEW.md` §16).
+  // `app.enableShutdownHooks()` is deliberately NOT called here. NestJS 11's implementation
+  // calls `process.kill(process.pid, signal)` after `callShutdownHook()` completes
+  // (nest-application-context.js:220). That re-raised signal terminates the process via the
+  // default handler BEFORE `otelSdk.shutdown()` + `process.exit(0)` can run — a race that
+  // drops the final span flush. `app.close()` fires `onApplicationShutdown` hooks on its own,
+  // so this manual handler is the sole, correct owner. (OVERVIEW.md §16)
   let isShuttingDown = false
   const shutdown = (): void => {
     if (isShuttingDown) return // idempotent: if both signals arrive, run the sequence once

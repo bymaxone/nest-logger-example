@@ -5,11 +5,10 @@
  * `buildLoggerOptions` maps Zod-validated environment variables into the library
  * options consumed by `BymaxLoggerModule.forRootAsync` in `app.module.ts`.
  *
- * The `prisma` parameter is declared in the factory signature so that the
- * `forRootAsync` inject list stays stable when database destinations are added.
- * `destinations` is an empty array until concrete log sinks (Loki, database,
- * rolling-file) are wired — add them here and pass the required dependencies
- * via the `inject` array in `app.module.ts`.
+ * Three destinations are registered:
+ *   - `LokiDestination`          — batched HTTP push for the `info`+ aggregation tier.
+ *   - `PrismaLogDestination`     — durable `warn`+ persistence to Postgres.
+ *   - `RollingFileDestination`   — dev-only rolling file (pino-roll); omitted in production.
  *
  * @module
  */
@@ -17,6 +16,9 @@ import type { ConfigService } from '@nestjs/config'
 import type { BymaxLoggerModuleOptions, LogLevel } from '@bymax-one/nest-logger'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
+import { LokiDestination } from '../destinations/loki.destination.js'
+import { PrismaLogDestination } from '../destinations/prisma-log.destination.js'
+import { RollingFileDestination } from '../destinations/rolling-file.destination.js'
 
 /**
  * Build the `BymaxLoggerModuleOptions` object from validated environment variables.
@@ -30,9 +32,6 @@ export function buildLoggerOptions(
   config: ConfigService,
   prisma: PrismaService,
 ): BymaxLoggerModuleOptions {
-  // Retained for PrismaLogDestination — passed when database destinations are configured.
-  void prisma
-
   const isProd = config.get('NODE_ENV') === 'production'
   const extraPaths = (config.get<string>('LOG_EXTRA_REDACT_PATHS') ?? '')
     .split(',')
@@ -75,8 +74,21 @@ export function buildLoggerOptions(
       shouldAutoInjectTraceContext: true,
       fieldFormat: config.get('OTEL_FIELD_FORMAT') === 'snake_case' ? 'snake_case' : 'camelCase',
     },
-    // Destinations are populated when concrete log sinks (Loki, database, rolling-file)
-    // are configured. Add them here and declare their dependencies in the inject array.
-    destinations: [],
+    destinations: [
+      new LokiDestination({
+        url: config.getOrThrow<string>('LOKI_URL'),
+        batchSize: 50,
+        flushIntervalMs: 3_000,
+      }),
+      new PrismaLogDestination(prisma, {
+        minLevel: config.get<LogLevel>('LOG_DB_MIN_LEVEL') ?? 'warn',
+        batchSize: 50,
+        flushIntervalMs: 2_000,
+      }),
+      // RollingFileDestination is dev-only (pino-roll, async onInit) — omitted in production.
+      ...(isProd
+        ? []
+        : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
+    ],
   }
 }
