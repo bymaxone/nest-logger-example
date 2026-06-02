@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-9--opentelemetry-correlation--appsworker) §Phase 9
 > **Total tasks:** 6
-> **Progress:** 🔴 0 / 6 done (0%)
+> **Progress:** 🟢 6 / 6 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,18 +10,18 @@
 
 | ID   | Task                                                                    | Status | Priority | Size | Depends on |
 | ---- | ----------------------------------------------------------------------- | ------ | -------- | ---- | ---------- |
-| P9-1 | Verify `traceId`/`spanId`/`traceFlags` injected on every log            | 🔴     | High     | M    | —          |
-| P9-2 | Grafana derived field — Loki `traceId` → Tempo trace click-through      | 🔴     | High     | S    | P9-1       |
-| P9-3 | Scaffold `apps/worker` (2nd NestJS svc, `snake_case` field format)      | 🔴     | High     | L    | P9-1       |
-| P9-4 | Worker extracts inbound W3C `traceparent` → same `traceId`              | 🔴     | High     | M    | P9-3       |
-| P9-5 | `apps/api/downstream` → worker hop (auto + manual `propagation.inject`) | 🔴     | High     | M    | P9-3, P9-4 |
-| P9-6 | Verification — interleaved api+worker logs share a `traceId` in Grafana | 🔴     | High     | M    | P9-1..P9-5 |
+| P9-1 | Verify `traceId`/`spanId`/`traceFlags` injected on every log            | 🟢     | High     | M    | —          |
+| P9-2 | Grafana derived field — Loki `traceId` → Tempo trace click-through      | 🟢     | High     | S    | P9-1       |
+| P9-3 | Scaffold `apps/worker` (2nd NestJS svc, `snake_case` field format)      | 🟢     | High     | L    | P9-1       |
+| P9-4 | Worker extracts inbound W3C `traceparent` → same `traceId`              | 🟢     | High     | M    | P9-3       |
+| P9-5 | `apps/api/downstream` → worker hop (auto + manual `propagation.inject`) | 🟢     | High     | M    | P9-3, P9-4 |
+| P9-6 | Verification — interleaved api+worker logs share a `traceId` in Grafana | 🟢     | High     | M    | P9-1..P9-5 |
 
 ---
 
 ## P9-1 — Verify `traceId`/`spanId`/`traceFlags` Injected on Every Log
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min – 3 h)
 - **Depends on:** `—`
@@ -118,7 +118,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P9-2 — Grafana Derived Field — Loki `traceId` → Tempo Trace Click-Through
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P9-1`
@@ -192,7 +192,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P9-3 — Scaffold `apps/worker` (Second NestJS Service, `snake_case` Field Format)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P9-1`
@@ -381,7 +381,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P9-4 — Worker Extracts Inbound W3C `traceparent` → Same `traceId`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min – 3 h)
 - **Depends on:** `P9-3`
@@ -485,7 +485,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P9-5 — `apps/api/downstream` → Worker Hop (Auto-Instrumented + Manual `propagation.inject`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min – 3 h)
 - **Depends on:** `P9-3`, `P9-4`
@@ -596,7 +596,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P9-6 — Verification — Interleaved api + worker Logs Share a `traceId` in Grafana
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min – 3 h)
 - **Depends on:** `P9-1`, `P9-2`, `P9-3`, `P9-4`, `P9-5`
@@ -704,4 +704,9 @@ When this task is 🟢, Phase 9 is 6/6 — switch the Phase 9 row in `DEVELOPMEN
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P9-1 ✅ 2026-06-02 — otel-correlation e2e + otel-injection unit spec; SDK-started span propagation proved; zeroed-skip + unsampled-kept edge cases covered
+- P9-2 ✅ 2026-06-02 — Grafana derivedFields regex confirmed (camelCase + snake_case traceId); docs/OTEL.md created with click-through guide
+- P9-3 ✅ 2026-06-02 — apps/worker scaffolded (instrumentation, main, app.module, health, tasks); snake_case OTel fields confirmed; worker.e2e-spec passing
+- P9-4 ✅ 2026-06-02 — runWithExtractedContext util + worker-traceparent e2e; inbound W3C traceparent activates same trace_id on worker logs
+- P9-5 ✅ 2026-06-02 — DownstreamService rewritten with auto+manual propagation paths; WORKER_URL in Zod schema + .env.example; downstream.service.spec passing
+- P9-6 ✅ 2026-06-02 — cross-service-trace e2e proves api traceId == worker trace_id across the hop; Grafana walkthrough + Sentry integration documented in OTEL.md

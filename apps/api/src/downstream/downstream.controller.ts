@@ -13,10 +13,10 @@ export class DownstreamController {
   constructor(private readonly downstream: DownstreamService) {}
 
   /**
-   * Dispatch a task to the worker service. Fail-soft: returns `{ ok: false }` when
-   * the worker is unreachable rather than propagating the error.
+   * Dispatch a task to the worker via both auto-instrumented and manual propagation
+   * paths. Fail-soft: returns success flags for each path.
    *
-   * @returns `{ ok: true }` on success, `{ ok: false }` when the worker is unreachable.
+   * @returns `{ auto: boolean, manual: boolean }` with success flags.
    */
   @Post('dispatch')
   dispatch() {

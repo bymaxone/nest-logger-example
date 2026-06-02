@@ -7,12 +7,19 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.cjs",
+    "test:cov": "NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.cjs --coverage",
+    "test:e2e": "NODE_OPTIONS='--experimental-vm-modules' jest --config test/jest-e2e.config.cjs"
   },
   "dependencies": {
     "@bymax-one/nest-logger": "file:../../../nest-logger",
     "@nestjs/common": "^11",
     "@nestjs/core": "^11",
+    "@nestjs/platform-express": "^11",
     "@opentelemetry/api": ">=1.9.0 <1.10",
     "@opentelemetry/auto-instrumentations-node": "^0.76",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218",
@@ -22,6 +29,18 @@
     "pino": "^10",
     "reflect-metadata": "^0.2",
     "rxjs": "^7.8"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@nestjs/cli": "^11",
+    "@nestjs/testing": "^11",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24",
+    "@types/supertest": "^7.2.0",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11",
+    "tsx": "^4.22.4"
   },
   "optionalDependencies": {
     "pino-pretty": "^13",
