@@ -1,9 +1,10 @@
 /**
  * Zod-validated environment schema for `apps/worker`.
  *
- * Layer: app/config. Called at the top of `bootstrap()` in `main.ts` so a
- * misconfigured deploy fails fast at startup with a readable error rather than
- * at the first request. Values are read from `process.env` by `validateEnv`.
+ * Layer: app/config. `validateEnv` is called exactly once, at module-load time
+ * in `app.module.ts` (before `NestFactory.create` executes), so a misconfigured
+ * deploy fails fast at startup. Do NOT call it again in `main.ts` — that creates
+ * a second validation pass and makes it unclear which call is authoritative.
  *
  * @module
  */
