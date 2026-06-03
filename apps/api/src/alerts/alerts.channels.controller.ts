@@ -9,6 +9,7 @@ import { Body, Controller, ForbiddenException, Get, Headers, Param, Post } from 
 import { z } from 'zod'
 
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
+import { AuditService } from '../governance/audit.service.js'
 import { buildRbacContext, isAdmin } from '../governance/rbac.context.js'
 import { ChannelRouterService, type ChannelType } from './channel-router.service.js'
 
@@ -28,7 +29,10 @@ const createChannelSchema = z.object({
  */
 @Controller('alerts/channels')
 export class AlertsChannelsController {
-  constructor(private readonly router: ChannelRouterService) {}
+  constructor(
+    private readonly router: ChannelRouterService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * List all registered notification channels (operator+ only).
@@ -54,13 +58,19 @@ export class AlertsChannelsController {
    * @throws {ForbiddenException} When the caller is not an admin.
    */
   @Post()
-  create(
+  async create(
     @Headers() headers: Record<string, string>,
     @Body(new ZodValidationPipe(createChannelSchema)) body: z.infer<typeof createChannelSchema>,
-  ): unknown {
+  ): Promise<unknown> {
     const ctx = buildRbacContext(headers)
     if (!isAdmin(ctx.role)) throw new ForbiddenException('Only admins can add channels')
     this.router.addChannel(body)
+    await this.audit.record({
+      actor: ctx.actor,
+      action: 'channel.created',
+      target: `Channel:${body.id}`,
+      ...(ctx.tenantId !== undefined ? { tenantId: ctx.tenantId } : {}),
+    })
     return { ok: true, channel: body }
   }
 

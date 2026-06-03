@@ -66,6 +66,9 @@ export class ViewsController {
     if (ctx.role === 'viewer') {
       throw new ForbiddenException('Viewers cannot create saved views')
     }
+    if (ctx.role !== 'admin' && ctx.tenantId === undefined) {
+      throw new ForbiddenException('x-tenant-id header is required to create saved views')
+    }
     return this.prisma.savedView.create({
       data: {
         name: body.name,

@@ -33,7 +33,8 @@ export class RetentionSweepService {
   private lastSweepAt: Date | null = null
 
   constructor(private readonly prisma: PrismaService) {
-    this.retentionDays = Number(process.env['RETENTION_DAYS'] ?? 30)
+    const parsed = parseInt(process.env['RETENTION_DAYS'] ?? '', 10)
+    this.retentionDays = Number.isFinite(parsed) && parsed > 0 ? parsed : 30
   }
 
   /**

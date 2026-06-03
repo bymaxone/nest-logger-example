@@ -33,8 +33,12 @@ export function buildRbacContext(
   const rawRole = String(headers['x-role'] ?? 'operator').toLowerCase()
   const role: RbacRole =
     rawRole === 'admin' ? 'admin' : rawRole === 'viewer' ? 'viewer' : 'operator'
-  const tenantId = headers['x-tenant-id'] as string | undefined
-  const actor = String(headers['x-actor'] ?? headers['x-tenant-id'] ?? 'anonymous')
+  const rawTenant = headers['x-tenant-id']
+  const tenantId = Array.isArray(rawTenant) ? rawTenant[0] : rawTenant
+  const rawActor = headers['x-actor'] ?? headers['x-tenant-id']
+  const actor = String(
+    Array.isArray(rawActor) ? (rawActor[0] ?? 'anonymous') : (rawActor ?? 'anonymous'),
+  )
   return { role, tenantId, actor }
 }
 

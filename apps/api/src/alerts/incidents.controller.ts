@@ -82,7 +82,7 @@ export class IncidentsController {
     })
     return incidents.map((i) => ({
       ...i,
-      deepLink: `/explorer?logKey=${i.logKey ?? ''}&from=${i.openedAt.toISOString()}`,
+      deepLink: `/explorer?logKey=${encodeURIComponent(i.logKey ?? '')}&from=${encodeURIComponent(i.openedAt.toISOString())}`,
     }))
   }
 

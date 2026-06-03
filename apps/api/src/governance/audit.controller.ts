@@ -12,7 +12,7 @@ import { z } from 'zod'
 
 import { PrismaService } from '../prisma/prisma.service.js'
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
-import { buildRbacContext } from './rbac.context.js'
+import { NO_TENANT_SENTINEL, buildRbacContext } from './rbac.context.js'
 
 const auditQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(50),
@@ -46,7 +46,13 @@ export class AuditController {
     if (ctx.role === 'viewer') {
       throw new ForbiddenException('Viewers cannot access the audit trail')
     }
-    const where: Record<string, string> = {}
+    const tenantFilter =
+      ctx.role === 'admin'
+        ? {}
+        : ctx.tenantId !== undefined
+          ? { tenantId: ctx.tenantId }
+          : { tenantId: NO_TENANT_SENTINEL }
+    const where: Record<string, unknown> = { ...tenantFilter }
     if (query.actor !== undefined) where['actor'] = query.actor
     if (query.action !== undefined) where['action'] = query.action
     return this.prisma.auditEvent.findMany({
