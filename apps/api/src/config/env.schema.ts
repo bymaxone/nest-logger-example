@@ -28,6 +28,7 @@ export const envSchema = z
     LOG_EXTRA_REDACT_PATHS: z.string().default(''),
     OTEL_FIELD_FORMAT: z.enum(['camelCase', 'snake_case']).default('camelCase'),
     LOKI_URL: z.url().default('http://localhost:3100/loki/api/v1/push'),
+    LOKI_QUERY_URL: z.url().default('http://localhost:3100'),
     LOG_DB_MIN_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('warn'),
     WORKER_URL: z.url().default(DEV_WORKER_URL), // apps/api → apps/worker hop
   })

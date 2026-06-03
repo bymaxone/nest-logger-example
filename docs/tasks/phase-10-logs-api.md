@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-10--logs-read-api) §Phase 10
 > **Total tasks:** 9
-> **Progress:** 🔴 0 / 9 done (0%)
+> **Progress:** 🟢 9 / 9 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,21 +10,21 @@
 
 | ID    | Task                                                         | Status | Priority | Size | Depends on          |
 | ----- | ------------------------------------------------------------ | ------ | -------- | ---- | ------------------- |
-| P10-1 | `LogQuery` DTO (Zod) — `logs/dto/log-query.dto.ts`           | 🔴     | High     | M    | Phase 5, Phase 7    |
-| P10-2 | `LogsService` — `LogQuery` → Prisma `where` **+** LogQL      | 🔴     | High     | L    | P10-1               |
-| P10-3 | `GET /logs` — keyset cursor `(time,id)`, 410 on stale cursor | 🔴     | High     | M    | P10-2               |
-| P10-4 | `GET /logs/aggregate` — time-bucketed counts (zero-filled)   | 🔴     | High     | L    | P10-2               |
-| P10-5 | `GET /logs/facets` + `GET /logs/context` (+N/-N)             | 🔴     | High     | M    | P10-2               |
-| P10-6 | `GET /logs/export` — JSON/CSV, 100k cap                      | 🔴     | Medium   | M    | P10-3               |
-| P10-7 | `LogsSseController` — `GET /logs/stream` (`@Sse()`)          | 🔴     | High     | L    | P10-2, P10-3        |
-| P10-8 | `LokiProxyController` — `GET /logs/loki` (LogQL)             | 🔴     | High     | M    | P10-2               |
-| P10-9 | `alerts/` + `governance/` (RBAC, retention, audit, views)    | 🔴     | High     | L    | P10-3, P10-4, P10-5 |
+| P10-1 | `LogQuery` DTO (Zod) — `logs/dto/log-query.dto.ts`           | 🟢     | High     | M    | Phase 5, Phase 7    |
+| P10-2 | `LogsService` — `LogQuery` → Prisma `where` **+** LogQL      | 🟢     | High     | L    | P10-1               |
+| P10-3 | `GET /logs` — keyset cursor `(time,id)`, 410 on stale cursor | 🟢     | High     | M    | P10-2               |
+| P10-4 | `GET /logs/aggregate` — time-bucketed counts (zero-filled)   | 🟢     | High     | L    | P10-2               |
+| P10-5 | `GET /logs/facets` + `GET /logs/context` (+N/-N)             | 🟢     | High     | M    | P10-2               |
+| P10-6 | `GET /logs/export` — JSON/CSV, 100k cap                      | 🟢     | Medium   | M    | P10-3               |
+| P10-7 | `LogsSseController` — `GET /logs/stream` (`@Sse()`)          | 🟢     | High     | L    | P10-2, P10-3        |
+| P10-8 | `LokiProxyController` — `GET /logs/loki` (LogQL)             | 🟢     | High     | M    | P10-2               |
+| P10-9 | `alerts/` + `governance/` (RBAC, retention, audit, views)    | 🟢     | High     | L    | P10-3, P10-4, P10-5 |
 
 ---
 
 ## P10-1 — `LogQuery` DTO (Zod) — `logs/dto/log-query.dto.ts`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `Phase 5, Phase 7`
@@ -35,14 +35,14 @@ Create the single filter DTO every read endpoint shares (`/logs`, `/logs/aggrega
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logs/dto/log-query.dto.ts` exports a Zod schema `logQuerySchema` and the inferred type `LogQueryDto` (`z.infer`).
-- [ ] Fields: `level` (`LogLevel` **or** `{ gte: LogLevel }`), `logKey`, `service`, `tenantId`, `traceId`, `requestId`, `q`, `from`, `to`, `source` (`'postgres' | 'loki'`), `cursor`, `limit`.
-- [ ] `level` uses a shared `logLevelSchema = z.enum(['fatal','error','warn','info','debug','trace'])` whose values match the library `LogLevel` union (compile-time `satisfies`/assignability check against the imported `LogLevel`).
-- [ ] `logKey` rejects a value that is neither a `LOG_KEYS_CONVENTION_REGEX` match nor a `^[A-Z][A-Z0-9_]*_\*$` prefix wildcard.
-- [ ] `from`/`to` are ISO-8601 datetime strings (`z.string().datetime()`), optional; defaults applied downstream (`from = now-1h`, `to = now`).
-- [ ] `source` defaults to `'postgres'`; `limit` is `z.coerce.number().int().min(1).max(1000).default(100)`.
-- [ ] A reusable `ZodValidationPipe` (or `nestjs-zod`-style pipe) parses query params and throws `BadRequestException` (400) on failure.
-- [ ] Unit tests cover: a valid full query, an invalid `logKey`, a wildcard `logKey`, `level>=warn`, an out-of-range `limit`, and a bad ISO date.
+- [x] `apps/api/src/logs/dto/log-query.dto.ts` exports a Zod schema `logQuerySchema` and the inferred type `LogQueryDto` (`z.infer`).
+- [x] Fields: `level` (`LogLevel` **or** `{ gte: LogLevel }`), `logKey`, `service`, `tenantId`, `traceId`, `requestId`, `q`, `from`, `to`, `source` (`'postgres' | 'loki'`), `cursor`, `limit`.
+- [x] `level` uses a shared `logLevelSchema = z.enum(['fatal','error','warn','info','debug','trace'])` whose values match the library `LogLevel` union (compile-time `satisfies`/assignability check against the imported `LogLevel`).
+- [x] `logKey` rejects a value that is neither a `LOG_KEYS_CONVENTION_REGEX` match nor a `^[A-Z][A-Z0-9_]*_\*$` prefix wildcard.
+- [x] `from`/`to` are ISO-8601 datetime strings (`z.string().datetime()`), optional; defaults applied downstream (`from = now-1h`, `to = now`).
+- [x] `source` defaults to `'postgres'`; `limit` is `z.coerce.number().int().min(1).max(1000).default(100)`.
+- [x] A reusable `ZodValidationPipe` (or `nestjs-zod`-style pipe) parses query params and throws `BadRequestException` (400) on failure.
+- [x] Unit tests cover: a valid full query, an invalid `logKey`, a wildcard `logKey`, `level>=warn`, an out-of-range `limit`, and a bad ISO date.
 
 ### Files to create / modify
 
@@ -133,7 +133,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-2 — `LogsService` — `LogQuery` → Prisma `where` **+** LogQL
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P10-1`
@@ -144,15 +144,15 @@ The compiler at the heart of the read-API. `LogsService` turns one validated `Lo
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logs/logs.service.ts` exposes `buildPrismaWhere(q: LogQueryDto, restriction?: { tenantId?: string }): Prisma.ApplicationLogWhereInput`.
-- [ ] `buildLogQL(q: LogQueryDto, restriction?: { tenantId?: string }): string` produces a valid LogQL selector + pipeline (e.g. `{service="api"} | json | level="error" |= "refund"`).
-- [ ] `level` maps: a single level → equality; `{ gte }` → `IN` of all levels at/above it (Pino numeric order `fatal>error>warn>info>debug>trace`).
-- [ ] `logKey` exact → equality; `PREFIX_*` → Prisma `startsWith` AND LogQL `| logKey=~"PREFIX_.*"`.
-- [ ] `q` → Prisma `message: { contains, mode: 'insensitive' }` AND LogQL `|= "<q>"`.
-- [ ] `from`/`to` default to `now-1h` / `now`; both backends receive the same window.
-- [ ] `encodeCursor({ time, id })` → base64; `decodeCursor(s)`; a malformed cursor throws a typed `StaleCursorError`.
-- [ ] The `tenantId` restriction (when provided) is ANDed into **both** outputs and cannot be widened by the incoming query.
-- [ ] Unit tests assert exact `where` shapes and exact LogQL strings for: level equality, `level>=warn`, wildcard `logKey`, free-text `q`, a tenant restriction, and round-trip cursor encode/decode + a stale-cursor throw.
+- [x] `apps/api/src/logs/logs.service.ts` exposes `buildPrismaWhere(q: LogQueryDto, restriction?: { tenantId?: string }): Prisma.ApplicationLogWhereInput`.
+- [x] `buildLogQL(q: LogQueryDto, restriction?: { tenantId?: string }): string` produces a valid LogQL selector + pipeline (e.g. `{service="api"} | json | level="error" |= "refund"`).
+- [x] `level` maps: a single level → equality; `{ gte }` → `IN` of all levels at/above it (Pino numeric order `fatal>error>warn>info>debug>trace`).
+- [x] `logKey` exact → equality; `PREFIX_*` → Prisma `startsWith` AND LogQL `| logKey=~"PREFIX_.*"`.
+- [x] `q` → Prisma `message: { contains, mode: 'insensitive' }` AND LogQL `|= "<q>"`.
+- [x] `from`/`to` default to `now-1h` / `now`; both backends receive the same window.
+- [x] `encodeCursor({ time, id })` → base64; `decodeCursor(s)`; a malformed cursor throws a typed `StaleCursorError`.
+- [x] The `tenantId` restriction (when provided) is ANDed into **both** outputs and cannot be widened by the incoming query.
+- [x] Unit tests assert exact `where` shapes and exact LogQL strings for: level equality, `level>=warn`, wildcard `logKey`, free-text `q`, a tenant restriction, and round-trip cursor encode/decode + a stale-cursor throw.
 
 ### Files to create / modify
 
@@ -274,7 +274,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-3 — `GET /logs` — keyset cursor `(time,id)`, 410 on stale cursor
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P10-2`
@@ -285,12 +285,12 @@ The paged log query — the Explorer's table data source. Pagination is **keyset
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logs/logs.controller.ts` defines `@Controller('logs')` with `@Get()` validated by the P10-1 Zod pipe.
-- [ ] When `source=postgres`: runs `prisma.applicationLog.findMany({ where, orderBy: [{ time: 'desc' }, { id: 'desc' }], take: limit })` with the cursor predicate ANDed into `where`.
-- [ ] When `source=loki`: delegates to the Loki path (calls the same service/proxy from P10-8) so the toggle is transparent.
-- [ ] Response shape `{ data: LogEntry[]; nextCursor: string | null; hasMore: boolean }`; `nextCursor` is the encoded `(time,id)` of the last row (or `null` when `data.length < limit`).
-- [ ] A `StaleCursorError` from `decodeCursor` is mapped to **HTTP 410** (e.g. via `GoneException` or an exception filter), with a body telling the client to restart.
-- [ ] e2e (supertest) covers: first page (no cursor), second page (using `nextCursor`), `hasMore=false` on the last page, a `410` for a corrupt cursor, and a `400` for an invalid `logKey`.
+- [x] `apps/api/src/logs/logs.controller.ts` defines `@Controller('logs')` with `@Get()` validated by the P10-1 Zod pipe.
+- [x] When `source=postgres`: runs `prisma.applicationLog.findMany({ where, orderBy: [{ time: 'desc' }, { id: 'desc' }], take: limit })` with the cursor predicate ANDed into `where`.
+- [x] When `source=loki`: delegates to the Loki path (calls the same service/proxy from P10-8) so the toggle is transparent.
+- [x] Response shape `{ data: LogEntry[]; nextCursor: string | null; hasMore: boolean }`; `nextCursor` is the encoded `(time,id)` of the last row (or `null` when `data.length < limit`).
+- [x] A `StaleCursorError` from `decodeCursor` is mapped to **HTTP 410** (e.g. via `GoneException` or an exception filter), with a body telling the client to restart.
+- [x] e2e (supertest) covers: first page (no cursor), second page (using `nextCursor`), `hasMore=false` on the last page, a `410` for a corrupt cursor, and a `400` for an invalid `logKey`.
 
 ### Files to create / modify
 
@@ -371,7 +371,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-4 — `GET /logs/aggregate` — time-bucketed counts (zero-filled)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P10-2`
@@ -382,15 +382,15 @@ The server-side aggregation endpoint that feeds **every chart** on the Overview 
 
 ### Acceptance Criteria
 
-- [ ] `GET /logs/aggregate` accepts `?metric=volume|errorRate|latency|statusMix&groupBy=level|logKey|service|tenantId|status_class&bucket=auto|1m|5m|1h&...` validated by an aggregate-query schema (extends `logQuerySchema`).
-- [ ] `groupBy` is constrained by an allow-list to bounded dimensions; any other value → 400.
-- [ ] `bucket=auto` auto-scales: `1m` for ≤6h, `5m` for ≤24h, `1h` for ≤7d (`DASHBOARD.md` §4).
-- [ ] `volume` returns zero-filled `{ bucket, level, n }[]` covering all six levels per bucket (`generate_series` × `unnest(levels)`).
-- [ ] `errorRate` returns `{ bucket, errorRate }[]` = `count(*) FILTER (WHERE status >= 400)::float / NULLIF(count(*),0)` over `logKey LIKE 'HTTP_REQUEST_%'`.
-- [ ] `latency` returns `{ bucket, p50, p95, p99 }[]` via `percentile_cont` over non-null `duration_ms`.
-- [ ] `statusMix` returns counts by status-class (`2xx/3xx/4xx/5xx`) per bucket.
-- [ ] The `tenantId` restriction + time window from `LogsService` are applied to every variant.
-- [ ] Tests assert zero-filled empty buckets (a quiet window yields rows with `n=0`, not missing buckets) and correct percentile/error-rate math on a seeded fixture.
+- [x] `GET /logs/aggregate` accepts `?metric=volume|errorRate|latency|statusMix&groupBy=level|logKey|service|tenantId|status_class&bucket=auto|1m|5m|1h&...` validated by an aggregate-query schema (extends `logQuerySchema`).
+- [x] `groupBy` is constrained by an allow-list to bounded dimensions; any other value → 400.
+- [x] `bucket=auto` auto-scales: `1m` for ≤6h, `5m` for ≤24h, `1h` for ≤7d (`DASHBOARD.md` §4).
+- [x] `volume` returns zero-filled `{ bucket, level, n }[]` covering all six levels per bucket (`generate_series` × `unnest(levels)`).
+- [x] `errorRate` returns `{ bucket, errorRate }[]` = `count(*) FILTER (WHERE status >= 400)::float / NULLIF(count(*),0)` over `logKey LIKE 'HTTP_REQUEST_%'`.
+- [x] `latency` returns `{ bucket, p50, p95, p99 }[]` via `percentile_cont` over non-null `duration_ms`.
+- [x] `statusMix` returns counts by status-class (`2xx/3xx/4xx/5xx`) per bucket.
+- [x] The `tenantId` restriction + time window from `LogsService` are applied to every variant.
+- [x] Tests assert zero-filled empty buckets (a quiet window yields rows with `n=0`, not missing buckets) and correct percentile/error-rate math on a seeded fixture.
 
 ### Files to create / modify
 
@@ -468,7 +468,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-5 — `GET /logs/facets` + `GET /logs/context` (+N/-N)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P10-2`
@@ -479,12 +479,12 @@ Two drill-down endpoints. **`/logs/facets`** powers the Explorer's faceted left 
 
 ### Acceptance Criteria
 
-- [ ] `GET /logs/facets?fields=level,service,logKey,tenantId&from=&to=` returns `{ [field]: { value: string; count: number }[] }`, each list sorted by count desc (top-N for `logKey`/`tenantId`).
-- [ ] Facet counts honor the active filter + time window + `tenantId` restriction (a facet query reuses `buildPrismaWhere`).
-- [ ] `GET /logs/context?requestId=…|traceId=…&before=10&after=10` returns `{ before: LogEntry[]; match: LogEntry | null; after: LogEntry[] }` ordered by `(time, id)`.
-- [ ] `before`/`after` are bounded (default 10, max 100) and validated; exactly one of `requestId`/`traceId` is required (else 400).
-- [ ] `fields` is restricted to the bounded-dimension allow-list; any other field → 400.
-- [ ] Tests cover: facet counts on a seeded set, a top-N truncation for `logKey`, context window ordering, and the "exactly one correlation id" 400.
+- [x] `GET /logs/facets?fields=level,service,logKey,tenantId&from=&to=` returns `{ [field]: { value: string; count: number }[] }`, each list sorted by count desc (top-N for `logKey`/`tenantId`).
+- [x] Facet counts honor the active filter + time window + `tenantId` restriction (a facet query reuses `buildPrismaWhere`).
+- [x] `GET /logs/context?requestId=…|traceId=…&before=10&after=10` returns `{ before: LogEntry[]; match: LogEntry | null; after: LogEntry[] }` ordered by `(time, id)`.
+- [x] `before`/`after` are bounded (default 10, max 100) and validated; exactly one of `requestId`/`traceId` is required (else 400).
+- [x] `fields` is restricted to the bounded-dimension allow-list; any other field → 400.
+- [x] Tests cover: facet counts on a seeded set, a top-N truncation for `logKey`, context window ordering, and the "exactly one correlation id" 400.
 
 ### Files to create / modify
 
@@ -555,7 +555,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-6 — `GET /logs/export` — JSON/CSV, 100k cap
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** Medium
 - **Size:** M (90–180 min)
 - **Depends on:** `P10-3`
@@ -566,13 +566,13 @@ Download the **current filtered result set** as JSON or CSV — the Explorer's E
 
 ### Acceptance Criteria
 
-- [ ] `GET /logs/export?format=json|csv&...` reuses `logQuerySchema` + a `format` enum (default `json`).
-- [ ] Streams the response (`StreamableFile` or a manual `Readable`) — does NOT buffer 100k rows in memory.
-- [ ] CSV columns exactly: `time,level,logKey,service,requestId,traceId,tenantId,msg`, RFC-4180-quoted (commas/quotes/newlines escaped).
-- [ ] Hard cap at 100,000 rows; when exceeded, sets a response header `X-Export-Truncated: true` and stops.
-- [ ] `Content-Type` (`application/json` / `text/csv`) + `Content-Disposition: attachment; filename="logs-export-<ISO>.{json|csv}"` set correctly.
-- [ ] Internally pages with the keyset cursor (no `OFFSET`); the `tenantId` restriction is honored.
-- [ ] Tests: CSV escaping of a `msg` containing a comma + quote + newline; the 100k cap sets the truncation header; JSON output is a valid array.
+- [x] `GET /logs/export?format=json|csv&...` reuses `logQuerySchema` + a `format` enum (default `json`).
+- [x] Streams the response (`StreamableFile` or a manual `Readable`) — does NOT buffer 100k rows in memory.
+- [x] CSV columns exactly: `time,level,logKey,service,requestId,traceId,tenantId,msg`, RFC-4180-quoted (commas/quotes/newlines escaped).
+- [x] Hard cap at 100,000 rows; when exceeded, sets a response header `X-Export-Truncated: true` and stops.
+- [x] `Content-Type` (`application/json` / `text/csv`) + `Content-Disposition: attachment; filename="logs-export-<ISO>.{json|csv}"` set correctly.
+- [x] Internally pages with the keyset cursor (no `OFFSET`); the `tenantId` restriction is honored.
+- [x] Tests: CSV escaping of a `msg` containing a comma + quote + newline; the 100k cap sets the truncation header; JSON output is a valid array.
 
 ### Files to create / modify
 
@@ -647,7 +647,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-7 — `LogsSseController` — `GET /logs/stream` (`@Sse()`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P10-2, P10-3`
@@ -658,14 +658,14 @@ The real-time live-tail endpoint — the headline "watch logs in real time" feat
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logs/logs.sse.controller.ts` defines `@Controller('logs')` with `@Sse('stream')` returning `Observable<MessageEvent>`.
-- [ ] The stream merges three sources: `replay$` (keyset replay since `Last-Event-ID`), `live$` (new entries matching the filter), and `keepAlive$` (`interval(15_000)` → `{ data: '', type: 'ping' }`).
-- [ ] Each live `MessageEvent` sets `id` to the row's keyset cursor (so reconnect resumes cleanly).
-- [ ] The `Last-Event-ID` header (or `lastEventId` query fallback) drives `replaySince`; a malformed id degrades gracefully (replay skipped, live continues) — it does NOT 500.
-- [ ] The filter is the same `LogQueryDto`; only matching entries are emitted (`matches(e, filter)`).
-- [ ] Response sets `X-Accel-Buffering: no` and `Cache-Control: no-cache`.
-- [ ] `LogEventBus` (`apps/api/src/logs/log-event.bus.ts`) is an injectable `EventEmitter` wrapper with `emit(entry)`, `replaySince(lastId, filter)`, and the `emitter` handle; `PinoLoggerService`/the Prisma destination feed it.
-- [ ] e2e proves: connecting receives a `ping` within ~15s; firing a log (via a demo endpoint) pushes a matching SSE `data` frame with an `id`; reconnecting with `Last-Event-ID` replays the missed row exactly once.
+- [x] `apps/api/src/logs/logs.sse.controller.ts` defines `@Controller('logs')` with `@Sse('stream')` returning `Observable<MessageEvent>`.
+- [x] The stream merges three sources: `replay$` (keyset replay since `Last-Event-ID`), `live$` (new entries matching the filter), and `keepAlive$` (`interval(15_000)` → `{ data: '', type: 'ping' }`).
+- [x] Each live `MessageEvent` sets `id` to the row's keyset cursor (so reconnect resumes cleanly).
+- [x] The `Last-Event-ID` header (or `lastEventId` query fallback) drives `replaySince`; a malformed id degrades gracefully (replay skipped, live continues) — it does NOT 500.
+- [x] The filter is the same `LogQueryDto`; only matching entries are emitted (`matches(e, filter)`).
+- [x] Response sets `X-Accel-Buffering: no` and `Cache-Control: no-cache`.
+- [x] `LogEventBus` (`apps/api/src/logs/log-event.bus.ts`) is an injectable `EventEmitter` wrapper with `emit(entry)`, `replaySince(lastId, filter)`, and the `emitter` handle; `PinoLoggerService`/the Prisma destination feed it.
+- [x] e2e proves: connecting receives a `ping` within ~15s; firing a log (via a demo endpoint) pushes a matching SSE `data` frame with an `id`; reconnecting with `Last-Event-ID` replays the missed row exactly once.
 
 ### Files to create / modify
 
@@ -764,7 +764,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-8 — `LokiProxyController` — `GET /logs/loki` (LogQL)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P10-2`
@@ -775,14 +775,14 @@ The other half of the **source toggle**: when the dashboard is set to Loki, the 
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/logs/loki-proxy.controller.ts` defines `@Controller('logs')` with `@Get('loki')` accepting the same `logQuerySchema` + a `mode=query_range|labels|tail` selector (default `query_range`).
-- [ ] `query_range` → `GET {LOKI_QUERY_URL}/loki/api/v1/query_range?query=<LogQL>&start=&end=&step=&limit=`; the LogQL comes from `buildLogQL`.
-- [ ] `labels` → `GET {LOKI_QUERY_URL}/loki/api/v1/label/<name>/values` for the facet rail.
-- [ ] `tail` → documented as bridged into `/logs/stream` (P10-7) — this endpoint returns the `tail` URL/handle or proxies it, but the browser consumes live via SSE, not the Loki WebSocket directly.
-- [ ] Chart buckets use `sum by (level) (count_over_time({…} | json [<interval>]))` with `step=<interval>` (`DASHBOARD.md` §13 table).
-- [ ] Loki errors / unreachable host return a typed 502 (`BadGatewayException`) with a clear message — the dashboard stays usable (fail-soft).
-- [ ] The `tenantId` restriction is injected into the LogQL pipeline (RBAC parity with Postgres).
-- [ ] Tests (mock `fetch`/HTTP) assert the composed LogQL + URL for `query_range`, the `label/.../values` URL for `labels`, and a 502 on a Loki 500/timeout.
+- [x] `apps/api/src/logs/loki-proxy.controller.ts` defines `@Controller('logs')` with `@Get('loki')` accepting the same `logQuerySchema` + a `mode=query_range|labels|tail` selector (default `query_range`).
+- [x] `query_range` → `GET {LOKI_QUERY_URL}/loki/api/v1/query_range?query=<LogQL>&start=&end=&step=&limit=`; the LogQL comes from `buildLogQL`.
+- [x] `labels` → `GET {LOKI_QUERY_URL}/loki/api/v1/label/<name>/values` for the facet rail.
+- [x] `tail` → documented as bridged into `/logs/stream` (P10-7) — this endpoint returns the `tail` URL/handle or proxies it, but the browser consumes live via SSE, not the Loki WebSocket directly.
+- [x] Chart buckets use `sum by (level) (count_over_time({…} | json [<interval>]))` with `step=<interval>` (`DASHBOARD.md` §13 table).
+- [x] Loki errors / unreachable host return a typed 502 (`BadGatewayException`) with a clear message — the dashboard stays usable (fail-soft).
+- [x] The `tenantId` restriction is injected into the LogQL pipeline (RBAC parity with Postgres).
+- [x] Tests (mock `fetch`/HTTP) assert the composed LogQL + URL for `query_range`, the `label/.../values` URL for `labels`, and a 502 on a Loki 500/timeout.
 
 ### Files to create / modify
 
@@ -853,7 +853,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P10-9 — `alerts/` + `governance/` (RBAC, retention, audit, views)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P10-3, P10-4, P10-5`
@@ -864,15 +864,15 @@ The "operate it like a real platform" backend — small, real, clearly-labeled s
 
 ### Acceptance Criteria
 
-- [ ] `apps/api/src/alerts/` — `AlertsModule` with: `alerts.rules.controller.ts` (`GET/POST/PATCH /alerts/rules`), `alerts.channels.controller.ts` (`GET/POST /alerts/channels`, test-fireable), `incidents.controller.ts` (`GET/PATCH /incidents` — ack/snooze/resolve), and `alerts.evaluator.service.ts` (a `@Cron` evaluating rules over `LogsService`).
-- [ ] Rule evaluation is **rate-based** and supports the documented shapes: error spike by `logKey` over a window, any `fatal`, a specific `PAYMENT_REFUND_FAILED` rate, and a heartbeat/absence rule; alerts **aggregate** (one notification per pattern) and **auto-resolve**.
-- [ ] Channels: Slack-webhook + generic-webhook + email-mock receivers with severity routing (critical → webhook+Slack; warning → Slack only); deliveries are mocked/logged (offline-safe) and a channel can be test-fired.
-- [ ] Incidents: lifecycle `Triggered → Acknowledged → Snoozed(1h/4h/8h/24h) → Resolved`; every transition appends `{ actor, at }` to an immutable timeline; each incident deep-links back to the Explorer filter (`logKey` + window).
-- [ ] `apps/api/src/governance/` — `GovernanceModule` with: `views.controller.ts` (`GET/POST /views` saved filter sets), `audit.controller.ts` (`GET /audit`, read-only), `maintenance.controller.ts` (`GET/PATCH /maintenance/retention`, Admin only), and `retention.sweep.service.ts` (`@Cron` deleting rows older than `RETENTION_DAYS`, default 30).
-- [ ] **RBAC**: an `RbacContext` (role + tenantId from the request, e.g. headers in this demo) is turned into a `restriction` and passed into `LogsService` on **every** read; a Viewer is hard-scoped to its own `tenantId` and cannot export; the restriction cannot be widened by the incoming query.
-- [ ] Every state-changing/sensitive action (export, rule create/edit/mute, role/tenant switch, retention change) writes an `audit_events` row `{ actor, action, target, tenantId, at }`.
-- [ ] Each scoped-demo controller/page-facing endpoint is documented with the `🎓 Scoped demo of <feature>` callout in its JSDoc/README.
-- [ ] Tests cover: an error-spike rule firing an incident, ack→resolve transitions appended to the timeline, severity-based channel routing, a Viewer query forced to its `tenantId` (and export denied), the retention sweep deleting only old rows, and an audit row written on export.
+- [x] `apps/api/src/alerts/` — `AlertsModule` with: `alerts.rules.controller.ts` (`GET/POST/PATCH /alerts/rules`), `alerts.channels.controller.ts` (`GET/POST /alerts/channels`, test-fireable), `incidents.controller.ts` (`GET/PATCH /incidents` — ack/snooze/resolve), and `alerts.evaluator.service.ts` (a `@Cron` evaluating rules over `LogsService`).
+- [x] Rule evaluation is **rate-based** and supports the documented shapes: error spike by `logKey` over a window, any `fatal`, a specific `PAYMENT_REFUND_FAILED` rate, and a heartbeat/absence rule; alerts **aggregate** (one notification per pattern) and **auto-resolve**.
+- [x] Channels: Slack-webhook + generic-webhook + email-mock receivers with severity routing (critical → webhook+Slack; warning → Slack only); deliveries are mocked/logged (offline-safe) and a channel can be test-fired.
+- [x] Incidents: lifecycle `Triggered → Acknowledged → Snoozed(1h/4h/8h/24h) → Resolved`; every transition appends `{ actor, at }` to an immutable timeline; each incident deep-links back to the Explorer filter (`logKey` + window).
+- [x] `apps/api/src/governance/` — `GovernanceModule` with: `views.controller.ts` (`GET/POST /views` saved filter sets), `audit.controller.ts` (`GET /audit`, read-only), `maintenance.controller.ts` (`GET/PATCH /maintenance/retention`, Admin only), and `retention.sweep.service.ts` (`@Cron` deleting rows older than `RETENTION_DAYS`, default 30).
+- [x] **RBAC**: an `RbacContext` (role + tenantId from the request, e.g. headers in this demo) is turned into a `restriction` and passed into `LogsService` on **every** read; a Viewer is hard-scoped to its own `tenantId` and cannot export; the restriction cannot be widened by the incoming query.
+- [x] Every state-changing/sensitive action (export, rule create/edit/mute, role/tenant switch, retention change) writes an `audit_events` row `{ actor, action, target, tenantId, at }`.
+- [x] Each scoped-demo controller/page-facing endpoint is documented with the `🎓 Scoped demo of <feature>` callout in its JSDoc/README.
+- [x] Tests cover: an error-spike rule firing an incident, ack→resolve transitions appended to the timeline, severity-based channel routing, a Viewer query forced to its `tenantId` (and export denied), the retention sweep deleting only old rows, and an audit row written on export.
 
 ### Files to create / modify
 
@@ -941,4 +941,12 @@ When this task is 🟢, Phase 10 is 9/9 — switch the Phase 10 row in `DEVELOPM
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P10-1 ✅ 2026-06-03 — `logQuerySchema` + `logKeySchema` (Zod v4) + `ZodValidationPipe`; level parity guard; compile-time type checks pass
+- P10-2 ✅ 2026-06-03 — `LogsService.buildPrismaWhere` + `buildLogQL` (LogQL injection–safe via `escapeLogQL`) + keyset cursor codec + `StaleCursorError`; `LogsModule`
+- P10-3 ✅ 2026-06-03 — `GET /logs` keyset pagination; 410 on stale cursor; RBAC restriction threaded through; `where.AND` spread pattern for correctness
+- P10-4 ✅ 2026-06-03 — `LogsAggregateService` (volume/errorRate/latency/statusMix); zero-fill via `generate_series`; `date_trunc` unit bug fixed; tenantId applied to all 4 metrics
+- P10-5 ✅ 2026-06-03 — `LogsFacetsService` (bounded groupBy, top-50) + `LogsContextService` (N-before/N-after by requestId/traceId, keyset window)
+- P10-6 ✅ 2026-06-03 — Streaming JSON/CSV export, 100k cap, RFC-4180 quoting, `X-Export-Truncated` header, keyset paging, viewer denied
+- P10-7 ✅ 2026-06-03 — `LogsSseController` (`@Sse`) merging replay$/live$/keepAlive$; `LogEventBus` with `matches()`; RBAC restriction on replay and live filter
+- P10-8 ✅ 2026-06-03 — `LokiProxyController` + `LokiClient`; `query_range`/`labels`/`tail` modes; `step` + `labelName` validated; 502 on Loki failure; RBAC injected into LogQL
+- P10-9 ✅ 2026-06-03 — `AlertsModule` (rules/channels/incidents/evaluator cron) + `GovernanceModule` (views/audit/retention/RBAC); `@nestjs/schedule` installed; audit trail on all state-changing ops

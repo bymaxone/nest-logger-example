@@ -3,8 +3,10 @@
  *
  * Layer: app/root. Wires global config validation, the Prisma database client, the
  * logger (with its HTTP interceptor + exception filter), the request-id middleware
- * (ALS scope), the Zod validation filter, the health routes, and all six demo-domain
- * feature modules.
+ * (ALS scope), the Zod validation filter, the health routes, all six demo-domain
+ * feature modules, and the Phase 10 read-API modules (`LogsModule`, `GovernanceModule`,
+ * `AlertsModule`). `ScheduleModule.forRoot()` registers the cron scheduler for
+ * `AlertsEvaluatorService` and `RetentionSweepService`.
  *
  * @module
  */
@@ -13,13 +15,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { APP_FILTER } from '@nestjs/core'
 import { BymaxLoggerModule, HttpExceptionFilter, RequestIdMiddleware } from '@bymax-one/nest-logger'
 
+import { ScheduleModule } from '@nestjs/schedule'
+
 import { AdminModule } from './admin/admin.module.js'
+import { AlertsModule } from './alerts/alerts.module.js'
 import { ZodValidationFilter } from './common/zod-validation.filter.js'
 import { validateEnv } from './config/env.schema.js'
 import { DownstreamModule } from './downstream/downstream.module.js'
+import { GovernanceModule } from './governance/governance.module.js'
 import { HealthModule } from './health/health.module.js'
 import { buildLoggerOptions } from './logger/logger.config.js'
 import { LoggerModule } from './logger/logger.module.js'
+import { LogsModule } from './logs/logs.module.js'
 import { OrdersModule } from './orders/orders.module.js'
 import { PaymentsModule } from './payments/payments.module.js'
 import { PiiDemoModule } from './pii-demo/pii-demo.module.js'
@@ -30,6 +37,7 @@ import { TriggerModule } from './trigger/trigger.module.js'
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     BymaxLoggerModule.forRootAsync({
       imports: [ConfigModule],
@@ -46,6 +54,12 @@ import { TriggerModule } from './trigger/trigger.module.js'
     DownstreamModule,
     TriggerModule,
     AdminModule,
+    // Logs read-API
+    LogsModule,
+    // Governance: saved views, audit trail, RBAC, retention
+    GovernanceModule,
+    // Alerts: rules, channels, incidents, cron evaluation
+    AlertsModule,
   ],
   providers: [
     // HttpLoggingInterceptor is auto-wired by BymaxLoggerModule.forRootAsync when
