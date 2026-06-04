@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-11--appsweb-skeleton--design-system) §Phase 11
 > **Total tasks:** 7
-> **Progress:** 🔴 0 / 7 done (0%)
+> **Progress:** 🟢 7 / 7 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,19 +10,19 @@
 
 | ID    | Task                                                                          | Status | Priority | Size | Depends on   |
 | ----- | ----------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
-| P11-1 | Scaffold `apps/web` (Next.js ^16.2 + React ^19.2 + Tailwind v4 + shadcn)      | 🔴     | High     | M    | Phase 0      |
-| P11-2 | `app/globals.css` — verbatim v4 token block (DASHBOARD §15)                   | 🔴     | High     | S    | P11-1        |
-| P11-3 | `app/layout.tsx` + `app/providers.tsx` — Geist, forced dark, NuqsAdapter      | 🔴     | High     | S    | P11-1, P11-2 |
-| P11-4 | `lib/utils.ts` (`cn`) + scaffold the shadcn `new-york` component set          | 🔴     | High     | M    | P11-1, P11-2 |
-| P11-5 | `components/layout/` — Topbar (64px) + Sidebar (250px) app shell + logger nav | 🔴     | High     | M    | P11-3, P11-4 |
-| P11-6 | `lib/log-keys.ts` (`LOG_KEYS_CONVENTION_REGEX`) + `lib/severity.ts`           | 🔴     | High     | S    | P11-1, P11-4 |
-| P11-7 | Verification gate — shell renders the orange/glass dark theme; `web build` ok | 🔴     | High     | S    | P11-1..P11-6 |
+| P11-1 | Scaffold `apps/web` (Next.js ^16.2 + React ^19.2 + Tailwind v4 + shadcn)      | 🟢     | High     | M    | Phase 0      |
+| P11-2 | `app/globals.css` — verbatim v4 token block (DASHBOARD §15)                   | 🟢     | High     | S    | P11-1        |
+| P11-3 | `app/layout.tsx` + `app/providers.tsx` — Geist, forced dark, NuqsAdapter      | 🟢     | High     | S    | P11-1, P11-2 |
+| P11-4 | `lib/utils.ts` (`cn`) + scaffold the shadcn `new-york` component set          | 🟢     | High     | M    | P11-1, P11-2 |
+| P11-5 | `components/layout/` — Topbar (64px) + Sidebar (250px) app shell + logger nav | 🟢     | High     | M    | P11-3, P11-4 |
+| P11-6 | `lib/log-keys.ts` (`LOG_KEYS_CONVENTION_REGEX`) + `lib/severity.ts`           | 🟢     | High     | S    | P11-1, P11-4 |
+| P11-7 | Verification gate — shell renders the orange/glass dark theme; `web build` ok | 🟢     | High     | S    | P11-1..P11-6 |
 
 ---
 
 ## P11-1 — Scaffold `apps/web` (Next.js ^16.2 + React ^19.2 + Tailwind v4 + shadcn `new-york`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min–½ day)
 - **Depends on:** `Phase 0`
@@ -33,16 +33,16 @@ Create the third workspace package — `apps/web` — the first-class observabil
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/package.json` exists with `"name": "web"`, `"private": true`, `"type": "module"`, `"engines": { "node": ">=24" }` and scripts `dev`/`build`/`start`/`typecheck`/`lint`.
-- [ ] Declares `@bymax-one/nest-logger` via the local link `"link:../../../nest-logger"` (consumes the isomorphic `/shared` subpath in the browser; switch to `^0.1.0` after publish).
-- [ ] Runtime deps pinned to `nest-auth-example`: `next@^16.2`, `react@^19.2`, `react-dom@^19.2`, `geist@^1.7`, `lucide-react`, `sonner@^2`, `class-variance-authority`, `clsx`, `tailwind-merge`, plus the data libs `@tanstack/react-query`, `@tanstack/react-table`, `@tanstack/react-virtual`, `nuqs`, `@uiw/react-json-view`, `recharts`.
-- [ ] Dev deps: `tailwindcss@^4.2`, `@tailwindcss/postcss@^4.2`, `@types/node`, `@types/react`, `@types/react-dom`, `eslint-config-next@^16.2`.
-- [ ] **No** `next-themes`, **no** `autoprefixer`, **no** `postcss-import` anywhere in `apps/web`.
-- [ ] `apps/web/components.json` = shadcn `new-york` (`rsc: true`, `tsx: true`, `tailwind.baseColor: "neutral"`, `cssVariables: true`, `iconLibrary: "lucide"`, aliases `@/components · @/lib/utils · @/components/ui · @/lib · @/hooks`).
-- [ ] `apps/web/postcss.config.mjs` exports only `{ plugins: { '@tailwindcss/postcss': {} } }`.
-- [ ] `apps/web/tailwind.config.ts` (optional) holds only `darkMode: 'class'`, `content` globs, and `keyframes`/`animation` (`glow-float`, `glow-drift`, `fade-in`); it is bridged into `globals.css` via `@config` in P11-2.
-- [ ] `apps/web/tsconfig.json` extends `../../tsconfig.base.json`, adds `jsx: "preserve"`, `lib: ["ES2023","DOM","DOM.Iterable"]`, `paths: { "@/*": ["./*"] }`, and the `{ "name": "next" }` plugin; **no** `experimentalDecorators`/`emitDecoratorMetadata` (Next must not inherit them — see P0-3).
-- [ ] `apps/web/next.config.mjs` exists (minimal; ESM default export).
+- [x] `apps/web/package.json` exists with `"name": "web"`, `"private": true`, `"type": "module"`, `"engines": { "node": ">=24" }` and scripts `dev`/`build`/`start`/`typecheck`/`lint`.
+- [x] Declares `@bymax-one/nest-logger` via the local link `"link:../../../nest-logger"` (consumes the isomorphic `/shared` subpath in the browser; switch to `^0.1.0` after publish).
+- [x] Runtime deps pinned to `nest-auth-example`: `next@^16.2`, `react@^19.2`, `react-dom@^19.2`, `geist@^1.7`, `lucide-react`, `sonner@^2`, `class-variance-authority`, `clsx`, `tailwind-merge`, plus the data libs `@tanstack/react-query`, `@tanstack/react-table`, `@tanstack/react-virtual`, `nuqs`, `@uiw/react-json-view`, `recharts`.
+- [x] Dev deps: `tailwindcss@^4.2`, `@tailwindcss/postcss@^4.2`, `@types/node`, `@types/react`, `@types/react-dom`, `eslint-config-next@^16.2`.
+- [x] **No** `next-themes`, **no** `autoprefixer`, **no** `postcss-import` anywhere in `apps/web`.
+- [x] `apps/web/components.json` = shadcn `new-york` (`rsc: true`, `tsx: true`, `tailwind.baseColor: "neutral"`, `cssVariables: true`, `iconLibrary: "lucide"`, aliases `@/components · @/lib/utils · @/components/ui · @/lib · @/hooks`).
+- [x] `apps/web/postcss.config.mjs` exports only `{ plugins: { '@tailwindcss/postcss': {} } }`.
+- [x] `apps/web/tailwind.config.ts` (optional) holds only `darkMode: 'class'`, `content` globs, and `keyframes`/`animation` (`glow-float`, `glow-drift`, `fade-in`); it is bridged into `globals.css` via `@config` in P11-2.
+- [x] `apps/web/tsconfig.json` extends `../../tsconfig.base.json`, adds `jsx: "preserve"`, `lib: ["ES2023","DOM","DOM.Iterable"]`, `paths: { "@/*": ["./*"] }`, and the `{ "name": "next" }` plugin; **no** `experimentalDecorators`/`emitDecoratorMetadata` (Next must not inherit them — see P0-3).
+- [x] `apps/web/next.config.mjs` exists (minimal; ESM default export).
 
 ### Files to create / modify
 
@@ -238,7 +238,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-2 — `app/globals.css` — Verbatim v4 Token Block (DASHBOARD §15)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P11-1`
@@ -249,15 +249,15 @@ Author `apps/web/app/globals.css` — the **single source of design truth**. It 
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/globals.css` starts with `@import 'tailwindcss';`.
-- [ ] Bridges the optional keyframes config via `@config './tailwind.config.ts';` near the top.
-- [ ] Declares the class-based dark variant: `@custom-variant dark (&:is(.dark *));`.
-- [ ] `:root` (full light set) **and** `.dark` (full dark/live set) live at **top level**, NOT inside `@layer base`.
-- [ ] `--primary` and `--ring` = `20.5 90.2% 57.8%` (the `#ff6224` brand orange) in both `:root` and `.dark`; `--radius: 0.75rem`.
-- [ ] Dark glass tokens present: `--glass-bg`, `--glass-bg-raised`, `--glass-bg-hover`, `--glass-card-bg`, `--glass-border`, plus `--color-bg-primary: #0a0a0a`, `--shadow-primary: 0 0 24px rgba(255,98,36,0.4)`, `--color-secondary: #60a5fa`, `--color-accent: #f97316`.
-- [ ] An `@theme inline` block maps `--color-background/foreground/primary/primary-foreground/border/ring` to `hsl(var(--…))`, exposes the brand scale (`--color-brand-50 … --color-brand-500 #ff6224 … --color-brand-900`), the radius scale (`--radius-lg/md/sm`), and the fonts (`--font-sans` = `var(--font-geist-sans)…`, `--font-mono` = the Cascadia/Source-Code mono stack).
-- [ ] An `@layer base` sets `* { border-color: hsl(var(--border)); }`, `body` bg/fg + `font-family: var(--font-sans)`, and `h1..h6 { font-family: var(--font-mono); }`.
-- [ ] No `autoprefixer`-style vendor prefixing is hand-written (v4 handles it).
+- [x] `apps/web/app/globals.css` starts with `@import 'tailwindcss';`.
+- [x] Bridges the optional keyframes config via `@config './tailwind.config.ts';` near the top.
+- [x] Declares the class-based dark variant: `@custom-variant dark (&:is(.dark *));`.
+- [x] `:root` (full light set) **and** `.dark` (full dark/live set) live at **top level**, NOT inside `@layer base`.
+- [x] `--primary` and `--ring` = `20.5 90.2% 57.8%` (the `#ff6224` brand orange) in both `:root` and `.dark`; `--radius: 0.75rem`.
+- [x] Dark glass tokens present: `--glass-bg`, `--glass-bg-raised`, `--glass-bg-hover`, `--glass-card-bg`, `--glass-border`, plus `--color-bg-primary: #0a0a0a`, `--shadow-primary: 0 0 24px rgba(255,98,36,0.4)`, `--color-secondary: #60a5fa`, `--color-accent: #f97316`.
+- [x] An `@theme inline` block maps `--color-background/foreground/primary/primary-foreground/border/ring` to `hsl(var(--…))`, exposes the brand scale (`--color-brand-50 … --color-brand-500 #ff6224 … --color-brand-900`), the radius scale (`--radius-lg/md/sm`), and the fonts (`--font-sans` = `var(--font-geist-sans)…`, `--font-mono` = the Cascadia/Source-Code mono stack).
+- [x] An `@layer base` sets `* { border-color: hsl(var(--border)); }`, `body` bg/fg + `font-family: var(--font-sans)`, and `h1..h6 { font-family: var(--font-mono); }`.
+- [x] No `autoprefixer`-style vendor prefixing is hand-written (v4 handles it).
 
 ### Files to create / modify
 
@@ -456,7 +456,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-3 — `app/layout.tsx` + `app/providers.tsx` — Geist, Forced Dark, NuqsAdapter
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P11-1`, `P11-2`
@@ -467,15 +467,15 @@ Wire the root App-Router layout. `app/layout.tsx` is a **Server Component** (nev
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/layout.tsx` is a Server Component (no `'use client'`).
-- [ ] Imports `GeistSans` from `geist/font/sans` and `GeistMono` from `geist/font/mono`.
-- [ ] `<html lang="en" className={\`${GeistSans.variable} ${GeistMono.variable} dark\`} suppressHydrationWarning>`— the`dark` class is hard-coded (forced dark).
-- [ ] Imports `./globals.css`.
-- [ ] Wraps children in `<NuqsAdapter>` (from `nuqs/adapters/next/app`) → `<Providers>`.
-- [ ] Exports `metadata` (title/description for the logger dashboard).
-- [ ] `apps/web/app/providers.tsx` begins with `'use client'`; renders `<QueryClientProvider client={...}>{children}<Toaster /></QueryClientProvider>` with a stable `QueryClient` (created once via `useState`).
-- [ ] The Sonner `<Toaster/>` uses `theme="dark"` + `position="bottom-right"` (glass styling lives in the P11-4 `sonner.tsx` primitive).
-- [ ] No `next-themes` import anywhere.
+- [x] `apps/web/app/layout.tsx` is a Server Component (no `'use client'`).
+- [x] Imports `GeistSans` from `geist/font/sans` and `GeistMono` from `geist/font/mono`.
+- [x] `<html lang="en" className={\`${GeistSans.variable} ${GeistMono.variable} dark\`} suppressHydrationWarning>`— the`dark` class is hard-coded (forced dark).
+- [x] Imports `./globals.css`.
+- [x] Wraps children in `<NuqsAdapter>` (from `nuqs/adapters/next/app`) → `<Providers>`.
+- [x] Exports `metadata` (title/description for the logger dashboard).
+- [x] `apps/web/app/providers.tsx` begins with `'use client'`; renders `<QueryClientProvider client={...}>{children}<Toaster /></QueryClientProvider>` with a stable `QueryClient` (created once via `useState`).
+- [x] The Sonner `<Toaster/>` uses `theme="dark"` + `position="bottom-right"` (glass styling lives in the P11-4 `sonner.tsx` primitive).
+- [x] No `next-themes` import anywhere.
 
 ### Files to create / modify
 
@@ -592,7 +592,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-4 — `lib/utils.ts` (`cn`) + Scaffold the shadcn `new-york` Component Set
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min–½ day)
 - **Depends on:** `P11-1`, `P11-2`
@@ -603,15 +603,15 @@ Add `lib/utils.ts` (the `cn()` Tailwind-merge helper every primitive needs) and 
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/lib/utils.ts` exports `cn(...inputs: ClassValue[]): string` = `twMerge(clsx(inputs))`.
-- [ ] The full shadcn set exists under `apps/web/components/ui/`: `alert-dialog, avatar, badge, button, card, dialog, dropdown-menu, form, input, label, select, sonner, table, tabs, tooltip, popover, scroll-area, skeleton, command`.
-- [ ] `button.tsx` is overridden to the pill + brand-gradient CVA: base `rounded-full`; `default` = `bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm hover:shadow-(--shadow-primary) hover:scale-[1.02] active:scale-[0.98]`; sizes `h-10 px-6` / `sm h-8 px-4 text-xs` / `lg h-12 px-8` / `icon h-10 w-10`.
-- [ ] `card.tsx` is overridden to the glass variant: `border-(--glass-border) bg-(--glass-card-bg) rounded-2xl border shadow-sm backdrop-blur-md`; `CardTitle` = `font-mono text-xl font-bold`.
-- [ ] `badge.tsx` supports the brand pill (`bg-brand-500 text-white rounded-full`) used for `logKey` mono badges + level chips.
-- [ ] `sonner.tsx` Toaster uses `theme="dark"`, `position="bottom-right"`, glass background (`var(--glass-card-bg)` + `1px var(--glass-border)` + `backdropFilter: blur(16px)` + `font-mono`).
-- [ ] Every primitive imports `cn` from `@/lib/utils` and uses the `@/*` alias.
-- [ ] The required Radix peer deps for the chosen primitives are installed (e.g. `@radix-ui/react-*` for dialog/dropdown/avatar/label/tabs/tooltip/select/popover/scroll-area, `@radix-ui/react-slot`, plus `cmdk` for command and `react-hook-form` + `@hookform/resolvers` + `zod` for form).
-- [ ] `pnpm --filter web exec tsc --noEmit` passes (all primitives type-clean).
+- [x] `apps/web/lib/utils.ts` exports `cn(...inputs: ClassValue[]): string` = `twMerge(clsx(inputs))`.
+- [x] The full shadcn set exists under `apps/web/components/ui/`: `alert-dialog, avatar, badge, button, card, dialog, dropdown-menu, form, input, label, select, sonner, table, tabs, tooltip, popover, scroll-area, skeleton, command`.
+- [x] `button.tsx` is overridden to the pill + brand-gradient CVA: base `rounded-full`; `default` = `bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-sm hover:shadow-(--shadow-primary) hover:scale-[1.02] active:scale-[0.98]`; sizes `h-10 px-6` / `sm h-8 px-4 text-xs` / `lg h-12 px-8` / `icon h-10 w-10`.
+- [x] `card.tsx` is overridden to the glass variant: `border-(--glass-border) bg-(--glass-card-bg) rounded-2xl border shadow-sm backdrop-blur-md`; `CardTitle` = `font-mono text-xl font-bold`.
+- [x] `badge.tsx` supports the brand pill (`bg-brand-500 text-white rounded-full`) used for `logKey` mono badges + level chips.
+- [x] `sonner.tsx` Toaster uses `theme="dark"`, `position="bottom-right"`, glass background (`var(--glass-card-bg)` + `1px var(--glass-border)` + `backdropFilter: blur(16px)` + `font-mono`).
+- [x] Every primitive imports `cn` from `@/lib/utils` and uses the `@/*` alias.
+- [x] The required Radix peer deps for the chosen primitives are installed (e.g. `@radix-ui/react-*` for dialog/dropdown/avatar/label/tabs/tooltip/select/popover/scroll-area, `@radix-ui/react-slot`, plus `cmdk` for command and `react-hook-form` + `@hookform/resolvers` + `zod` for form).
+- [x] `pnpm --filter web exec tsc --noEmit` passes (all primitives type-clean).
 
 ### Files to create / modify
 
@@ -753,7 +753,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-5 — `components/layout/` — Topbar (64px) + Sidebar (250px) App Shell + Logger Nav
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90 min–½ day)
 - **Depends on:** `P11-3`, `P11-4`
@@ -764,14 +764,14 @@ Build the app shell — the chrome that makes `nest-logger-example` indistinguis
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/components/layout/topbar.tsx` is a fixed `h-16` (64px) header: `z-200 fixed left-0 right-0 top-0 … border-b border-[rgba(255,255,255,0.07)] bg-[rgba(10,10,10,0.85)] … backdrop-blur-md`.
-- [ ] Topbar left: orange-bordered brand badge (`rounded-lg border border-[rgba(255,98,36,0.4)] bg-[rgba(255,98,36,0.15)]`) holding the 3-line stacked-layers SVG (`stroke="#ff6224"`) + gradient mono wordmark `bg-linear-to-r from-[#ff6224] to-amber-200 bg-clip-text … text-transparent` reading **`nest-logger-example`**.
-- [ ] Topbar right: a hamburger `Button` (mobile only, `lg:hidden`) calling `onMenuOpen` (placeholder slot for the Phase-12 global controls).
-- [ ] `apps/web/components/layout/sidebar.tsx` is `w-[250px] … border-r border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,12,0.98)]`, `lg:sticky lg:top-16 lg:h-[calc(100vh-64px)]`, mobile fixed overlay (`fixed left-0 top-16 …`) toggled by an `isOpen` prop.
-- [ ] Sidebar item base = `flex items-center gap-3 rounded-lg border-l-2 px-3 py-[10px] text-sm transition-all duration-150`; **active** = `border-l-[#ff6224] bg-[rgba(255,98,36,0.1)] font-semibold text-[#ff6224]`; inactive = `border-l-transparent text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.05)]`. Active detection via `usePathname()` (`exact` for `/`).
-- [ ] The logger nav items + lucide icons are exactly: Overview `/` `LayoutDashboard`, Explorer `/explorer` `Search`, Trigger Center `/trigger` `Zap`, Alerts `/alerts` `BellRing`, Maintenance `/maintenance` `Settings2`, Settings `/settings` `Cog`.
-- [ ] `apps/web/components/layout/app-shell.tsx` composes `<Topbar/>` + `<Sidebar/>` + `<main className="min-w-0 flex-1 px-6 py-8"><div className="mx-auto max-w-7xl">{children}</div></main>` inside `<div className="flex pt-16">…`.
-- [ ] Topbar/Sidebar/AppShell are `'use client'` (they use `usePathname`/state) and import `cn` from `@/lib/utils` + the `Button` primitive.
+- [x] `apps/web/components/layout/topbar.tsx` is a fixed `h-16` (64px) header: `z-200 fixed left-0 right-0 top-0 … border-b border-[rgba(255,255,255,0.07)] bg-[rgba(10,10,10,0.85)] … backdrop-blur-md`.
+- [x] Topbar left: orange-bordered brand badge (`rounded-lg border border-[rgba(255,98,36,0.4)] bg-[rgba(255,98,36,0.15)]`) holding the 3-line stacked-layers SVG (`stroke="#ff6224"`) + gradient mono wordmark `bg-linear-to-r from-[#ff6224] to-amber-200 bg-clip-text … text-transparent` reading **`nest-logger-example`**.
+- [x] Topbar right: a hamburger `Button` (mobile only, `lg:hidden`) calling `onMenuOpen` (placeholder slot for the Phase-12 global controls).
+- [x] `apps/web/components/layout/sidebar.tsx` is `w-[250px] … border-r border-[rgba(255,255,255,0.08)] bg-[rgba(12,12,12,0.98)]`, `lg:sticky lg:top-16 lg:h-[calc(100vh-64px)]`, mobile fixed overlay (`fixed left-0 top-16 …`) toggled by an `isOpen` prop.
+- [x] Sidebar item base = `flex items-center gap-3 rounded-lg border-l-2 px-3 py-[10px] text-sm transition-all duration-150`; **active** = `border-l-[#ff6224] bg-[rgba(255,98,36,0.1)] font-semibold text-[#ff6224]`; inactive = `border-l-transparent text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.05)]`. Active detection via `usePathname()` (`exact` for `/`).
+- [x] The logger nav items + lucide icons are exactly: Overview `/` `LayoutDashboard`, Explorer `/explorer` `Search`, Trigger Center `/trigger` `Zap`, Alerts `/alerts` `BellRing`, Maintenance `/maintenance` `Settings2`, Settings `/settings` `Cog`.
+- [x] `apps/web/components/layout/app-shell.tsx` composes `<Topbar/>` + `<Sidebar/>` + `<main className="min-w-0 flex-1 px-6 py-8"><div className="mx-auto max-w-7xl">{children}</div></main>` inside `<div className="flex pt-16">…`.
+- [x] Topbar/Sidebar/AppShell are `'use client'` (they use `usePathname`/state) and import `cn` from `@/lib/utils` + the `Button` primitive.
 
 ### Files to create / modify
 
@@ -990,7 +990,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-6 — `lib/log-keys.ts` (`LOG_KEYS_CONVENTION_REGEX`) + `lib/severity.ts`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P11-1`, `P11-4`
@@ -1001,13 +1001,13 @@ Add the two browser-safe lib helpers that consume the library's **isomorphic `/s
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/lib/log-keys.ts` imports `LOG_KEYS_CONVENTION_REGEX` and `type LogEntry` from `@bymax-one/nest-logger/shared` (the `/shared` subpath, NOT the `.` root).
-- [ ] It exports `isValidLogKey(key: string): boolean` (= `LOG_KEYS_CONVENTION_REGEX.test(key)`, reset `lastIndex` if the regex is global) and re-exports the regex + `LogEntry` for query-bar use.
-- [ ] `apps/web/lib/severity.ts` imports `type LogLevel` from `@bymax-one/nest-logger/shared`.
-- [ ] It exports a `SEVERITY: Record<LogLevel, { color: string; icon: LucideIcon; label: string }>` map covering all six levels with the §15 palette: `trace` muted-blue, `debug` blue, `info` green/neutral, `warn` amber, `error` red, `fatal` purple — each with a lucide icon + label.
-- [ ] It exports a `getSeverity(level: LogLevel)` accessor returning the entry.
-- [ ] Neither file imports from `@bymax-one/nest-logger` (the bare `.` root) — only `/shared`.
-- [ ] `pnpm --filter web exec tsc --noEmit` passes (the `/shared` types resolve in the browser tsconfig).
+- [x] `apps/web/lib/log-keys.ts` imports `LOG_KEYS_CONVENTION_REGEX` and `type LogEntry` from `@bymax-one/nest-logger/shared` (the `/shared` subpath, NOT the `.` root).
+- [x] It exports `isValidLogKey(key: string): boolean` (= `LOG_KEYS_CONVENTION_REGEX.test(key)`, reset `lastIndex` if the regex is global) and re-exports the regex + `LogEntry` for query-bar use.
+- [x] `apps/web/lib/severity.ts` imports `type LogLevel` from `@bymax-one/nest-logger/shared`.
+- [x] It exports a `SEVERITY: Record<LogLevel, { color: string; icon: LucideIcon; label: string }>` map covering all six levels with the §15 palette: `trace` muted-blue, `debug` blue, `info` green/neutral, `warn` amber, `error` red, `fatal` purple — each with a lucide icon + label.
+- [x] It exports a `getSeverity(level: LogLevel)` accessor returning the entry.
+- [x] Neither file imports from `@bymax-one/nest-logger` (the bare `.` root) — only `/shared`.
+- [x] `pnpm --filter web exec tsc --noEmit` passes (the `/shared` types resolve in the browser tsconfig).
 
 ### Files to create / modify
 
@@ -1122,7 +1122,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P11-7 — Verification Gate — Shell Renders the Orange/Glass Dark Theme; `web build` Succeeds
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** S (30–90 min)
 - **Depends on:** `P11-1`, `P11-2`, `P11-3`, `P11-4`, `P11-5`, `P11-6`
@@ -1133,13 +1133,13 @@ Phase 11 "Definition of done" gate per [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/page.tsx` exists, wraps a small placeholder (e.g. a glass `Card` "Overview — coming in Phase 12" + an action-oriented empty state) in `<AppShell>`.
-- [ ] `pnpm --filter web build` exits 0 (Next 16 production build; no `next-themes`, no `autoprefixer` resolution errors).
-- [ ] `pnpm --filter web exec tsc --noEmit` exits 0.
-- [ ] `pnpm --filter web lint` exits 0.
-- [ ] `pnpm --filter web dev` boots and `GET /` renders the **forced-dark** shell: 64px topbar with the orange-bordered brand mark + `nest-logger-example` gradient wordmark, the 250px sidebar with the six logger nav items, and the orange active state on `/`.
-- [ ] The brand orange (`#ff6224`) is visibly applied (active nav arm + brand badge + button gradient) and the glass surfaces render (cards/sidebar/topbar backdrop-blur) — confirming P11-2's `@theme inline` tokens generated.
-- [ ] No console errors about a missing `<NuqsAdapter>` or an undefined CSS utility (`from-brand-500` / `bg-(--glass-card-bg)` resolve).
+- [x] `apps/web/app/page.tsx` exists, wraps a small placeholder (e.g. a glass `Card` "Overview — coming in Phase 12" + an action-oriented empty state) in `<AppShell>`.
+- [x] `pnpm --filter web build` exits 0 (Next 16 production build; no `next-themes`, no `autoprefixer` resolution errors).
+- [x] `pnpm --filter web exec tsc --noEmit` exits 0.
+- [x] `pnpm --filter web lint` exits 0.
+- [x] `pnpm --filter web dev` boots and `GET /` renders the **forced-dark** shell: 64px topbar with the orange-bordered brand mark + `nest-logger-example` gradient wordmark, the 250px sidebar with the six logger nav items, and the orange active state on `/`.
+- [x] The brand orange (`#ff6224`) is visibly applied (active nav arm + brand badge + button gradient) and the glass surfaces render (cards/sidebar/topbar backdrop-blur) — confirming P11-2's `@theme inline` tokens generated.
+- [x] No console errors about a missing `<NuqsAdapter>` or an undefined CSS utility (`from-brand-500` / `bg-(--glass-card-bg)` resolve).
 
 ### Files to create / modify
 
@@ -1213,4 +1213,10 @@ When this task is 🟢, Phase 11 is 7/7 — switch the Phase 11 row in `DEVELOPM
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P11-1 ✅ 2026-06-03 — Scaffolded `apps/web` package manifest + 4 design-system config files + minimal `next.config.mjs`; `pnpm install` links the workspace.
+- P11-2 ✅ 2026-06-03 — Authored `app/globals.css` with verbatim v4 token block: `@custom-variant dark`, `:root`/`.dark` at top level, `@theme inline` brand/glass scale, `@layer base` resets.
+- P11-3 ✅ 2026-06-03 — Created `app/layout.tsx` (Geist + forced `dark` on `<html>` + `<NuqsAdapter>`) and `app/providers.tsx` (`'use client'` QueryClient + Sonner Toaster).
+- P11-4 ✅ 2026-06-03 — Created `lib/utils.ts` (`cn`) + scaffolded 19-component shadcn `new-york` set with overridden Button (pill+gradient), Card (glass), Badge (brand pill), Toaster (dark glass), plus 4 new primitives (popover, scroll-area, skeleton, command).
+- P11-5 ✅ 2026-06-03 — Built `components/layout/` app shell: fixed 64px Topbar (orange-bordered brand mark + gradient wordmark), 250px Sidebar (orange active arm + logger nav), and AppShell compositor.
+- P11-6 ✅ 2026-06-03 — Added `lib/log-keys.ts` (`isValidLogKey` + re-exports) and `lib/severity.ts` (6-level SEVERITY map with colour+icon+label), both importing only from `@bymax-one/nest-logger/shared`.
+- P11-7 ✅ 2026-06-03 — Added `app/page.tsx` Overview placeholder in AppShell; `tsc --noEmit`, `lint`, and `next build` all exit 0; dev server serves HTTP 200 on `/`.

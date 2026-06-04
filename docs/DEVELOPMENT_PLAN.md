@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 71 / 133 tasks done (53%)**
+> **Overall progress: 78 / 133 tasks done (59%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -44,7 +44,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 8   | PII Redaction Proofs                      | `phase-08-redaction.md`           | 5 / 5        | 100% | 🟢     |
 | 9   | OpenTelemetry Correlation + `apps/worker` | `phase-09-otel-correlation.md`    | 6 / 6        | 100% | 🟢     |
 | 10  | `logs/` Read-API                          | `phase-10-logs-api.md`            | 9 / 9        | 100% | 🟢     |
-| 11  | `apps/web` Skeleton + Design System       | `phase-11-web-skeleton.md`        | 0 / 7        | 0%   | 🔴     |
+| 11  | `apps/web` Skeleton + Design System       | `phase-11-web-skeleton.md`        | 7 / 7        | 100% | 🟢     |
 | 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`      | 0 / 9        | 0%   | 🔴     |
 | 13  | Dashboard — Trigger, Alerts, Maintenance  | `phase-13-dashboard-ops.md`       | 0 / 9        | 0%   | 🔴     |
 | 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 0 / 10       | 0%   | 🔴     |
@@ -297,13 +297,13 @@ test  mutation docs  ci/cd audit+v1.0.0
 **UI base:** build to **[`docs/design_system.html`](design_system.html)** — the rendered, project-agnostic design-system guide (tokens, app shell, components, severity, and its §10 AI-agent recreation steps). `DASHBOARD.md` §15 mirrors it for this app.
 **Deliverables:**
 
-- [ ] `apps/web` Next.js 16 + React 19 + Tailwind v4 + shadcn `new-york`; `components.json`, `postcss.config.mjs`, `tailwind.config.ts`.
-- [ ] `app/globals.css` — the **verbatim** token block (light `:root` + `.dark` + brand tokens + keyframes) from `DASHBOARD.md` §Design System.
-- [ ] `app/layout.tsx` — Geist Sans/Mono, **forced `dark`** on `<html>`, `Providers` (TanStack Query + Sonner `Toaster`).
-- [ ] `lib/utils.ts` (`cn`); the shadcn component set; `components/layout/` Topbar (64px) + Sidebar (250px, orange active state) app shell.
-- [ ] `lib/log-keys.ts` importing `LOG_KEYS_CONVENTION_REGEX` from `/shared`.
+- [x] `apps/web` Next.js 16 + React 19 + Tailwind v4 + shadcn `new-york`; `components.json`, `postcss.config.mjs`, `tailwind.config.ts`.
+- [x] `app/globals.css` — the **verbatim** token block (light `:root` + `.dark` + brand tokens + keyframes) from `DASHBOARD.md` §Design System.
+- [x] `app/layout.tsx` — Geist Sans/Mono, **forced `dark`** on `<html>`, `Providers` (TanStack Query + Sonner `Toaster`).
+- [x] `lib/utils.ts` (`cn`); the shadcn component set; `components/layout/` Topbar (64px) + Sidebar (250px, orange active state) app shell.
+- [x] `lib/log-keys.ts` importing `LOG_KEYS_CONVENTION_REGEX` from `/shared`.
 
-**Definition of done:** the shell renders with the orange/glass dark theme, the brand mark, and the logger nav; `pnpm --filter web build` succeeds.
+**Definition of done:** the shell renders with the orange/glass dark theme, the brand mark, and the logger nav; `pnpm --filter web build` succeeds. ✅ 2026-06-03
 
 ---
 

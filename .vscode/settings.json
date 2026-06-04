@@ -40,5 +40,14 @@
     "**/.stryker-tmp": true,
     "**/.next": true,
     "**/pnpm-lock.yaml": true
+  },
+
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "css.lint.unknownAtRules": "ignore",
+  "tailwindCSS.experimental.configFile": "apps/web/app/globals.css",
+  "editor.quickSuggestions": {
+    "strings": "on"
   }
 }
