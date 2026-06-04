@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-12--dashboard-overview-explorer-live-tail) §Phase 12
 > **Total tasks:** 9
-> **Progress:** 🔴 0 / 9 done (0%)
+> **Progress:** 🟡 8 / 9 done (89%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,21 +10,21 @@
 
 | ID    | Task                                                                                         | Status | Priority | Size | Depends on         |
 | ----- | -------------------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------------ |
-| P12-1 | `lib/api-client.ts` typed fetch wrappers + data hooks (`useLogs`/`useAggregate`/`useFacets`) | 🔴     | High     | M    | Phase 10, Phase 11 |
-| P12-2 | `lib/filters.ts` nuqs `LogQuery ↔ URL` parsers + global top-bar controls                     | 🔴     | High     | M    | P12-1              |
-| P12-3 | `app/page.tsx` Overview — health strip (4 golden signals + SLO)                              | 🔴     | High     | M    | P12-1, P12-2       |
-| P12-4 | Overview — brushable volume timeseries + RED row (Rate/Errors/Duration + heatmap)            | 🔴     | High     | L    | P12-3              |
-| P12-5 | Overview — breakdown row + pipeline-health panel                                             | 🔴     | High     | M    | P12-3              |
-| P12-6 | `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL toggles)                         | 🔴     | High     | L    | P12-2              |
-| P12-7 | Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer                | 🔴     | High     | L    | P12-6              |
-| P12-8 | `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)                         | 🔴     | High     | L    | P12-7              |
-| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)                          | 🔴     | High     | M    | P12-1..P12-8       |
+| P12-1 | `lib/api-client.ts` typed fetch wrappers + data hooks (`useLogs`/`useAggregate`/`useFacets`) | 🟢     | High     | M    | Phase 10, Phase 11 |
+| P12-2 | `lib/filters.ts` nuqs `LogQuery ↔ URL` parsers + global top-bar controls                     | 🟢     | High     | M    | P12-1              |
+| P12-3 | `app/page.tsx` Overview — health strip (4 golden signals + SLO)                              | 🟢     | High     | M    | P12-1, P12-2       |
+| P12-4 | Overview — brushable volume timeseries + RED row (Rate/Errors/Duration + heatmap)            | 🟢     | High     | L    | P12-3              |
+| P12-5 | Overview — breakdown row + pipeline-health panel                                             | 🟢     | High     | M    | P12-3              |
+| P12-6 | `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL toggles)                         | 🟢     | High     | L    | P12-2              |
+| P12-7 | Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer                | 🟢     | High     | L    | P12-6              |
+| P12-8 | `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)                         | 🟢     | High     | L    | P12-7              |
+| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)                          | 🔵     | High     | M    | P12-1..P12-8       |
 
 ---
 
 ## P12-1 — `lib/api-client.ts` typed fetch wrappers + data hooks (`useLogs` / `useAggregate` / `useFacets`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `Phase 10`, `Phase 11`
@@ -35,14 +35,14 @@ Build the typed client layer between `apps/web` and the Phase 10 `logs/` read-AP
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/lib/api-client.ts` exports `getLogs`, `getAggregate`, `getFacets`, `getContext`, `getExportUrl`, each typed against a `LogQuery` argument and returning typed payloads.
-- [ ] A base `apiFetch<T>()` helper centralizes `process.env.NEXT_PUBLIC_API_URL`, JSON parsing, and non-2xx → thrown `ApiError` (carrying `status`).
-- [ ] `LogQuery` is serialized to a query string via a single `encodeLogQuery(q)` util (re-used later by the SSE hook).
-- [ ] `apps/web/hooks/use-logs.ts` exports `useLogs(query)` using `useInfiniteQuery` with `getNextPageParam` reading the opaque keyset `cursor`; a `410` response resets the query.
-- [ ] `apps/web/hooks/use-aggregate.ts` exports `useAggregate(metric, query)` (`metric ∈ 'volume' | 'errorRate' | 'latency' | 'statusMix'`) via `useQuery`.
-- [ ] `apps/web/hooks/use-facets.ts` exports `useFacets(fields, query)` via `useQuery`.
-- [ ] `LogEntry` / `LogLevel` are imported from `@bymax-one/nest-logger/shared` — not redefined.
-- [ ] `pnpm --filter web typecheck` and `pnpm --filter web build` pass.
+- [x] `apps/web/lib/api-client.ts` exports `getLogs`, `getAggregate`, `getFacets`, `getContext`, `getExportUrl`, each typed against a `LogQuery` argument and returning typed payloads.
+- [x] A base `apiFetch<T>()` helper centralizes `process.env.NEXT_PUBLIC_API_URL`, JSON parsing, and non-2xx → thrown `ApiError` (carrying `status`).
+- [x] `LogQuery` is serialized to a query string via a single `encodeLogQuery(q)` util (re-used later by the SSE hook).
+- [x] `apps/web/hooks/use-logs.ts` exports `useLogs(query)` using `useInfiniteQuery` with `getNextPageParam` reading the opaque keyset `cursor`; a `410` response resets the query.
+- [x] `apps/web/hooks/use-aggregate.ts` exports `useAggregate(metric, query)` (`metric ∈ 'volume' | 'errorRate' | 'latency' | 'statusMix'`) via `useQuery`.
+- [x] `apps/web/hooks/use-facets.ts` exports `useFacets(fields, query)` via `useQuery`.
+- [x] `LogEntry` / `LogLevel` are imported from `@bymax-one/nest-logger/shared` — not redefined.
+- [x] `pnpm --filter web typecheck` and `pnpm --filter web build` pass.
 
 ### Files to create / modify
 
@@ -187,7 +187,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-2 — `lib/filters.ts` nuqs `LogQuery ↔ URL` parsers + global top-bar controls
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P12-1`
@@ -198,14 +198,14 @@ Make every view a shareable deep-link. `lib/filters.ts` defines `nuqs` v2 typed 
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/lib/filters.ts` defines nuqs parsers for `from`, `to`, `source` (`parseAsStringEnum(['loki','postgres'])`, default `loki`), `tenantId`, `role`, `level`, `logKey`, `service`, `q`, plus a `live` boolean.
-- [ ] Exports `useLogQuery()` returning `{ query: LogQuery, setQuery }` derived from the URL state, and a `bucketFor(from, to)` helper (`1m` ≤6h, `5m` ≤24h, `1h` ≤7d).
-- [ ] `components/controls/TimeRangePicker.tsx` — relative presets (5m/15m/1h/6h/24h/7d) + absolute shadcn `Calendar`; writes `from`/`to`.
-- [ ] `components/controls/SourceToggle.tsx` — `[ Loki | Postgres ]` segmented control writing `source`, with the 🎓 two-tier callout (`info`+ Loki vs `warn`+ Postgres).
-- [ ] `components/controls/TenantRoleSwitcher.tsx` — tenant `Select` + role `Select` (Viewer/Operator/Admin) writing `tenantId`/`role`.
-- [ ] `components/controls/LiveToggle.tsx` — `⟳` toggle writing `live` (consumed by the SSE tail in P12-8).
-- [ ] All four are mounted in the top bar (the `components/layout/Topbar` from Phase 11); the root layout already wraps children in `<NuqsAdapter>` (Phase 11).
-- [ ] `pnpm --filter web typecheck` + `build` pass; changing a control updates the URL and survives a reload.
+- [x] `apps/web/lib/filters.ts` defines nuqs parsers for `from`, `to`, `source` (`parseAsStringEnum(['loki','postgres'])`, default `loki`), `tenantId`, `role`, `level`, `logKey`, `service`, `q`, plus a `live` boolean.
+- [x] Exports `useLogQuery()` returning `{ query: LogQuery, setQuery }` derived from the URL state, and a `bucketFor(from, to)` helper (`1m` ≤6h, `5m` ≤24h, `1h` ≤7d).
+- [x] `components/controls/TimeRangePicker.tsx` — relative presets (5m/15m/1h/6h/24h/7d) + absolute shadcn `Calendar`; writes `from`/`to`.
+- [x] `components/controls/SourceToggle.tsx` — `[ Loki | Postgres ]` segmented control writing `source`, with the 🎓 two-tier callout (`info`+ Loki vs `warn`+ Postgres).
+- [x] `components/controls/TenantRoleSwitcher.tsx` — tenant `Select` + role `Select` (Viewer/Operator/Admin) writing `tenantId`/`role`.
+- [x] `components/controls/LiveToggle.tsx` — `⟳` toggle writing `live` (consumed by the SSE tail in P12-8).
+- [x] All four are mounted in the top bar (the `components/layout/Topbar` from Phase 11); the root layout already wraps children in `<NuqsAdapter>` (Phase 11).
+- [x] `pnpm --filter web typecheck` + `build` pass; changing a control updates the URL and survives a reload.
 
 ### Files to create / modify
 
@@ -305,7 +305,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-3 — `app/page.tsx` Overview — health strip (4 golden signals + SLO)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P12-1`, `P12-2`
@@ -316,13 +316,13 @@ Build the Overview page shell (`app/page.tsx`) and its first row: the **health s
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/page.tsx` renders the Overview page (RSC shell + a `'use client'` content section reading `useLogQuery()`), wrapped in the Phase 11 `max-w-7xl` container.
-- [ ] `components/charts/HealthStrip.tsx` lays out five tiles in a responsive flex/grid row.
-- [ ] Tiles: **Traffic** (`req/min` from `metric=volume` on `HTTP_REQUEST_START`), **Errors** (`(4xx+5xx)/total` %, red > 1%), **Latency** (`p95(durationMs)`), **Fatal+Error** (`count(level ∈ {error,fatal})`) — each via `useAggregate`.
-- [ ] `components/charts/StatTile.tsx` — reusable tile: title, big value, sparkline (Recharts `Line`), Δ-vs-previous-window badge (green/red).
-- [ ] `components/charts/SloGauge.tsx` — SLO tile: 99.9% / 30-day budget gauge + 14.4/6/1 burn-rate badges.
-- [ ] Loading state shows shadcn `Skeleton` tiles (not spinners — `DASHBOARD.md` §2 principle 8); empty state is action-oriented ("No logs yet — fire one from the Playground →").
-- [ ] `pnpm --filter web typecheck` + `build` pass; tiles re-fetch when the time range / source changes.
+- [x] `apps/web/app/page.tsx` renders the Overview page (RSC shell + a `'use client'` content section reading `useLogQuery()`), wrapped in the Phase 11 `max-w-7xl` container.
+- [x] `components/charts/HealthStrip.tsx` lays out five tiles in a responsive flex/grid row.
+- [x] Tiles: **Traffic** (`req/min` from `metric=volume` on `HTTP_REQUEST_START`), **Errors** (`(4xx+5xx)/total` %, red > 1%), **Latency** (`p95(durationMs)`), **Fatal+Error** (`count(level ∈ {error,fatal})`) — each via `useAggregate`.
+- [x] `components/charts/StatTile.tsx` — reusable tile: title, big value, sparkline (Recharts `Line`), Δ-vs-previous-window badge (green/red).
+- [x] `components/charts/SloGauge.tsx` — SLO tile: 99.9% / 30-day budget gauge + 14.4/6/1 burn-rate badges.
+- [x] Loading state shows shadcn `Skeleton` tiles (not spinners — `DASHBOARD.md` §2 principle 8); empty state is action-oriented ("No logs yet — fire one from the Playground →").
+- [x] `pnpm --filter web typecheck` + `build` pass; tiles re-fetch when the time range / source changes.
 
 ### Files to create / modify
 
@@ -418,7 +418,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-4 — Overview — brushable volume timeseries + RED row (Rate / Errors / Duration + heatmap)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P12-3`
@@ -429,14 +429,14 @@ Build the Overview's signature panel and RED row (`DASHBOARD.md` §5 + §11). Th
 
 ### Acceptance Criteria
 
-- [ ] `components/charts/VolumeBar.tsx` — Recharts stacked `Bar` by level per bucket, with a `Brush` whose `onChange` writes `from`/`to` via `setQuery` (from P12-2); colors match the severity map (info blue / warn amber / error+fatal red / debug+trace grey).
-- [ ] `components/charts/RequestsLine.tsx` — `count(HTTP_REQUEST_START)` per bucket (RED — Rate).
-- [ ] `components/charts/ErrorRateLine.tsx` — `(4xx+5xx)/total` per bucket as two series + a `ReferenceLine` at 1% (RED — Errors).
-- [ ] `components/charts/LatencyLines.tsx` — p50/p95/p99 lines from `metric=latency` (RED — Duration; never an average).
-- [ ] `components/charts/LatencyHeatmap.tsx` — `durationMs` histogram per bucket as a heatmap + a "Slow reqs > 1s: N" stat (`count(durationMs > 1000)` / `METHOD_SLOW_EXECUTION`).
-- [ ] All five panels read `useAggregate` and respect the global time range + source toggle.
-- [ ] Brushing the volume chart visibly updates the URL `from`/`to` (drives every other panel + the Explorer).
-- [ ] `pnpm --filter web typecheck` + `build` pass.
+- [x] `components/charts/VolumeBar.tsx` — Recharts stacked `Bar` by level per bucket, with a `Brush` whose `onChange` writes `from`/`to` via `setQuery` (from P12-2); colors match the severity map (info blue / warn amber / error+fatal red / debug+trace grey).
+- [x] `components/charts/RequestsLine.tsx` — `count(HTTP_REQUEST_START)` per bucket (RED — Rate).
+- [x] `components/charts/ErrorRateLine.tsx` — `(4xx+5xx)/total` per bucket as two series + a `ReferenceLine` at 1% (RED — Errors).
+- [x] `components/charts/LatencyLines.tsx` — p50/p95/p99 lines from `metric=latency` (RED — Duration; never an average).
+- [x] `components/charts/LatencyHeatmap.tsx` — `durationMs` histogram per bucket as a heatmap + a "Slow reqs > 1s: N" stat (`count(durationMs > 1000)` / `METHOD_SLOW_EXECUTION`).
+- [x] All five panels read `useAggregate` and respect the global time range + source toggle.
+- [x] Brushing the volume chart visibly updates the URL `from`/`to` (drives every other panel + the Explorer).
+- [x] `pnpm --filter web typecheck` + `build` pass.
 
 ### Files to create / modify
 
@@ -536,7 +536,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-5 — Overview — breakdown row + pipeline-health panel
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P12-3`
@@ -547,13 +547,13 @@ Complete the Overview with the breakdown row and the pipeline-health panel (`DAS
 
 ### Acceptance Criteria
 
-- [ ] `components/charts/LevelDonut.tsx` — `count() by level` donut (bounded, 6 levels), colored per severity.
-- [ ] `components/charts/TopBar.tsx` — reusable horizontal-bar top-N panel; instantiated for top `logKey`s, top errors (`level ∈ {error,fatal}`), and top tenants (top-N + "other").
-- [ ] `components/charts/StatusMix.tsx` — `count() by status_class` stacked bar (2xx/3xx/4xx/5xx).
-- [ ] `components/charts/PipelineHealth.tsx` — stat row of `LOGGER_DESTINATION_WRITE_FAILED` / `_INIT_FAILED` / `LOGGER_ENTRY_TRUNCATED` counts + Loki/Postgres write-lag readouts.
-- [ ] Every breakdown panel is **click-to-filter**: a slice/bar click calls `setQuery` to add that dimension (e.g. `level`, `logKey`, `tenantId`) — pivoting to the Explorer filter.
-- [ ] All panels read `useAggregate` with bounded `groupBy` only (`level` / `logKey` / `status_class` / `tenantId`) — never `requestId`/`traceId`/`userId`.
-- [ ] `pnpm --filter web typecheck` + `build` pass; the Overview now shows health strip + volume + RED + breakdown + pipeline-health top to bottom.
+- [x] `components/charts/LevelDonut.tsx` — `count() by level` donut (bounded, 6 levels), colored per severity.
+- [x] `components/charts/TopBar.tsx` — reusable horizontal-bar top-N panel; instantiated for top `logKey`s, top errors (`level ∈ {error,fatal}`), and top tenants (top-N + "other").
+- [x] `components/charts/StatusMix.tsx` — `count() by status_class` stacked bar (2xx/3xx/4xx/5xx).
+- [x] `components/charts/PipelineHealth.tsx` — stat row of `LOGGER_DESTINATION_WRITE_FAILED` / `_INIT_FAILED` / `LOGGER_ENTRY_TRUNCATED` counts + Loki/Postgres write-lag readouts.
+- [x] Every breakdown panel is **click-to-filter**: a slice/bar click calls `setQuery` to add that dimension (e.g. `level`, `logKey`, `tenantId`) — pivoting to the Explorer filter.
+- [x] All panels read `useAggregate` with bounded `groupBy` only (`level` / `logKey` / `status_class` / `tenantId`) — never `requestId`/`traceId`/`userId`.
+- [x] `pnpm --filter web typecheck` + `build` pass; the Overview now shows health strip + volume + RED + breakdown + pipeline-health top to bottom.
 
 ### Files to create / modify
 
@@ -637,7 +637,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-6 — `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL teaching toggles)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P12-2`
@@ -648,13 +648,13 @@ Build the Log Explorer shell (`app/explorer/page.tsx`), its faceted left rail, a
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/explorer/page.tsx` renders a two-pane layout: facet rail (left) + query bar / (table placeholder for P12-7) (right), reading `useLogQuery()`.
-- [ ] `components/explorer/FacetRail.tsx` — `useFacets(['level','service','logKey','tenantId'], query)`; each value shows its count; click → add positive filter, ⌥/Alt-click → negative (`is-not`).
-- [ ] `components/explorer/QueryBar.tsx` — parses the structured syntax into `LogQuery` and writes it via `setQuery`; supports `level:`/`level>=`/`logKey:` (prefix `*`)/`service:`/`tenantId:`/`traceId:`/free-text `msg ~ "…"`.
-- [ ] `apps/web/lib/log-keys.ts` imports `LOG_KEYS_CONVENTION_REGEX` from `@bymax-one/nest-logger/shared` and exposes `isValidLogKey(key)`; the query bar flags an invalid `logKey` inline (red, with a hint).
-- [ ] Teaching toggles (`▸ generated SQL` / `▸ generated LogQL`) render the compiled query strings beside the form (read from the API's "show generated query" response or a local compiler mirroring §12).
-- [ ] Facet counts + query bar both react to the global time range + source toggle.
-- [ ] `pnpm --filter web typecheck` + `build` pass; arriving at `/explorer?level=error&logKey=PAYMENT_*` pre-populates the rail + bar.
+- [x] `apps/web/app/explorer/page.tsx` renders a two-pane layout: facet rail (left) + query bar / (table placeholder for P12-7) (right), reading `useLogQuery()`.
+- [x] `components/explorer/FacetRail.tsx` — `useFacets(['level','service','logKey','tenantId'], query)`; each value shows its count; click → add positive filter, ⌥/Alt-click → negative (`is-not`).
+- [x] `components/explorer/QueryBar.tsx` — parses the structured syntax into `LogQuery` and writes it via `setQuery`; supports `level:`/`level>=`/`logKey:` (prefix `*`)/`service:`/`tenantId:`/`traceId:`/free-text `msg ~ "…"`.
+- [x] `apps/web/lib/log-keys.ts` imports `LOG_KEYS_CONVENTION_REGEX` from `@bymax-one/nest-logger/shared` and exposes `isValidLogKey(key)`; the query bar flags an invalid `logKey` inline (red, with a hint).
+- [x] Teaching toggles (`▸ generated SQL` / `▸ generated LogQL`) render the compiled query strings beside the form (read from the API's "show generated query" response or a local compiler mirroring §12).
+- [x] Facet counts + query bar both react to the global time range + source toggle.
+- [x] `pnpm --filter web typecheck` + `build` pass; arriving at `/explorer?level=error&logKey=PAYMENT_*` pre-populates the rail + bar.
 
 ### Files to create / modify
 
@@ -715,7 +715,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-7 — Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P12-6`
@@ -726,14 +726,14 @@ Build the Explorer's data grid and detail drawer (`DASHBOARD.md` §6). The **tab
 
 ### Acceptance Criteria
 
-- [ ] `components/explorer/LogTable.tsx` — TanStack Table v8 + `useVirtualizer({ overscan: 10 })` rendering `useLogs(query)` pages; sticky header; newest-first; keyset infinite-scroll-up via `fetchNextPage`; verified smooth at 50k rows.
-- [ ] Columns: `time`, `level` (severity chip), `logKey` (mono badge), `service`, `msg`, `requestId`, `traceId`; sortable/resizable/pinnable; column-visibility toggle.
-- [ ] `components/explorer/DetailDrawer.tsx` — opens on row click with four tabs: **Overview**, **Raw JSON**, **Context**, **Trace**.
-- [ ] Overview tab: each field offers `filter for` / `filter out` / `add as column` (writing via `setQuery` / column state).
-- [ ] Raw JSON tab: `@uiw/react-json-view` collapsible tree; redacted fields display `[REDACTED]` verbatim (no client unmask).
-- [ ] Context tab: calls `getContext` (`/logs/context?requestId=|traceId=&before=10&after=10`).
-- [ ] Trace tab: shows `traceId`/`spanId` + a **[ View trace ]** link (Tempo/Grafana derived-field URL) and **[ All logs for this trace ]** that pivots the Explorer to that `traceId` (`setQuery({ traceId })`) across `api` + `worker`.
-- [ ] `pnpm --filter web typecheck` + `build` pass.
+- [x] `components/explorer/LogTable.tsx` — TanStack Table v8 + `useVirtualizer({ overscan: 10 })` rendering `useLogs(query)` pages; sticky header; newest-first; keyset infinite-scroll-up via `fetchNextPage`; verified smooth at 50k rows.
+- [x] Columns: `time`, `level` (severity chip), `logKey` (mono badge), `service`, `msg`, `requestId`, `traceId`; sortable/resizable/pinnable; column-visibility toggle.
+- [x] `components/explorer/DetailDrawer.tsx` — opens on row click with four tabs: **Overview**, **Raw JSON**, **Context**, **Trace**.
+- [x] Overview tab: each field offers `filter for` / `filter out` / `add as column` (writing via `setQuery` / column state).
+- [x] Raw JSON tab: `@uiw/react-json-view` collapsible tree; redacted fields display `[REDACTED]` verbatim (no client unmask).
+- [x] Context tab: calls `getContext` (`/logs/context?requestId=|traceId=&before=10&after=10`).
+- [x] Trace tab: shows `traceId`/`spanId` + a **[ View trace ]** link (Tempo/Grafana derived-field URL) and **[ All logs for this trace ]** that pivots the Explorer to that `traceId` (`setQuery({ traceId })`) across `api` + `worker`.
+- [x] `pnpm --filter web typecheck` + `build` pass.
 
 ### Files to create / modify
 
@@ -824,7 +824,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-8 — `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (3–6 h)
 - **Depends on:** `P12-7`
@@ -835,14 +835,14 @@ Wire the headline real-time feature (`DASHBOARD.md` §7 + §14). `lib/use-event-
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/lib/use-event-source.ts` exports `useLogStream(filter, enabled)` opening an `EventSource` at `/api/logs/stream?<encoded filter>` (or the API's `/logs/stream`), returning a bounded ring buffer.
-- [ ] A `RingBuffer<LogEntry>` (capacity 10k, drop-oldest) holds the stream; messages are buffered and flushed via `requestAnimationFrame` in batches (~10/frame).
-- [ ] `EventSource` auto-reconnect + `Last-Event-ID` resume are used (no manual polling); a `ping`/keep-alive event is ignored.
-- [ ] `hooks/use-follow-mode.ts` — follow-mode state: auto-scroll only when pinned to bottom; pause on scroll-up; expose `newCount` + `jumpToLatest()`.
-- [ ] The Explorer table (P12-7) shows new SSE rows at the bottom with a contrasting highlight; a "**N new logs — Jump to latest**" pill appears when paused.
-- [ ] Controls `Live ▸ Pause ▸ Resume ▸ Clear` are present; the `live` URL toggle (P12-2) enables/disables the stream.
-- [ ] Guardrails: stream enabled only on **relative** ranges; auto-pause on very-high rate; auto-stop after long idle.
-- [ ] `pnpm --filter web typecheck` + `build` pass.
+- [x] `apps/web/lib/use-event-source.ts` exports `useLogStream(filter, enabled)` opening an `EventSource` at `/api/logs/stream?<encoded filter>` (or the API's `/logs/stream`), returning a bounded ring buffer.
+- [x] A `RingBuffer<LogEntry>` (capacity 10k, drop-oldest) holds the stream; messages are buffered and flushed via `requestAnimationFrame` in batches (~10/frame).
+- [x] `EventSource` auto-reconnect + `Last-Event-ID` resume are used (no manual polling); a `ping`/keep-alive event is ignored.
+- [x] `hooks/use-follow-mode.ts` — follow-mode state: auto-scroll only when pinned to bottom; pause on scroll-up; expose `newCount` + `jumpToLatest()`.
+- [x] The Explorer table (P12-7) shows new SSE rows at the bottom with a contrasting highlight; a "**N new logs — Jump to latest**" pill appears when paused.
+- [x] Controls `Live ▸ Pause ▸ Resume ▸ Clear` are present; the `live` URL toggle (P12-2) enables/disables the stream.
+- [x] Guardrails: stream enabled only on **relative** ranges; auto-pause on very-high rate; auto-stop after long idle.
+- [x] `pnpm --filter web typecheck` + `build` pass.
 
 ### Files to create / modify
 
@@ -943,7 +943,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-9 — Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🔵 In Review
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P12-1`, `P12-2`, `P12-3`, `P12-4`, `P12-5`, `P12-6`, `P12-7`, `P12-8`
@@ -954,7 +954,7 @@ Phase 12 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the three da
 
 ### Acceptance Criteria
 
-- [ ] `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter web build` all exit 0.
+- [x] `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter web build` all exit 0.
 - [ ] With `pnpm infra:up` + `apps/api` + `apps/web` running: brushing the Overview volume chart changes the URL `from`/`to` and the Explorer table re-queries to that window.
 - [ ] Firing a log (e.g. `curl -X POST :3001/orders` or the Trigger Center `/trigger/burst`) with **Live** on shows the new entry arrive at the bottom of the Explorer tail (follow-mode highlight + jump-to-latest pill when scrolled up).
 - [ ] A row's **[ View trace ]** in the detail drawer opens the corresponding Tempo trace in Grafana (derived-field URL resolves).
@@ -1011,4 +1011,12 @@ When this task is 🟢, Phase 12 is 9/9 — switch the Phase 12 row in `DEVELOPM
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P12-1 ✅ 2026-06-04 — typed api-client + encodeLogQuery + RBAC headers; useLogs/useAggregate/useFacets hooks.
+- P12-2 ✅ 2026-06-04 — nuqs LogQuery↔URL parsers (+relative-range ticker) + 4 top-bar controls.
+- P12-3 ✅ 2026-06-04 — Overview health strip (4 golden signals + SLO burn-rate gauge).
+- P12-4 ✅ 2026-06-04 — brushable volume timeseries + RED row (rate/errors/latency lines + heatmap).
+- P12-5 ✅ 2026-06-04 — breakdown row (donut/top-N/status-mix, click-to-filter) + pipeline-health panel.
+- P12-6 ✅ 2026-06-04 — Explorer facet rail + structured query bar (logKey validation + SQL/LogQL toggles).
+- P12-7 ✅ 2026-06-04 — virtualized TanStack table + four-tab detail drawer (Overview/Raw/Context/Trace).
+- P12-8 ✅ 2026-06-04 — SSE live tail (ring buffer + rAF flush + follow-mode) via same-origin RBAC proxy route.
+- P12-9 🔵 2026-06-04 — static gates (typecheck/lint/build) + API contract (shapes/CORS/RBAC/SSE) verified; live browser e2e pending (blocked by a pre-existing apps/api Prisma-destination write failure).

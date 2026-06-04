@@ -23,8 +23,8 @@ const ICON_BASE_CLASS = 'h-4 w-4 shrink-0'
 const ICON_ACTIVE_CLASS = 'text-brand-500'
 const ICON_INACTIVE_CLASS = 'text-white/40'
 const NAV_BASE_CLASSES = [
-  'flex w-[250px] shrink-0 flex-col border-r border-white/8 bg-[rgba(12,12,12,0.98)]',
-  'z-[100] fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto',
+  'flex w-[250px] shrink-0 flex-col border-r border-white/8 bg-(--color-sidebar-bg)',
+  'z-100 fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto',
   'lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]',
 ] as const
 

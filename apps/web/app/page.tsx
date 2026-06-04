@@ -1,36 +1,29 @@
 /**
- * @fileoverview Overview page — placeholder rendered inside AppShell while the
- * real dashboard panels (health, RED metrics, breakdowns) are being built.
+ * @fileoverview Overview page — the on-call landing dashboard.
+ *
+ * A thin server-component shell that renders the `'use client'`
+ * {@link OverviewContent} (health strip → brushable volume → RED row →
+ * breakdown row → pipeline health) inside the app chrome.
  *
  * @module app/page
  */
 
-import Link from 'next/link'
 import { AppShell } from '@/components/layout/app-shell'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { OverviewContent } from '@/components/charts/overview-content'
+
+// URL-driven dashboard: the global controls and panels read live search params,
+// so the page renders dynamically rather than being statically prerendered.
+export const dynamic = 'force-dynamic'
 
 /**
- * Overview placeholder page. Real panels (charts, RED metrics, breakdowns)
- * are wired in the next iteration.
+ * Overview dashboard page.
  *
- * @returns The overview card inside the AppShell.
+ * @returns The Overview content inside the app shell.
  */
 export default function OverviewPage() {
   return (
     <AppShell>
-      <Card>
-        <CardHeader>
-          <CardTitle>Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-start gap-4 text-sm text-muted-foreground">
-          <p>Health, RED metrics, and breakdowns are on the way.</p>
-          <p>No logs yet — fire one from the Trigger Center to see the dashboard come alive.</p>
-          <Button asChild>
-            <Link href="/trigger">Go to Trigger Center</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <OverviewContent />
     </AppShell>
   )
 }

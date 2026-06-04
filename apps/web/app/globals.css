@@ -41,6 +41,7 @@
   --color-accent: #f97316;
   --color-success: #22c55e;
   --color-danger: #ef4444;
+  --color-sidebar-bg: rgba(12, 12, 12, 0.98);
   --shadow-primary: 0 0 24px rgba(255, 98, 36, 0.4);
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -82,6 +83,7 @@
   --color-accent: #f97316;
   --color-success: #22c55e;
   --color-danger: #ef4444;
+  --color-sidebar-bg: rgba(12, 12, 12, 0.98);
   --shadow-primary: 0 0 24px rgba(255, 98, 36, 0.4);
 }
 

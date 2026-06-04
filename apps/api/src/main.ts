@@ -13,6 +13,7 @@ import './instrumentation.js' // MUST be the first import — starts the OTel SD
 import { PinoLoggerService } from '@bymax-one/nest-logger'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
 
 import { AppModule } from './app.module.js'
 import type { Env } from './config/env.schema.js'
@@ -32,7 +33,10 @@ async function bootstrap(): Promise<void> {
   // calling `process.exit(1)` inside NestJS's ExceptionsZone — needed because the
   // `PinoLoggerService` bridge is best-effort: if `BymaxLoggerModule` is absent (e.g. a
   // minimal harness without the module), the guard falls back to flushing buffered logs.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, abortOnError: false })
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    abortOnError: false,
+  })
 
   // Bridge NestJS's internal logger to the library logger. Guard the lookup: if
   // `BymaxLoggerModule` is not in scope the provider is absent and the catch falls back
@@ -69,6 +73,22 @@ async function bootstrap(): Promise<void> {
   // Read the validated, coerced PORT from ConfigService (a number) rather than the raw
   // `process.env.PORT` string — the Zod schema is the single source of truth for config.
   const configService = app.get<ConfigService<Env, true>>(ConfigService)
+
+  // Use the qs "extended" query parser so nested params like `level[gte]=warn`
+  // deserialize to `{ level: { gte: 'warn' } }` — the dashboard's level>= filter
+  // relies on this. Express 5 defaults to the "simple" parser, which would not.
+  app.set('query parser', 'extended')
+
+  // Allow the apps/web dashboard (a separate origin in dev) to call the read-API
+  // with its RBAC headers. The browser cannot attach custom headers to an
+  // EventSource, so the live tail is proxied same-origin through apps/web; these
+  // headers cover the plain fetch endpoints (logs/aggregate/facets/context/export).
+  app.enableCors({
+    origin: configService.get('WEB_ORIGIN', { infer: true }),
+    allowedHeaders: ['Content-Type', 'Accept', 'x-role', 'x-tenant-id', 'x-actor', 'last-event-id'],
+    exposedHeaders: ['X-Export-Truncated', 'Content-Disposition'],
+  })
+
   await app.listen(configService.get('PORT', { infer: true }))
 }
 
