@@ -15,6 +15,27 @@ import { DEV_WORKER_URL } from './env.defaults.js'
  */
 export const DEV_OTLP_TRACE_ENDPOINT = 'http://localhost:4318/v1/traces'
 
+/** Loopback hostnames rejected for outbound URLs in production. */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+
+/**
+ * Whether a URL string resolves to a loopback host. A parse failure returns
+ * `false` because `z.url()` already reports a malformed URL.
+ *
+ * @param value - The URL string to inspect.
+ * @returns `true` when the hostname is a loopback address.
+ */
+function isLoopbackUrl(value: string): boolean {
+  try {
+    return LOOPBACK_HOSTS.has(new URL(value).hostname)
+  } catch {
+    return false
+  }
+}
+
+/** URL env vars that must point at a real (non-loopback) host in production. */
+const PRODUCTION_NON_LOOPBACK_URLS = ['LOKI_URL', 'WORKER_URL', 'DATABASE_URL'] as const
+
 /** Environment-variable schema for `apps/api`. */
 export const envSchema = z
   .object({
@@ -31,76 +52,45 @@ export const envSchema = z
     LOKI_QUERY_URL: z.url().default('http://localhost:3100'),
     LOG_DB_MIN_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('warn'),
     WORKER_URL: z.url().default(DEV_WORKER_URL), // apps/api → apps/worker hop
+    WEB_ORIGIN: z.url().default('http://localhost:3003'), // apps/web dashboard origin (CORS allow-list)
   })
   .superRefine((env, ctx) => {
-    // Fail fast in production if the OTLP endpoint was left at the localhost dev default:
-    // a real deploy would otherwise silently black-hole every span to a non-existent
-    // local collector. Dev/test keep the convenient default.
-    if (env.NODE_ENV === 'production' && env.OTLP_TRACE_ENDPOINT === DEV_OTLP_TRACE_ENDPOINT) {
+    // All cross-host guards apply to production only; dev/test keep the convenient
+    // localhost defaults. Each guard fails fast so a misconfigured deploy cannot
+    // silently black-hole telemetry or connect to an unintended local service.
+    if (env.NODE_ENV !== 'production') return
+
+    // OTLP left at the localhost dev default would send every span to a non-existent collector.
+    if (env.OTLP_TRACE_ENDPOINT === DEV_OTLP_TRACE_ENDPOINT) {
       ctx.addIssue({
         code: 'custom',
         path: ['OTLP_TRACE_ENDPOINT'],
         message: 'must be set explicitly in production (not the localhost dev default)',
       })
     }
-    // Reject a loopback LOKI_URL in production — log data pushed over plaintext HTTP to
-    // localhost would be silently black-holed (or sent to an unintended local service).
-    if (env.NODE_ENV === 'production') {
-      try {
-        const lokiHostname = new URL(env.LOKI_URL).hostname
-        const isLokiLoopback =
-          lokiHostname === 'localhost' || lokiHostname === '127.0.0.1' || lokiHostname === '::1'
-        if (isLokiLoopback) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['LOKI_URL'],
-            message: 'must not point to localhost in production',
-          })
-        }
-      } catch {
-        // URL parse failed — already caught by z.url() above.
+
+    // Outbound URLs (Loki push, worker hop, database) must point at a real peer, not loopback.
+    for (const key of PRODUCTION_NON_LOOPBACK_URLS) {
+      if (isLoopbackUrl(env[key])) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'must not point to localhost in production',
+        })
       }
     }
-    // Reject a loopback WORKER_URL in production — the cross-service hop must point at
-    // a real peer service address, not localhost (which would fail silently in a container).
-    if (env.NODE_ENV === 'production') {
-      try {
-        const workerHostname = new URL(env.WORKER_URL).hostname
-        const isWorkerLoopback =
-          workerHostname === 'localhost' ||
-          workerHostname === '127.0.0.1' ||
-          workerHostname === '::1'
-        if (isWorkerLoopback) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['WORKER_URL'],
-            message: 'must not point to localhost in production',
-          })
-        }
-      } catch {
-        // URL parse failed — already caught by z.url() above.
+
+    // The CORS allow-list must use HTTPS so dashboard↔API requests are not served insecurely.
+    try {
+      if (new URL(env.WEB_ORIGIN).protocol !== 'https:') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['WEB_ORIGIN'],
+          message: 'must use https:// in production',
+        })
       }
-    }
-    // Reject a loopback DATABASE_URL in production — the dev default credential would
-    // silently connect to nothing (or worse, a local DB on the prod host). Parse the URL
-    // and inspect only the hostname so credentials or query-params containing "localhost"
-    // do not produce false positives.
-    if (env.NODE_ENV === 'production') {
-      try {
-        const { hostname } = new URL(env.DATABASE_URL)
-        const isLoopback =
-          hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-        if (isLoopback) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['DATABASE_URL'],
-            message: 'must not point to localhost in production',
-          })
-        }
-      } catch {
-        // URL parse failed — already caught by z.url() above, so this branch
-        // is unreachable in practice; swallowing here avoids a duplicate error message.
-      }
+    } catch {
+      // URL parse failed — already reported by z.url().
     }
   })
 

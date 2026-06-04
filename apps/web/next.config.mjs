@@ -13,6 +13,19 @@ import process from 'node:process'
 
 const isProduction = process.env['NODE_ENV'] === 'production'
 
+// The dashboard fetches the logs read-API directly from the browser, so its
+// origin must be in `connect-src`. The SSE live tail is proxied same-origin
+// (`/api/logs/stream`) and is covered by `'self'`.
+const apiBase = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
+const apiOrigin = (() => {
+  try {
+    return new URL(apiBase).origin
+  } catch {
+    return ''
+  }
+})()
+const connectSrc = ["'self'", apiOrigin].filter(Boolean).join(' ')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
@@ -32,7 +45,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data:",
               "font-src 'self'",
-              "connect-src 'self'",
+              `connect-src ${connectSrc}`,
               "frame-ancestors 'none'",
             ].join('; '),
           },

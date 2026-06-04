@@ -1,16 +1,20 @@
 /**
- * @fileoverview Fixed 64px dark-glass top bar — brand identity + controls slot.
+ * @fileoverview Fixed 64px dark-glass top bar — brand identity + global controls.
  *
  * Shows the orange-bordered stacked-layers brand mark and the gradient
- * `nest-logger-example` wordmark on the left. A hamburger button on the right
- * toggles the mobile sidebar overlay; the right slot is reserved for global
- * time/source/live controls wired in a later phase.
+ * `nest-logger-example` wordmark on the left. The right cluster holds the four
+ * global controls (time range, source, tenant/role, live) — all of which write
+ * to the URL — plus the hamburger that toggles the mobile sidebar overlay.
  */
 
 'use client'
 
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { TimeRangePicker } from '@/components/controls/time-range-picker'
+import { SourceToggle } from '@/components/controls/source-toggle'
+import { TenantRoleSwitcher } from '@/components/controls/tenant-role-switcher'
+import { LiveToggle } from '@/components/controls/live-toggle'
 
 interface TopbarProps {
   /** Called when the hamburger button is pressed to toggle the sidebar. */
@@ -20,7 +24,7 @@ interface TopbarProps {
 /** Fixed 64px dark-glass top bar — brand identity (left) + controls slot (right). */
 export function Topbar({ onMenuOpen }: TopbarProps) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-[200] flex h-16 items-center justify-between border-b border-white/7 bg-black/85 px-4 backdrop-blur-md lg:px-6">
+    <header className="fixed left-0 right-0 top-0 z-200 flex h-16 items-center justify-between border-b border-white/7 bg-black/85 px-4 backdrop-blur-md lg:px-6">
       {/* ── Left: brand ── */}
       <div className="flex items-center gap-3">
         <div
@@ -42,8 +46,14 @@ export function Topbar({ onMenuOpen }: TopbarProps) {
         </span>
       </div>
 
-      {/* ── Right: hamburger (mobile) + global-controls slot ── */}
+      {/* ── Right: global controls + hamburger (mobile) ── */}
       <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
+          <TimeRangePicker />
+          <SourceToggle />
+          <TenantRoleSwitcher />
+          <LiveToggle />
+        </div>
         <Button
           variant="ghost"
           size="icon"
