@@ -117,7 +117,7 @@ export function useLogStream(filter: LogQuery, enabled: boolean): LogStream {
   const [connected, setConnected] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const role = filter.role ?? 'admin'
+  const role = filter.role ?? 'viewer'
   const url = `/api/logs/stream?${encodeLogQuery(filter)}&role=${role}`
 
   useEffect(() => {
@@ -126,7 +126,12 @@ export function useLogStream(filter: LogQuery, enabled: boolean): LogStream {
       setFailed(false)
       return
     }
+    // Starting a fresh subscription (enabled flip or filter/url change): drop any
+    // rows from the previous filter so stale lines don't linger in the tail.
     setFailed(false)
+    buffer.clear()
+    pendingRef.current = []
+    setRows([])
     const source = new EventSource(url)
     let lastDataAt = Date.now()
 

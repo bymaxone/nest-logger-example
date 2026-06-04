@@ -262,9 +262,9 @@ interface DetailDrawerProps {
 export function DetailDrawer({ row, open, onOpenChange }: DetailDrawerProps) {
   const { query, setQuery } = useLogQuery()
 
-  // Treat empty strings as absent so an empty correlation id never opens a query
-  // with a blank requestId/traceId. Before/after counts use the API defaults.
-  const correlationId = (row?.requestId || row?.traceId) ?? null
+  // Treat empty strings as absent (|| coalesces '' too) so an empty correlation
+  // id never opens a query with a blank requestId/traceId. Counts use API defaults.
+  const correlationId = row?.requestId || row?.traceId || null
   const context = useQuery({
     queryKey: ['context', correlationId, query.source],
     enabled: open && correlationId !== null,
