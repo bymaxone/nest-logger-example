@@ -26,6 +26,7 @@ import { GovernanceModule } from './governance/governance.module.js'
 import { HealthModule } from './health/health.module.js'
 import { buildLoggerOptions } from './logger/logger.config.js'
 import { LoggerModule } from './logger/logger.module.js'
+import { LogEventBus } from './logs/log-event.bus.js'
 import { LogsModule } from './logs/logs.module.js'
 import { OrdersModule } from './orders/orders.module.js'
 import { PaymentsModule } from './payments/payments.module.js'
@@ -40,10 +41,10 @@ import { TriggerModule } from './trigger/trigger.module.js'
     ScheduleModule.forRoot(),
     PrismaModule,
     BymaxLoggerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService, PrismaService],
-      useFactory: (config: ConfigService, prisma: PrismaService) =>
-        buildLoggerOptions(config, prisma),
+      imports: [ConfigModule, LogsModule],
+      inject: [ConfigService, PrismaService, LogEventBus],
+      useFactory: (config: ConfigService, prisma: PrismaService, bus: LogEventBus) =>
+        buildLoggerOptions(config, prisma, bus),
     }),
     HealthModule,
     LoggerModule,

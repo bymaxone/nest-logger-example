@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 86 / 133 tasks done (65%)**
+> **Overall progress: 87 / 133 tasks done (65%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -45,7 +45,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 9   | OpenTelemetry Correlation + `apps/worker` | `phase-09-otel-correlation.md`    | 6 / 6        | 100% | 🟢     |
 | 10  | `logs/` Read-API                          | `phase-10-logs-api.md`            | 9 / 9        | 100% | 🟢     |
 | 11  | `apps/web` Skeleton + Design System       | `phase-11-web-skeleton.md`        | 7 / 7        | 100% | 🟢     |
-| 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`      | 8 / 9        | 89%  | 🟡     |
+| 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`      | 9 / 9        | 100% | 🟢     |
 | 13  | Dashboard — Trigger, Alerts, Maintenance  | `phase-13-dashboard-ops.md`       | 0 / 9        | 0%   | 🔴     |
 | 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 0 / 10       | 0%   | 🔴     |
 | 15  | Mutation Testing (**Stryker 100%**)       | `phase-15-mutation.md`            | 0 / 6        | 0%   | 🔴     |

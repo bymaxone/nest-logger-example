@@ -16,6 +16,8 @@ import type { ConfigService } from '@nestjs/config'
 import type { BymaxLoggerModuleOptions, LogLevel } from '@bymax-one/nest-logger'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
+import type { LogEventBus } from '../logs/log-event.bus.js'
+import { EventBusLogDestination } from '../destinations/event-bus.destination.js'
 import { LokiDestination } from '../destinations/loki.destination.js'
 import { PrismaLogDestination } from '../destinations/prisma-log.destination.js'
 import { RollingFileDestination } from '../destinations/rolling-file.destination.js'
@@ -24,13 +26,14 @@ import { RollingFileDestination } from '../destinations/rolling-file.destination
  * Build the `BymaxLoggerModuleOptions` object from validated environment variables.
  *
  * @param config - NestJS config service backed by the Zod-validated env schema.
- * @param prisma - Prisma service instance; reserved for `PrismaLogDestination` when
- *   database log sinks are configured. Unused until destinations are wired.
+ * @param prisma - Prisma service instance backing `PrismaLogDestination` (durable `warn`+ tier).
+ * @param bus - Live-tail event bus backing `EventBusLogDestination` (SSE fan-out).
  * @returns The fully-configured module options object.
  */
 export function buildLoggerOptions(
   config: ConfigService,
   prisma: PrismaService,
+  bus: LogEventBus,
 ): BymaxLoggerModuleOptions {
   const isProd = config.get('NODE_ENV') === 'production'
   const extraPaths = (config.get<string>('LOG_EXTRA_REDACT_PATHS') ?? '')
@@ -59,11 +62,18 @@ export function buildLoggerOptions(
         return { status: err.status, code: err.code }
       },
     },
-    timestamp: () => `,"time":"${new Date().toISOString()}"`,
+    // Return ONLY the timestamp value — the library wraps it into the `,"time":"<value>"`
+    // line fragment itself. Returning a full `,"time":"..."` fragment here double-wraps it
+    // into invalid JSON, which breaks every JSON.parse-based destination (e.g. Postgres).
+    timestamp: () => new Date().toISOString(),
     http: {
       isEnabled: true,
       // RegExp[] — anchored, ReDoS-safe (the lib .test()s each pattern per request).
-      excludePaths: [/^\/health$/, /^\/metrics$/],
+      // `/logs/stream` is the SSE live-tail: the access-log interceptor's per-emit `tap` would
+      // log once per streamed event, and because each entry is fanned back into the live tail
+      // (EventBusLogDestination) that self-amplifies into a feedback loop. Long-lived streams
+      // must not be per-event access-logged — exclude it.
+      excludePaths: [/^\/health$/, /^\/metrics$/, /^\/logs\/stream$/],
       shouldCaptureExceptions: true,
       // false: RequestIdMiddleware is wired explicitly in app.module.ts configure().
       shouldGenerateRequestId: false,
@@ -85,6 +95,8 @@ export function buildLoggerOptions(
         batchSize: 50,
         flushIntervalMs: 2_000,
       }),
+      // Fan out every info+ entry to the SSE live-tail bus (full-fidelity tier, matching Loki).
+      new EventBusLogDestination(bus, { minLevel: 'info' }),
       // RollingFileDestination is dev-only (pino-roll, async onInit) — omitted in production.
       ...(isProd
         ? []
