@@ -57,6 +57,12 @@ const NOW_QUANTUM_MS = 30_000
  * an empty string means "unset". `role` defaults to `admin` so the on-call
  * landing view shows logs across every tenant out of the box (operator/viewer
  * narrow it).
+ *
+ * `tenantId` stays an unbounded free-text parser so a deep-linked URL is never
+ * silently dropped on read; its value is validated against a safe pattern at the
+ * request boundary in `lib/rbac-headers.ts` before it is forwarded as the
+ * `x-tenant-id` header. `role` is, by contrast, a closed enum, so it cannot carry
+ * arbitrary input.
  */
 export const logQueryParsers = {
   range: parseAsString.withDefault(''),

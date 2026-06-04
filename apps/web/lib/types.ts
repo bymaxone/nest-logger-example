@@ -25,6 +25,17 @@ export type LogSource = 'postgres' | 'loki'
 /** RBAC role driving query-based access control (sent as the `x-role` header). */
 export type RbacRole = 'viewer' | 'operator' | 'admin'
 
+/**
+ * The active RBAC identity (role + tenant) read from the global control. Sent as
+ * `x-role` / `x-tenant-id` headers by the alerts, incidents, and governance
+ * clients so the server enforces access uniformly.
+ */
+export interface RbacContext {
+  role: RbacRole
+  /** Selected tenant id; an empty string means "all tenants". */
+  tenantId: string
+}
+
 /** Server-side aggregate metric backing each chart panel. */
 export type AggregateMetric = 'volume' | 'errorRate' | 'latency' | 'statusMix'
 

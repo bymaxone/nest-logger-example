@@ -4,7 +4,7 @@
  * Layer: app/root. Wires global config validation, the Prisma database client, the
  * logger (with its HTTP interceptor + exception filter), the request-id middleware
  * (ALS scope), the Zod validation filter, the health routes, all six demo-domain
- * feature modules, and the Phase 10 read-API modules (`LogsModule`, `GovernanceModule`,
+ * feature modules, and the read-API modules (`LogsModule`, `GovernanceModule`,
  * `AlertsModule`). `ScheduleModule.forRoot()` registers the cron scheduler for
  * `AlertsEvaluatorService` and `RetentionSweepService`.
  *
@@ -12,13 +12,14 @@
  */
 import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { APP_FILTER } from '@nestjs/core'
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 import { BymaxLoggerModule, HttpExceptionFilter, RequestIdMiddleware } from '@bymax-one/nest-logger'
 
 import { ScheduleModule } from '@nestjs/schedule'
 
 import { AdminModule } from './admin/admin.module.js'
 import { AlertsModule } from './alerts/alerts.module.js'
+import { CorrelationHeadersInterceptor } from './common/correlation-headers.interceptor.js'
 import { ZodValidationFilter } from './common/zod-validation.filter.js'
 import { validateEnv } from './config/env.schema.js'
 import { DownstreamModule } from './downstream/downstream.module.js'
@@ -71,6 +72,9 @@ import { TriggerModule } from './trigger/trigger.module.js'
     // ZodValidationFilter catches unhandled ZodError from schema.parse(body) in controllers
     // and maps it to a 400 Bad Request with a DOMAIN_VALIDATION_FAILED structured log.
     { provide: APP_FILTER, useClass: ZodValidationFilter },
+    // Echoes X-Request-Id / X-Trace-Id on every response so the dashboard can
+    // deep-link a freshly fired request into the Explorer (Trigger Center pivot).
+    { provide: APP_INTERCEPTOR, useClass: CorrelationHeadersInterceptor },
   ],
 })
 export class AppModule implements NestModule {

@@ -11,7 +11,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint app components lib hooks"
+    "lint": "eslint app components lib hooks",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@bymax-one/nest-logger": "link:../../../nest-logger",
@@ -29,6 +33,7 @@
     "@tanstack/react-query": "^5",
     "@tanstack/react-table": "^8",
     "@tanstack/react-virtual": "^3",
+    "@uiw/react-json-view": "2.0.0-alpha.43",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -45,12 +50,19 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^4.1.8",
     "eslint-config-next": "^16.2.4",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.2.2",
-    "@uiw/react-json-view": "2.0.0-alpha.43"
+    "vitest": "^4.1.8"
   }
 }

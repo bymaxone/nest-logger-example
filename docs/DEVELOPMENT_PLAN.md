@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 87 / 133 tasks done (65%)**
+> **Overall progress: 96 / 133 tasks done (72%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -46,7 +46,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 10  | `logs/` Read-API                          | `phase-10-logs-api.md`            | 9 / 9        | 100% | 🟢     |
 | 11  | `apps/web` Skeleton + Design System       | `phase-11-web-skeleton.md`        | 7 / 7        | 100% | 🟢     |
 | 12  | Dashboard — Overview, Explorer, Live Tail | `phase-12-dashboard-core.md`      | 9 / 9        | 100% | 🟢     |
-| 13  | Dashboard — Trigger, Alerts, Maintenance  | `phase-13-dashboard-ops.md`       | 0 / 9        | 0%   | 🔴     |
+| 13  | Dashboard — Trigger, Alerts, Maintenance  | `phase-13-dashboard-ops.md`       | 9 / 9        | 100% | 🟢     |
 | 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 0 / 10       | 0%   | 🔴     |
 | 15  | Mutation Testing (**Stryker 100%**)       | `phase-15-mutation.md`            | 0 / 6        | 0%   | 🔴     |
 | 16  | Documentation                             | `phase-16-documentation.md`       | 0 / 8        | 0%   | 🔴     |
@@ -328,9 +328,9 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Prerequisites:** Phase 12.
 **Deliverables:**
 
-- [ ] `app/trigger/page.tsx` — fire every log type/feature; auto-pivot Explorer to the new `requestId`/`traceId`.
-- [ ] `app/alerts/page.tsx` — rule form (`expr + threshold + for`), channel registry, incident timeline.
-- [ ] `app/maintenance/page.tsx` — retention sweep status, JSON/CSV export, RBAC role/tenant, **redaction-at-source** proof panel, audit table.
+- [x] `app/trigger/page.tsx` — fire every log type/feature; auto-pivot Explorer to the new `requestId`/`traceId`.
+- [x] `app/alerts/page.tsx` — rule form (`expr + threshold + for`), channel registry, incident timeline.
+- [x] `app/maintenance/page.tsx` — retention sweep status, JSON/CSV export, RBAC role/tenant, **redaction-at-source** proof panel, audit table.
 
 **Definition of done:** each Playground trigger produces the documented logKeys; an alert fires an incident; export downloads the filtered set; switching tenant scopes the Explorer.
 

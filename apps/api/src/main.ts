@@ -83,10 +83,14 @@ async function bootstrap(): Promise<void> {
   // with its RBAC headers. The browser cannot attach custom headers to an
   // EventSource, so the live tail is proxied same-origin through apps/web; these
   // headers cover the plain fetch endpoints (logs/aggregate/facets/context/export).
+  // The x-role / x-tenant-id / x-actor headers below drive the demo's header-based
+  // RBAC. They are trusted verbatim only because `buildRbacContext` (governance/
+  // rbac.context.ts) hard-fails in production — a real deployment must wire
+  // `@bymax-one/nest-auth` before relying on these.
   app.enableCors({
     origin: configService.get('WEB_ORIGIN', { infer: true }),
     allowedHeaders: ['Content-Type', 'Accept', 'x-role', 'x-tenant-id', 'x-actor', 'last-event-id'],
-    exposedHeaders: ['X-Export-Truncated', 'Content-Disposition'],
+    exposedHeaders: ['X-Export-Truncated', 'Content-Disposition', 'X-Request-Id', 'X-Trace-Id'],
   })
 
   await app.listen(configService.get('PORT', { infer: true }))
