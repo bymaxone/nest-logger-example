@@ -174,9 +174,6 @@ export interface NotificationChannel {
   severities: Array<'critical' | 'warning'>
 }
 
-/** The create payload — a channel without its server-generated `id`. */
-export type NotificationChannelInput = Omit<NotificationChannel, 'id'>
-
 /** Runtime schema for a {@link ChannelType}. */
 const channelTypeSchema: ZodType<ChannelType> = z.enum(['slack', 'webhook', 'email-mock'])
 
@@ -215,13 +212,15 @@ export const listChannels = (rbac: Rbac): Promise<NotificationChannel[]> =>
 /**
  * Register a channel (`POST /alerts/channels`, admin only).
  *
- * @param channel - The channel to register (the server assigns its `id`).
+ * @param channel - The channel to register, including a unique caller-supplied
+ *   `id` — the API's `createChannelSchema` requires it (the server does not
+ *   generate one).
  * @param rbac - The active role + tenant, sent as RBAC headers.
  * @returns An envelope with the persisted channel.
  * @throws {AlertsApiError} When the response is non-2xx or fails shape validation.
  */
 export const createChannel = (
-  channel: NotificationChannelInput,
+  channel: NotificationChannel,
   rbac: Rbac,
 ): Promise<{ ok: boolean; channel: NotificationChannel }> =>
   request('POST', '/alerts/channels', createChannelResultSchema, rbac, channel)

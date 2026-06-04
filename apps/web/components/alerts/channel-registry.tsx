@@ -25,7 +25,6 @@ import {
   listChannels,
   maskEndpoint,
   type NotificationChannel,
-  type NotificationChannelInput,
   testChannel,
 } from '@/lib/alerts-api'
 import { Badge } from '@/components/ui/badge'
@@ -75,7 +74,7 @@ export function ChannelRegistry() {
   const [draft, setDraft] = useState<NotificationChannel>(EMPTY_DRAFT)
 
   const create = useMutation({
-    mutationFn: (channel: NotificationChannelInput) => createChannel(channel, rbac),
+    mutationFn: (channel: NotificationChannel) => createChannel(channel, rbac),
     onSuccess: () => {
       toast.success('Channel registered')
       setDraft(EMPTY_DRAFT)

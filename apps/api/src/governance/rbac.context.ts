@@ -26,7 +26,8 @@ export interface RbacContextData {
  *
  * @param headers - Express-style headers record.
  * @returns Resolved RBAC context; defaults to `operator` role when header is absent.
- * @throws {Error} In production (`NODE_ENV === 'production'`), because trusting
+ * @throws {Error} Outside development and test (any `NODE_ENV` other than
+ *   `development` or `test`, including `production`/`staging`), because trusting
  *   client-supplied `x-role` / `x-tenant-id` / `x-actor` headers is demo-only —
  *   wire `@bymax-one/nest-auth` (validated JWT/session) before production.
  */
@@ -34,9 +35,12 @@ export function buildRbacContext(
   headers: Record<string, string | string[] | undefined>,
 ): RbacContextData {
   // Header-based RBAC trusts client-supplied headers verbatim — safe only for the
-  // demo. Fail fast in production so a real deployment cannot accidentally ship it
-  // without first wiring a validated identity source (@bymax-one/nest-auth).
-  if (process.env.NODE_ENV === 'production') {
+  // demo. Permit it only in local development and tests; fail fast everywhere else
+  // (production, staging, preview, …) so a real deployment cannot accidentally ship
+  // it without first wiring a validated identity source (@bymax-one/nest-auth).
+  // An unset NODE_ENV is treated as development so local runs and CI keep working.
+  const env = process.env.NODE_ENV ?? 'development'
+  if (env !== 'development' && env !== 'test') {
     throw new Error(
       'Header-based RBAC is demo-only — wire @bymax-one/nest-auth (validated JWT/session) before production.',
     )
