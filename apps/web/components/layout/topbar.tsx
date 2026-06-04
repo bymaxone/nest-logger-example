@@ -20,7 +20,7 @@ interface TopbarProps {
 /** Fixed 64px dark-glass top bar — brand identity (left) + controls slot (right). */
 export function Topbar({ onMenuOpen }: TopbarProps) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-200 flex h-16 items-center justify-between border-b border-white/7 bg-black/85 px-4 backdrop-blur-md lg:px-6">
+    <header className="fixed left-0 right-0 top-0 z-[200] flex h-16 items-center justify-between border-b border-white/7 bg-black/85 px-4 backdrop-blur-md lg:px-6">
       {/* ── Left: brand ── */}
       <div className="flex items-center gap-3">
         <div

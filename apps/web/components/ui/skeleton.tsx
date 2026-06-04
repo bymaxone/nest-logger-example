@@ -4,6 +4,7 @@
  * Used while async data is fetching (log list, metrics, charts).
  */
 
+import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils'
  *
  * @param className - Shape and size utilities (e.g. `h-4 w-48 rounded-full`).
  */
-function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn('animate-pulse rounded-md bg-(--glass-bg-raised)', className)} {...props} />
   )

@@ -8,6 +8,7 @@
 
 'use client'
 
+import type { ComponentType } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Search, Zap, BellRing, Settings2, Cog } from 'lucide-react'
@@ -23,14 +24,14 @@ const ICON_ACTIVE_CLASS = 'text-brand-500'
 const ICON_INACTIVE_CLASS = 'text-white/40'
 const NAV_BASE_CLASSES = [
   'flex w-[250px] shrink-0 flex-col border-r border-white/8 bg-[rgba(12,12,12,0.98)]',
-  'z-100 fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto',
+  'z-[100] fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto',
   'lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]',
 ] as const
 
 interface NavItem {
   label: string
   href: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string }>
   exact?: boolean
 }
 
