@@ -44,9 +44,19 @@ interface ParsedLogEntry {
   logKey?: string
   msg?: string
   message?: string
-  service?: string
+  // The library emits `service` as the ServiceMetadata object ({ name, version }),
+  // not a bare string — the `name` is projected into the `service` column.
+  service?: string | { name?: string; version?: string }
+  tenantId?: string
   requestId?: string
   traceId?: string
+  spanId?: string
+  // HTTP status: the exception filter emits `status`, the request interceptor `statusCode`.
+  status?: number
+  statusCode?: number
+  // Request duration in ms: the interceptor emits `duration`, `@LogPerformance` `durationMs`.
+  duration?: number
+  durationMs?: number
   [key: string]: unknown
 }
 
@@ -172,17 +182,52 @@ export class PrismaLogDestination implements ILogDestination {
     const parsedTime = entry.time != null ? new Date(entry.time) : new Date()
     const time = isNaN(parsedTime.getTime()) ? new Date() : parsedTime
 
+    // The library emits `service` as a { name, version } object; project its name into the
+    // string column (falling back for any line that carried a bare string or nothing).
+    const service =
+      (typeof entry.service === 'object' && entry.service !== null
+        ? entry.service.name
+        : entry.service) ??
+      process.env.OTEL_SERVICE_NAME ??
+      'nest-logger-example-api'
+
+    // Numeric columns: accept the first field that is actually a number. A non-numeric value
+    // here would make Prisma reject the ENTIRE batch (createMany is all-or-nothing), so guard
+    // rather than trust the wire shape.
+    const status = pickNumber(entry.status, entry.statusCode)
+    const durationMs = pickNumber(entry.durationMs, entry.duration)
+
     return {
       time,
       level: entry.level ?? 'info',
       logKey: entry.logKey ?? 'UNKNOWN',
       message: entry.message ?? entry.msg ?? '',
-      service: entry.service ?? process.env.OTEL_SERVICE_NAME ?? 'nest-logger-example-api',
-      requestId: entry.requestId ?? null,
-      traceId: entry.traceId ?? null,
+      service,
+      tenantId: typeof entry.tenantId === 'string' ? entry.tenantId : null,
+      requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
+      traceId: typeof entry.traceId === 'string' ? entry.traceId : null,
+      spanId: typeof entry.spanId === 'string' ? entry.spanId : null,
+      status,
+      durationMs,
       // ParsedLogEntry's index signature uses `unknown` values; cast to InputJsonValue
       // at the JSON boundary (the data was JSON.parse'd so every value is serializable).
       payload: entry as Prisma.InputJsonValue,
     }
   }
+}
+
+/**
+ * Return the first argument that is a finite number, or `null` when none qualify.
+ *
+ * Used to map HTTP status / duration fields (which arrive under different keys and could,
+ * defensively, be non-numeric) onto integer columns without risking a batch-wide insert error.
+ *
+ * @param candidates - Values to test, in priority order.
+ * @returns The first finite number, or `null`.
+ */
+function pickNumber(...candidates: unknown[]): number | null {
+  for (const c of candidates) {
+    if (typeof c === 'number' && Number.isFinite(c)) return c
+  }
+  return null
 }

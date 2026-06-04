@@ -55,9 +55,12 @@ reports/
 # Logs
 # ============================================
 logs/
-# But never ignore application source under an `app/api/logs/` route directory.
+# But never ignore application source that lives in a directory named `logs`:
+# the Next.js `app/api/logs` route and the NestJS `src/logs` read-API module.
 !apps/web/app/api/logs/
 !apps/web/app/api/logs/**
+!apps/api/src/logs/
+!apps/api/src/logs/**
 *.log
 npm-debug.log*
 yarn-debug.log*

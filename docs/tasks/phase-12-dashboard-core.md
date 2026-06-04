@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-12--dashboard-overview-explorer-live-tail) §Phase 12
 > **Total tasks:** 9
-> **Progress:** 🟡 8 / 9 done (89%)
+> **Progress:** 🟢 9 / 9 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -18,7 +18,7 @@
 | P12-6 | `app/explorer/page.tsx` — facet rail + query bar (SQL/LogQL toggles)                         | 🟢     | High     | L    | P12-2              |
 | P12-7 | Explorer — virtualized table (TanStack Table v8 + Virtual v3) + detail drawer                | 🟢     | High     | L    | P12-6              |
 | P12-8 | `lib/use-event-source.ts` + live tail (follow-mode, rAF ring buffer)                         | 🟢     | High     | L    | P12-7              |
-| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)                          | 🔵     | High     | M    | P12-1..P12-8       |
+| P12-9 | Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)                          | 🟢     | High     | M    | P12-1..P12-8       |
 
 ---
 
@@ -943,7 +943,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P12-9 — Phase 12 verification gate (brush→filter, fire→tail, traceId→trace)
 
-- **Status:** 🔵 In Review
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (90–180 min)
 - **Depends on:** `P12-1`, `P12-2`, `P12-3`, `P12-4`, `P12-5`, `P12-6`, `P12-7`, `P12-8`
@@ -955,12 +955,12 @@ Phase 12 "Definition of done" gate per `DEVELOPMENT_PLAN.md`: prove the three da
 ### Acceptance Criteria
 
 - [x] `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter web build` all exit 0.
-- [ ] With `pnpm infra:up` + `apps/api` + `apps/web` running: brushing the Overview volume chart changes the URL `from`/`to` and the Explorer table re-queries to that window.
-- [ ] Firing a log (e.g. `curl -X POST :3001/orders` or the Trigger Center `/trigger/burst`) with **Live** on shows the new entry arrive at the bottom of the Explorer tail (follow-mode highlight + jump-to-latest pill when scrolled up).
-- [ ] A row's **[ View trace ]** in the detail drawer opens the corresponding Tempo trace in Grafana (derived-field URL resolves).
-- [ ] `[ All logs for this trace ]` pivots the Explorer to that one `traceId` across `api` + `worker`.
-- [ ] Charts confirmed to be fed only by `/logs/aggregate` (no client-side aggregation of raw rows); no chart groups by `requestId`/`traceId`/`userId`.
-- [ ] If any check fails, the fix lands in the matching P12-x task file, then this gate is re-run green.
+- [x] With `pnpm infra:up` + `apps/api` + `apps/web` running: brushing the Overview volume chart changes the URL `from`/`to` and the Explorer table re-queries to that window.
+- [x] Firing a log (e.g. `curl -X POST :3001/orders` or the Trigger Center `/trigger/burst`) with **Live** on shows the new entry arrive at the bottom of the Explorer tail (follow-mode highlight + jump-to-latest pill when scrolled up).
+- [x] A row's **[ View trace ]** in the detail drawer opens the corresponding Tempo trace in Grafana (derived-field URL resolves).
+- [x] `[ All logs for this trace ]` pivots the Explorer to that one `traceId` across `api` + `worker`.
+- [x] Charts confirmed to be fed only by `/logs/aggregate` (no client-side aggregation of raw rows); no chart groups by `requestId`/`traceId`/`userId`.
+- [x] If any check fails, the fix lands in the matching P12-x task file, then this gate is re-run green.
 
 ### Files to create / modify
 
@@ -1019,4 +1019,4 @@ _(Agents append one line per finished task, newest at the bottom.)_
 - P12-6 ✅ 2026-06-04 — Explorer facet rail + structured query bar (logKey validation + SQL/LogQL toggles).
 - P12-7 ✅ 2026-06-04 — virtualized TanStack table + four-tab detail drawer (Overview/Raw/Context/Trace).
 - P12-8 ✅ 2026-06-04 — SSE live tail (ring buffer + rAF flush + follow-mode) via same-origin RBAC proxy route.
-- P12-9 🔵 2026-06-04 — static gates (typecheck/lint/build) + API contract (shapes/CORS/RBAC/SSE) verified; live browser e2e pending (blocked by a pre-existing apps/api Prisma-destination write failure).
+- P12-9 ✅ 2026-06-04 — all 3 DoD behaviors verified in-browser against the live stack: brush→filter (brush sets URL `from`/`to`, Explorer re-queries `/logs` to that window), fire→tail (Live SSE streaming, new rows at bottom + "N new logs — Jump to latest" pill), traceId→trace ([View trace] resolves to a real Tempo trace via the provisioned `tempo` datasource; [All logs for this trace] pivots the Explorer to that `traceId`). Charts confirmed fed only by `/logs/aggregate` + `/logs/facets` (bounded dimensions). Unblocked by fixing `apps/api`: logger `timestamp` double-wrap (broke Postgres `JSON.parse`), the missing `EventBusLogDestination` live-tail producer, Prisma column projection (`service`/`status`/`durationMs`/`tenantId`/`spanId`), and the untracked `apps/api/src/logs` module (`.gitignore`).
