@@ -56,7 +56,9 @@ type LokiQueryDto = z.infer<typeof lokiQuerySchema>
  * @returns Nanosecond timestamp string.
  */
 function toNano(d: Date): string {
-  return String(d.getTime() * 1_000_000)
+  // Use BigInt: `getTime() * 1e6` for current Unix times exceeds Number.MAX_SAFE_INTEGER
+  // (2^53), so a float multiply would silently lose precision in the low digits.
+  return (BigInt(d.getTime()) * 1_000_000n).toString()
 }
 
 /**
@@ -88,10 +90,20 @@ export class LokiProxyController {
     const restriction = toRestriction(buildRbacContext(headers))
     const logql = this.logs.buildLogQL(q, restriction)
 
+    const now = new Date()
+    const start = q.from ? new Date(q.from) : new Date(now.getTime() - 60 * 60 * 1000)
+    const end = q.to ? new Date(q.to) : now
+
     try {
       switch (q.mode) {
         case 'labels': {
-          const values = await this.client.labelValues(q.labelName ?? 'level')
+          // Scope label values to the RBAC selector + time window so the facet rail
+          // cannot leak cross-tenant values (e.g. other tenants' `service`/`tenantId`).
+          const values = await this.client.labelValues(q.labelName ?? 'level', {
+            query: logql,
+            startNs: toNano(start),
+            endNs: toNano(end),
+          })
           return { values }
         }
         case 'tail': {
@@ -100,9 +112,6 @@ export class LokiProxyController {
         }
         case 'query_range':
         default: {
-          const now = new Date()
-          const start = q.from ? new Date(q.from) : new Date(now.getTime() - 60 * 60 * 1000)
-          const end = q.to ? new Date(q.to) : now
           // `await` is required here so the try-catch catches rejected promises.
           return await this.client.queryRange(
             logql,

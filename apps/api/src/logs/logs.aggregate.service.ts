@@ -20,6 +20,13 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import { LogsService } from './logs.service.js'
 import { resolveBucket, type AggregateQueryDto } from './dto/aggregate-query.dto.js'
 
+/** Explicit bucket sizes mapped to a `date_trunc` unit and `generate_series` interval. */
+const EXPLICIT_BUCKET: Record<'1m' | '5m' | '1h', { unit: string; interval: string }> = {
+  '1m': { unit: 'minute', interval: '1 minute' },
+  '5m': { unit: 'minute', interval: '5 minutes' },
+  '1h': { unit: 'hour', interval: '1 hour' },
+}
+
 /** One zero-filled volume row: bucket timestamp, level, and count. */
 export interface VolumeRow {
   bucket: Date
@@ -66,19 +73,29 @@ export class LogsAggregateService {
   ) {}
 
   /**
-   * Extract the time window boundaries and tenantId from a compiled Prisma `where` clause.
+   * Extract the time window, tenantId, bucket sizing and the non-time/non-tenant
+   * filter fragment from a compiled Prisma `where` clause.
    *
    * All four metric builders share this pattern — centralising it avoids 4× duplicated
-   * type-narrowing logic and ensures every metric uses the same fallback window.
+   * type-narrowing logic and ensures every metric honours the same window, bucket and
+   * filters. The bucket honours an explicit `q.bucket` (`1m`/`5m`/`1h`) and only falls
+   * back to `resolveBucket` when `bucket === 'auto'`.
    *
    * @param where - Prisma where clause produced by `LogsService.buildPrismaWhere`.
-   * @param q - Original aggregate query (used for the `resolveBucket` fallback window).
-   * @returns `{ from, to, tenantId, unit, interval }` for use in raw SQL.
+   * @param q - Original aggregate query (drives the `auto` bucket window and size).
+   * @returns `{ from, to, tenantId, unit, interval, filters }` for use in raw SQL.
    */
   private extractQueryContext(
     where: import('@prisma/client').Prisma.ApplicationLogWhereInput,
     q: AggregateQueryDto,
-  ): { from: Date; to: Date; tenantId: string | null; unit: string; interval: string } {
+  ): {
+    from: Date
+    to: Date
+    tenantId: string | null
+    unit: string
+    interval: string
+    filters: Prisma.Sql
+  } {
     const from =
       where.time && typeof where.time === 'object' && 'gte' in where.time
         ? (where.time.gte as Date)
@@ -88,8 +105,76 @@ export class LogsAggregateService {
         ? (where.time.lte as Date)
         : new Date()
     const tenantId = typeof where.tenantId === 'string' ? where.tenantId : null
-    const { unit, interval } = resolveBucket(q.from, q.to)
-    return { from, to, tenantId, unit, interval }
+    const { unit, interval } =
+      q.bucket === 'auto' ? resolveBucket(q.from, q.to) : EXPLICIT_BUCKET[q.bucket]
+    return { from, to, tenantId, unit, interval, filters: this.buildFilterSql(where) }
+  }
+
+  /**
+   * Build a parameterized SQL fragment for the non-time, non-tenant filters
+   * (`service`, `level`, `logKey`, `traceId`, `requestId`, free-text `q`).
+   *
+   * Reuses the already-compiled Prisma `where` so the level-range expansion and
+   * `logKey` wildcard handling stay identical to the search path. Every value is
+   * bound via `Prisma.sql` — never string-interpolated. Time and tenantId are
+   * threaded separately by each builder, so they are excluded here. Returns
+   * `Prisma.empty` when no extra filter is active.
+   *
+   * @param where - Prisma where clause produced by `LogsService.buildPrismaWhere`.
+   * @returns A `Prisma.Sql` fragment of `AND`-prefixed conditions, or `Prisma.empty`.
+   */
+  private buildFilterSql(
+    where: import('@prisma/client').Prisma.ApplicationLogWhereInput,
+  ): Prisma.Sql {
+    const parts: Prisma.Sql[] = []
+
+    if (typeof where.service === 'string') {
+      parts.push(Prisma.sql`AND "service" = ${where.service}`)
+    }
+
+    const level = where.level
+    if (typeof level === 'string') {
+      parts.push(Prisma.sql`AND "level" = ${level}`)
+    } else if (
+      level &&
+      typeof level === 'object' &&
+      Array.isArray((level as { in?: unknown }).in)
+    ) {
+      parts.push(Prisma.sql`AND "level" IN (${Prisma.join((level as { in: string[] }).in)})`)
+    }
+
+    const logKey = where.logKey
+    if (typeof logKey === 'string') {
+      parts.push(Prisma.sql`AND "logKey" = ${logKey}`)
+    } else if (
+      logKey &&
+      typeof logKey === 'object' &&
+      typeof (logKey as { startsWith?: unknown }).startsWith === 'string'
+    ) {
+      parts.push(
+        Prisma.sql`AND "logKey" LIKE ${(logKey as { startsWith: string }).startsWith + '%'}`,
+      )
+    }
+
+    if (typeof where.traceId === 'string') {
+      parts.push(Prisma.sql`AND "traceId" = ${where.traceId}`)
+    }
+    if (typeof where.requestId === 'string') {
+      parts.push(Prisma.sql`AND "requestId" = ${where.requestId}`)
+    }
+
+    const message = where.message
+    if (
+      message &&
+      typeof message === 'object' &&
+      typeof (message as { contains?: unknown }).contains === 'string'
+    ) {
+      parts.push(
+        Prisma.sql`AND "message" ILIKE ${'%' + (message as { contains: string }).contains + '%'}`,
+      )
+    }
+
+    return parts.length ? Prisma.join(parts, ' ') : Prisma.empty
   }
 
   /**
@@ -124,7 +209,7 @@ export class LogsAggregateService {
    */
   private async volume(q: AggregateQueryDto): Promise<VolumeRow[]> {
     const where = this.logs.buildPrismaWhere(q)
-    const { from, to, tenantId, unit, interval } = this.extractQueryContext(where, q)
+    const { from, to, tenantId, unit, interval, filters } = this.extractQueryContext(where, q)
 
     const rows = await this.prisma.$queryRaw<VolumeRow[]>(Prisma.sql`
       SELECT b.bucket, l.level, COALESCE(c.n, 0)::int AS n
@@ -135,6 +220,7 @@ export class LogsAggregateService {
         FROM "ApplicationLog"
         WHERE time BETWEEN ${from} AND ${to}
           AND (${tenantId}::text IS NULL OR "tenantId" = ${tenantId})
+          ${filters}
         GROUP BY 1, 2
       ) c ON c.bucket = b.bucket AND c.level = l.level
       ORDER BY b.bucket
@@ -153,7 +239,7 @@ export class LogsAggregateService {
    */
   private async errorRate(q: AggregateQueryDto): Promise<ErrorRateRow[]> {
     const where = this.logs.buildPrismaWhere(q)
-    const { from, to, tenantId, unit } = this.extractQueryContext(where, q)
+    const { from, to, tenantId, unit, filters } = this.extractQueryContext(where, q)
     const rows = await this.prisma.$queryRaw<ErrorRateRow[]>(Prisma.sql`
       SELECT
         date_trunc(${unit}, time) AS bucket,
@@ -162,6 +248,7 @@ export class LogsAggregateService {
       WHERE "logKey" LIKE 'HTTP_REQUEST_%'
         AND time BETWEEN ${from} AND ${to}
         AND (${tenantId}::text IS NULL OR "tenantId" = ${tenantId})
+        ${filters}
       GROUP BY 1
       ORDER BY 1
     `)
@@ -179,7 +266,7 @@ export class LogsAggregateService {
    */
   private async latency(q: AggregateQueryDto): Promise<LatencyRow[]> {
     const where = this.logs.buildPrismaWhere(q)
-    const { from, to, tenantId, unit } = this.extractQueryContext(where, q)
+    const { from, to, tenantId, unit, filters } = this.extractQueryContext(where, q)
 
     const rows = await this.prisma.$queryRaw<LatencyRow[]>(Prisma.sql`
       SELECT
@@ -191,6 +278,7 @@ export class LogsAggregateService {
       WHERE "durationMs" IS NOT NULL
         AND time BETWEEN ${from} AND ${to}
         AND (${tenantId}::text IS NULL OR "tenantId" = ${tenantId})
+        ${filters}
       GROUP BY 1
       ORDER BY 1
     `)
@@ -207,7 +295,7 @@ export class LogsAggregateService {
    */
   private async statusMix(q: AggregateQueryDto): Promise<StatusMixRow[]> {
     const where = this.logs.buildPrismaWhere(q)
-    const { from, to, tenantId, unit } = this.extractQueryContext(where, q)
+    const { from, to, tenantId, unit, filters } = this.extractQueryContext(where, q)
 
     const rows = await this.prisma.$queryRaw<StatusMixRow[]>(Prisma.sql`
       SELECT
@@ -219,6 +307,7 @@ export class LogsAggregateService {
       FROM "ApplicationLog"
       WHERE time BETWEEN ${from} AND ${to}
         AND (${tenantId}::text IS NULL OR "tenantId" = ${tenantId})
+        ${filters}
       GROUP BY 1
       ORDER BY 1
     `)

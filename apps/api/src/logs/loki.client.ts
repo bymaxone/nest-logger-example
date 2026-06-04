@@ -76,13 +76,29 @@ export class LokiClient {
   /**
    * Fetch distinct values for a Loki label.
    *
+   * When `opts.query` (an RBAC-scoped stream selector) and a time window are
+   * supplied, Loki restricts the returned values to streams matching the
+   * selector within the window — this is what prevents the facet rail from
+   * leaking cross-tenant label values. Omitting them falls back to the global,
+   * unscoped enumeration.
+   *
    * @param name - The label name (e.g. `level`, `service`).
+   * @param opts - Optional scoping: `query` selector and `startNs`/`endNs` window.
    * @returns Array of distinct string values.
    * @throws {LokiUnavailableError} On a non-2xx status or network failure.
    */
-  async labelValues(name: string): Promise<string[]> {
+  async labelValues(
+    name: string,
+    opts?: { query?: string; startNs?: string; endNs?: string },
+  ): Promise<string[]> {
+    const params = new URLSearchParams()
+    if (opts?.query) params.set('query', opts.query)
+    if (opts?.startNs) params.set('start', opts.startNs)
+    if (opts?.endNs) params.set('end', opts.endNs)
+    const qs = params.toString()
+    const suffix = qs ? `?${qs}` : ''
     const response = await this.get<{ status: string; data: string[] }>(
-      `/loki/api/v1/label/${encodeURIComponent(name)}/values`,
+      `/loki/api/v1/label/${encodeURIComponent(name)}/values${suffix}`,
     )
     return response.data
   }
