@@ -26,10 +26,21 @@ export interface RbacContextData {
  *
  * @param headers - Express-style headers record.
  * @returns Resolved RBAC context; defaults to `operator` role when header is absent.
+ * @throws {Error} In production (`NODE_ENV === 'production'`), because trusting
+ *   client-supplied `x-role` / `x-tenant-id` / `x-actor` headers is demo-only —
+ *   wire `@bymax-one/nest-auth` (validated JWT/session) before production.
  */
 export function buildRbacContext(
   headers: Record<string, string | string[] | undefined>,
 ): RbacContextData {
+  // Header-based RBAC trusts client-supplied headers verbatim — safe only for the
+  // demo. Fail fast in production so a real deployment cannot accidentally ship it
+  // without first wiring a validated identity source (@bymax-one/nest-auth).
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Header-based RBAC is demo-only — wire @bymax-one/nest-auth (validated JWT/session) before production.',
+    )
+  }
   const rawRole = String(headers['x-role'] ?? 'operator').toLowerCase()
   const role: RbacRole =
     rawRole === 'admin' ? 'admin' : rawRole === 'viewer' ? 'viewer' : 'operator'

@@ -2,7 +2,7 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-13--dashboard-trigger-alerts-maintenance) §Phase 13
 > **Total tasks:** 9
-> **Progress:** 🔴 0 / 9 done (0%)
+> **Progress:** 🟢 9 / 9 done (100%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 
@@ -10,21 +10,21 @@
 
 | ID    | Task                                                                             | Status | Priority | Size | Depends on   |
 | ----- | -------------------------------------------------------------------------------- | ------ | -------- | ---- | ------------ |
-| P13-1 | `app/trigger/page.tsx` Trigger Center — card grid firing every log type          | 🔴     | High     | L    | Phase 12     |
-| P13-2 | Trigger cards — emitted `logKey`(s) + auto-pivot Explorer ("View in Explorer →") | 🔴     | High     | M    | P13-1        |
-| P13-3 | `app/alerts/page.tsx` — rule form (`expr + threshold + for`) + Loki ruler YAML   | 🔴     | High     | M    | Phase 12     |
-| P13-4 | Alerts — notification channel registry (Slack/webhook/email-mock, routing)       | 🔴     | High     | M    | P13-3        |
-| P13-5 | Alerts — incident lifecycle (Triggered→Ack→Snoozed→Resolved) + timeline          | 🔴     | High     | M    | P13-3, P13-4 |
-| P13-6 | `app/maintenance/page.tsx` Retention (TTL sweep + Loki echo) + 🎓 callout        | 🔴     | High     | M    | Phase 12     |
-| P13-7 | Maintenance — JSON/CSV export (100k cap) + query-based RBAC (Viewer/Op/Admin)    | 🔴     | High     | M    | P13-6        |
-| P13-8 | Maintenance — redaction-at-source hero panel + `audit_events` table              | 🔴     | High     | M    | P13-6, P13-7 |
-| P13-9 | Verification gate — triggers→logKeys, alert→incident, export, tenant scoping     | 🔴     | High     | M    | P13-1..P13-8 |
+| P13-1 | `app/trigger/page.tsx` Trigger Center — card grid firing every log type          | 🟢     | High     | L    | Phase 12     |
+| P13-2 | Trigger cards — emitted `logKey`(s) + auto-pivot Explorer ("View in Explorer →") | 🟢     | High     | M    | P13-1        |
+| P13-3 | `app/alerts/page.tsx` — rule form (`expr + threshold + for`) + Loki ruler YAML   | 🟢     | High     | M    | Phase 12     |
+| P13-4 | Alerts — notification channel registry (Slack/webhook/email-mock, routing)       | 🟢     | High     | M    | P13-3        |
+| P13-5 | Alerts — incident lifecycle (Triggered→Ack→Snoozed→Resolved) + timeline          | 🟢     | High     | M    | P13-3, P13-4 |
+| P13-6 | `app/maintenance/page.tsx` Retention (TTL sweep + Loki echo) + 🎓 callout        | 🟢     | High     | M    | Phase 12     |
+| P13-7 | Maintenance — JSON/CSV export (100k cap) + query-based RBAC (Viewer/Op/Admin)    | 🟢     | High     | M    | P13-6        |
+| P13-8 | Maintenance — redaction-at-source hero panel + `audit_events` table              | 🟢     | High     | M    | P13-6, P13-7 |
+| P13-9 | Verification gate — triggers→logKeys, alert→incident, export, tenant scoping     | 🟢     | High     | M    | P13-1..P13-8 |
 
 ---
 
 ## P13-1 — `app/trigger/page.tsx` Trigger Center — card grid firing every log type
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (2–4 h)
 - **Depends on:** `Phase 12`
@@ -35,13 +35,13 @@ Build the **Trigger Center** (`/trigger`) — the "acionar todos os tipos de log
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/trigger/page.tsx` renders a responsive card grid (one card per the **12** triggers in `DASHBOARD.md` §8).
-- [ ] Each card has a title, a one-line "Demonstrates" description, the target endpoint shown as a mono badge, and a **Fire** button (forms for cards needing input — e.g. status `:code`, burst `N`/`T`).
-- [ ] Firing a card calls the documented endpoint via the `NEXT_PUBLIC_API_URL` base (a typed `triggerApi` client in `apps/web/lib/`), shows a per-card loading state, and surfaces a `sonner` success/error toast.
-- [ ] The **HTTP 4xx/5xx** card lets the user pick a code (e.g. `400`/`404`/`500`/`503`) → `GET /trigger/status/:code`; the **load burst** card takes `N` (count) + `T` (seconds) → `POST /trigger/burst`.
-- [ ] The **fault-inject** card is clearly labelled as fail-soft (`POST /trigger/fault/loki` points a destination at a dead host → `LOGGER_DESTINATION_WRITE_FAILED`, app keeps serving).
-- [ ] The page uses the shared app shell + design tokens (forced-dark orange/glass, `new-york` shadcn `Card`/`Button`/`Input`) — visually one product with the rest of `apps/web`.
-- [ ] No client-side aggregation or business logic — cards are thin fire-and-report wrappers over the API.
+- [x] `apps/web/app/trigger/page.tsx` renders a responsive card grid (one card per the **12** triggers in `DASHBOARD.md` §8).
+- [x] Each card has a title, a one-line "Demonstrates" description, the target endpoint shown as a mono badge, and a **Fire** button (forms for cards needing input — e.g. status `:code`, burst `N`/`T`).
+- [x] Firing a card calls the documented endpoint via the `NEXT_PUBLIC_API_URL` base (a typed `triggerApi` client in `apps/web/lib/`), shows a per-card loading state, and surfaces a `sonner` success/error toast.
+- [x] The **HTTP 4xx/5xx** card lets the user pick a code (e.g. `400`/`404`/`500`/`503`) → `GET /trigger/status/:code`; the **load burst** card takes `N` (count) + `T` (seconds) → `POST /trigger/burst`.
+- [x] The **fault-inject** card is clearly labelled as fail-soft (`POST /trigger/fault/loki` points a destination at a dead host → `LOGGER_DESTINATION_WRITE_FAILED`, app keeps serving).
+- [x] The page uses the shared app shell + design tokens (forced-dark orange/glass, `new-york` shadcn `Card`/`Button`/`Input`) — visually one product with the rest of `apps/web`.
+- [x] No client-side aggregation or business logic — cards are thin fire-and-report wrappers over the API.
 
 ### Files to create / modify
 
@@ -139,7 +139,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-2 — Trigger cards — emitted `logKey`(s) + auto-pivot Explorer ("View in Explorer →")
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-1`
@@ -150,13 +150,13 @@ Close the Trigger Center loop (`DASHBOARD.md` §8): every card must **show the `
 
 ### Acceptance Criteria
 
-- [ ] Each trigger card statically lists the **expected `logKey`(s)** it emits (as mono badges), sourced from `DASHBOARD.md` §8.
-- [ ] After a successful fire, the card shows the returned `requestId` and/or `traceId` and a **"View in Explorer →"** link.
-- [ ] The link navigates to the Explorer with the correlation id pre-applied via the existing `nuqs` URL params (`/explorer?requestId=<id>` or `?traceId=<id>`), on a relative time window that includes "now".
-- [ ] The cross-service card's link uses `traceId` (so the Explorer shows both `api` + `worker` lines for the one request).
-- [ ] The burst card, after firing, links to the Explorer filtered to the burst window (time range) rather than a single id.
-- [ ] `logKey` strings shown are validated against `LOG_KEYS_CONVENTION_REGEX` imported from `@bymax-one/nest-logger/shared` (a malformed literal fails a unit test).
-- [ ] Navigating from a card lands on a non-empty Explorer result for that request (with `apps/api` running).
+- [x] Each trigger card statically lists the **expected `logKey`(s)** it emits (as mono badges), sourced from `DASHBOARD.md` §8.
+- [x] After a successful fire, the card shows the returned `requestId` and/or `traceId` and a **"View in Explorer →"** link.
+- [x] The link navigates to the Explorer with the correlation id pre-applied via the existing `nuqs` URL params (`/explorer?requestId=<id>` or `?traceId=<id>`), on a relative time window that includes "now".
+- [x] The cross-service card's link uses `traceId` (so the Explorer shows both `api` + `worker` lines for the one request).
+- [x] The burst card, after firing, links to the Explorer filtered to the burst window (time range) rather than a single id.
+- [x] `logKey` strings shown are validated against `LOG_KEYS_CONVENTION_REGEX` imported from `@bymax-one/nest-logger/shared` (a malformed literal fails a unit test).
+- [x] Navigating from a card lands on a non-empty Explorer result for that request (with `apps/api` running).
 
 ### Files to create / modify
 
@@ -235,7 +235,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-3 — `app/alerts/page.tsx` — rule form (`expr + threshold + for`) + Loki ruler YAML
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `Phase 12`
@@ -246,13 +246,13 @@ Build the **rule-authoring** half of Alerts & Incidents (`/alerts`, `DASHBOARD.m
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/alerts/page.tsx` renders inside the shared shell with the **🎓 scoped demo of log-based alerting + on-call** callout (text per `DASHBOARD.md` §9).
-- [ ] A rule form captures `name`, `expr` (metric + `logKey`/level selector + comparator + threshold `N`), a `for`-duration, and severity; it lists existing rules from `GET /alerts/rules`.
-- [ ] Create/edit persists via `POST` / `PATCH /alerts/rules`; the list refreshes (TanStack Query invalidation).
-- [ ] Presets for the four canonical shapes (error spike / any FATAL / specific failure / heartbeat-absence) one-click-fill the form.
-- [ ] A **live "Loki ruler YAML" panel** renders the equivalent rule (`groups: [{ rules: [{ alert, expr, for, labels, annotations }] }]`) and updates as the form changes.
-- [ ] `logKey` inputs autocomplete/validate against `LOG_KEYS_CONVENTION_REGEX` from `@bymax-one/nest-logger/shared` (typo'd key flagged inline).
-- [ ] Best-practice guidance is surfaced in-UI (prefer **rate** over raw count; combine **error-rate-high AND volume-above-floor**; **aggregate** one notification per pattern; **auto-resolve**).
+- [x] `apps/web/app/alerts/page.tsx` renders inside the shared shell with the **🎓 scoped demo of log-based alerting + on-call** callout (text per `DASHBOARD.md` §9).
+- [x] A rule form captures `name`, `expr` (metric + `logKey`/level selector + comparator + threshold `N`), a `for`-duration, and severity; it lists existing rules from `GET /alerts/rules`.
+- [x] Create/edit persists via `POST` / `PATCH /alerts/rules`; the list refreshes (TanStack Query invalidation).
+- [x] Presets for the four canonical shapes (error spike / any FATAL / specific failure / heartbeat-absence) one-click-fill the form.
+- [x] A **live "Loki ruler YAML" panel** renders the equivalent rule (`groups: [{ rules: [{ alert, expr, for, labels, annotations }] }]`) and updates as the form changes.
+- [x] `logKey` inputs autocomplete/validate against `LOG_KEYS_CONVENTION_REGEX` from `@bymax-one/nest-logger/shared` (typo'd key flagged inline).
+- [x] Best-practice guidance is surfaced in-UI (prefer **rate** over raw count; combine **error-rate-high AND volume-above-floor**; **aggregate** one notification per pattern; **auto-resolve**).
 
 ### Files to create / modify
 
@@ -333,7 +333,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-4 — Alerts — notification channel registry (Slack/webhook/email-mock, routing)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-3`
@@ -344,12 +344,12 @@ Add the **notification channel registry** to the Alerts page (`DASHBOARD.md` §9
 
 ### Acceptance Criteria
 
-- [ ] A **Channels** section on `/alerts` lists registered channels from `GET /alerts/channels` with type, target (redacted/masked where sensitive), and routed severities.
-- [ ] Create/edit a channel of type `slack` | `webhook` | `email-mock` via `POST /alerts/channels` (URL for slack/webhook, address for email-mock).
-- [ ] **Severity routing** is configurable per channel (which of `critical`/`warning` it receives); the §9 default (critical → webhook + Slack; warning → Slack only) is the seed.
-- [ ] Each channel has a **"Send test"** action that test-fires a synthetic alert and surfaces the delivery result (toast + inline status); offline-safe (deliveries are mocked/logged).
-- [ ] Sensitive fields (webhook URLs) are never rendered in full — shown masked — reinforcing the redaction story.
-- [ ] The section reuses the shared design tokens/components (no new design language).
+- [x] A **Channels** section on `/alerts` lists registered channels from `GET /alerts/channels` with type, target (redacted/masked where sensitive), and routed severities.
+- [x] Create/edit a channel of type `slack` | `webhook` | `email-mock` via `POST /alerts/channels` (URL for slack/webhook, address for email-mock).
+- [x] **Severity routing** is configurable per channel (which of `critical`/`warning` it receives); the §9 default (critical → webhook + Slack; warning → Slack only) is the seed.
+- [x] Each channel has a **"Send test"** action that test-fires a synthetic alert and surfaces the delivery result (toast + inline status); offline-safe (deliveries are mocked/logged).
+- [x] Sensitive fields (webhook URLs) are never rendered in full — shown masked — reinforcing the redaction story.
+- [x] The section reuses the shared design tokens/components (no new design language).
 
 ### Files to create / modify
 
@@ -411,7 +411,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-5 — Alerts — incident lifecycle (Triggered→Ack→Snoozed→Resolved) + timeline
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-3`, `P13-4`
@@ -422,13 +422,13 @@ Add the **incident lifecycle** to the Alerts page (`DASHBOARD.md` §9) — the P
 
 ### Acceptance Criteria
 
-- [ ] An **Incidents** section on `/alerts` lists incidents from `GET /incidents` with current state, source rule, `logKey`, and opened-at.
-- [ ] Actions transition state via `PATCH /incidents`: **Acknowledge**, **Snooze** (menu of 1h/4h/8h/24h), **Resolve** — each gated by the current state (e.g. can't resolve an already-resolved incident).
-- [ ] Each incident shows an **immutable timeline** of transitions (`{ actor, action, at }`), newest-first, rendered read-only.
-- [ ] Each incident has a **"View in Explorer →"** deep-link pre-filtered to the incident's `logKey` + firing time window (reuses the P13-2 `explorerHref` helper).
-- [ ] Snooze sets a visible "snoozed until" time; the row reflects the snoozed state until it lapses or is resolved.
-- [ ] Lifecycle actions are gated by RBAC role (Operator/Admin can ack/snooze/resolve; Viewer cannot) — consistent with §10 / P13-7.
-- [ ] (If Saved Views exist) a "promote saved view → alert rule" affordance is present (the Datadog "save view → monitor" pattern, §9) — optional, non-blocking.
+- [x] An **Incidents** section on `/alerts` lists incidents from `GET /incidents` with current state, source rule, `logKey`, and opened-at.
+- [x] Actions transition state via `PATCH /incidents`: **Acknowledge**, **Snooze** (menu of 1h/4h/8h/24h), **Resolve** — each gated by the current state (e.g. can't resolve an already-resolved incident).
+- [x] Each incident shows an **immutable timeline** of transitions (`{ actor, action, at }`), newest-first, rendered read-only.
+- [x] Each incident has a **"View in Explorer →"** deep-link pre-filtered to the incident's `logKey` + firing time window (reuses the P13-2 `explorerHref` helper).
+- [x] Snooze sets a visible "snoozed until" time; the row reflects the snoozed state until it lapses or is resolved.
+- [x] Lifecycle actions are gated by RBAC role (Operator/Admin can ack/snooze/resolve; Viewer cannot) — consistent with §10 / P13-7.
+- [x] (If Saved Views exist) a "promote saved view → alert rule" affordance is present (the Datadog "save view → monitor" pattern, §9) — optional, non-blocking.
 
 ### Files to create / modify
 
@@ -505,7 +505,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-6 — `app/maintenance/page.tsx` Retention (TTL sweep + Loki echo) + 🎓 callout
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `Phase 12`
@@ -516,12 +516,12 @@ Build the **Retention & storage** section of Maintenance & Governance (`/mainten
 
 ### Acceptance Criteria
 
-- [ ] `apps/web/app/maintenance/page.tsx` renders inside the shared shell with section anchors for Retention, Export, RBAC, Redaction, and Audit.
-- [ ] The **Retention** panel shows TTL = `RETENTION_DAYS` (default 30), **next-sweep time**, and **rows-pending-deletion**, fetched from `GET /maintenance/retention`.
-- [ ] An **Admin-only** control updates TTL / triggers a sweep via `PATCH /maintenance/retention` (hidden/disabled for non-Admin).
-- [ ] A **read-only Loki retention echo** sits beside it (the `retention_period` + a note that the `compactor` has `retention_enabled: true` + a `delete_request_store`, per `DASHBOARD.md` §10).
-- [ ] The section carries the **🎓 scoped demo of tiered retention** callout (verbatim §10 wording, incl. the "real platforms add warm/cold object-storage tiers (S3/Glacier) + per-tenant overrides" line).
-- [ ] The two-tier asymmetry (Postgres `warn`+ durable vs Loki `info`+ full) is explained in-panel so differing volumes read as a lesson.
+- [x] `apps/web/app/maintenance/page.tsx` renders inside the shared shell with section anchors for Retention, Export, RBAC, Redaction, and Audit.
+- [x] The **Retention** panel shows TTL = `RETENTION_DAYS` (default 30), **next-sweep time**, and **rows-pending-deletion**, fetched from `GET /maintenance/retention`.
+- [x] An **Admin-only** control updates TTL / triggers a sweep via `PATCH /maintenance/retention` (hidden/disabled for non-Admin).
+- [x] A **read-only Loki retention echo** sits beside it (the `retention_period` + a note that the `compactor` has `retention_enabled: true` + a `delete_request_store`, per `DASHBOARD.md` §10).
+- [x] The section carries the **🎓 scoped demo of tiered retention** callout (verbatim §10 wording, incl. the "real platforms add warm/cold object-storage tiers (S3/Glacier) + per-tenant overrides" line).
+- [x] The two-tier asymmetry (Postgres `warn`+ durable vs Loki `info`+ full) is explained in-panel so differing volumes read as a lesson.
 
 ### Files to create / modify
 
@@ -589,7 +589,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-7 — Maintenance — JSON/CSV export (100k cap) + query-based RBAC (Viewer/Op/Admin)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-6`
@@ -600,13 +600,13 @@ Add **Export** + **query-based RBAC** to Maintenance (`DASHBOARD.md` §10). **Ex
 
 ### Acceptance Criteria
 
-- [ ] An **Export** panel reuses the Explorer's current query (filters + time range + source) and downloads **JSON** or **CSV** via `GET /logs/export?format=…`.
-- [ ] CSV columns are exactly `time, level, logKey, service, requestId, traceId, tenantId, msg`; the export honors the active `tenantId` RBAC restriction.
-- [ ] A **100k-row hard cap** is enforced with a visible **truncation banner** when the result set exceeds it.
-- [ ] Export is **gated to Operator/Admin** (Viewer cannot export) — control hidden/disabled for Viewer.
-- [ ] An **RBAC** panel documents the three roles + their grants and reflects the **global role/tenant** control (Phase 12); switching tenant injects a `tenantId` restriction into every query (Explorer visibly scopes).
-- [ ] The RBAC restriction is applied via the **shared query builder** (same param the `/logs` filter DTO uses), not a separate code path — the panel states this explicitly.
-- [ ] Both Export and RBAC carry their **🎓 scoped demo** callouts (export → Datadog cap; RBAC → query-based data-access restrictions / wire to IdP or `@bymax-one/nest-auth`), per §10.
+- [x] An **Export** panel reuses the Explorer's current query (filters + time range + source) and downloads **JSON** or **CSV** via `GET /logs/export?format=…`.
+- [x] CSV columns are exactly `time, level, logKey, service, requestId, traceId, tenantId, msg`; the export honors the active `tenantId` RBAC restriction.
+- [x] A **100k-row hard cap** is enforced with a visible **truncation banner** when the result set exceeds it.
+- [x] Export is **gated to Operator/Admin** (Viewer cannot export) — control hidden/disabled for Viewer.
+- [x] An **RBAC** panel documents the three roles + their grants and reflects the **global role/tenant** control (Phase 12); switching tenant injects a `tenantId` restriction into every query (Explorer visibly scopes).
+- [x] The RBAC restriction is applied via the **shared query builder** (same param the `/logs` filter DTO uses), not a separate code path — the panel states this explicitly.
+- [x] Both Export and RBAC carry their **🎓 scoped demo** callouts (export → Datadog cap; RBAC → query-based data-access restrictions / wire to IdP or `@bymax-one/nest-auth`), per §10.
 
 ### Files to create / modify
 
@@ -673,7 +673,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-8 — Maintenance — redaction-at-source hero panel + `audit_events` table
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-6`, `P13-7`
@@ -684,13 +684,13 @@ Ship the library's **strongest, most differentiated story** as a dedicated **red
 
 ### Acceptance Criteria
 
-- [ ] A **redaction hero panel** under `#redaction` shows the **same record from Postgres and Loki side by side** (fetched via `GET /logs` `source=postgres` and `source=loki` for one `requestId`/`traceId`), both rendering `[REDACTED]` for PII fields.
-- [ ] A **"redacted at source — never stored raw"** badge is prominent, with the explainer (in-process `fast-redact`, 97 default paths, before the line leaves the service; nothing to unmask).
-- [ ] A link to the **active redact-path list** (from `LogAuditService.listActiveRedactPaths()` via an `apps/api` endpoint) is present.
-- [ ] An **Audit trail** panel under `#audit` renders `audit_events` from `GET /audit` (read-only) with columns `actor, action, target, tenantId, at`, newest-first.
-- [ ] The audit table is **read-only** (no edit/delete) and records **actions** (export, alert create/edit/mute, role/tenant switch, retention change) — not logins.
-- [ ] The panel reuses the JSON viewer (`@uiw/react-json-view`) to display the side-by-side records so the `[REDACTED]` values are obvious.
-- [ ] The redaction panel carries a callout distinguishing this from after-ingest scrubbing (the §10 "nothing to unmask" framing).
+- [x] A **redaction hero panel** under `#redaction` shows the **same record from Postgres and Loki side by side** (fetched via `GET /logs` `source=postgres` and `source=loki` for one `requestId`/`traceId`), both rendering `[REDACTED]` for PII fields.
+- [x] A **"redacted at source — never stored raw"** badge is prominent, with the explainer (in-process `fast-redact`, 97 default paths, before the line leaves the service; nothing to unmask).
+- [x] A link to the **active redact-path list** (from `LogAuditService.listActiveRedactPaths()` via an `apps/api` endpoint) is present.
+- [x] An **Audit trail** panel under `#audit` renders `audit_events` from `GET /audit` (read-only) with columns `actor, action, target, tenantId, at`, newest-first.
+- [x] The audit table is **read-only** (no edit/delete) and records **actions** (export, alert create/edit/mute, role/tenant switch, retention change) — not logins.
+- [x] The panel reuses the JSON viewer (`@uiw/react-json-view`) to display the side-by-side records so the `[REDACTED]` values are obvious.
+- [x] The redaction panel carries a callout distinguishing this from after-ingest scrubbing (the §10 "nothing to unmask" framing).
 
 ### Files to create / modify
 
@@ -764,7 +764,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P13-9 — Verification gate — triggers→logKeys, alert→incident, export, tenant scoping
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (1–2 h)
 - **Depends on:** `P13-1`, `P13-2`, `P13-3`, `P13-4`, `P13-5`, `P13-6`, `P13-7`, `P13-8`
@@ -775,13 +775,13 @@ Phase 13 **"Definition of done"** gate per `DEVELOPMENT_PLAN.md` §Phase 13: pro
 
 ### Acceptance Criteria
 
-- [ ] **Trigger → logKeys:** firing each of the 12 Trigger Center cards produces the documented `logKey`(s) (`DASHBOARD.md` §8), verified by following "View in Explorer →" and asserting the row(s) appear.
-- [ ] **Alert → incident:** creating a rule (e.g. error-spike) and firing the matching trigger (e.g. repeated `POST /payments`) produces an **incident** that can be Acknowledged/Snoozed/Resolved with an appended immutable timeline.
-- [ ] **Export:** with filters applied, JSON and CSV export download the **current filtered set** (correct columns, tenant-scoped, 100k cap honored).
-- [ ] **Tenant scoping:** switching tenant in the global control visibly scopes the Explorer (and Export) to that `tenantId`; switching role gates actions (Viewer can't export / transition incidents).
-- [ ] Playwright journeys covering the four DoD flows are added under `apps/web` and pass (`pnpm --filter web test:e2e`).
-- [ ] `pnpm --filter web build`, `pnpm --filter web typecheck`, and `pnpm --filter web lint` all exit 0 for the Phase 13 pages/components.
-- [ ] Every scoped-demo feature (alerts, retention, RBAC/export) renders its **🎓 scoped demo of <prod feature>** callout (spot-checked in the journeys).
+- [x] **Trigger → logKeys:** firing each of the 12 Trigger Center cards produces the documented `logKey`(s) (`DASHBOARD.md` §8), verified by following "View in Explorer →" and asserting the row(s) appear.
+- [x] **Alert → incident:** creating a rule (e.g. error-spike) and firing the matching trigger (e.g. repeated `POST /payments`) produces an **incident** that can be Acknowledged/Snoozed/Resolved with an appended immutable timeline.
+- [x] **Export:** with filters applied, JSON and CSV export download the **current filtered set** (correct columns, tenant-scoped, 100k cap honored).
+- [x] **Tenant scoping:** switching tenant in the global control visibly scopes the Explorer (and Export) to that `tenantId`; switching role gates actions (Viewer can't export / transition incidents).
+- [x] Playwright journeys covering the four DoD flows are added under `apps/web` and pass (`pnpm --filter web test:e2e`).
+- [x] `pnpm --filter web build`, `pnpm --filter web typecheck`, and `pnpm --filter web lint` all exit 0 for the Phase 13 pages/components.
+- [x] Every scoped-demo feature (alerts, retention, RBAC/export) renders its **🎓 scoped demo of <prod feature>** callout (spot-checked in the journeys).
 
 ### Files to create / modify
 
@@ -835,4 +835,12 @@ When this task is 🟢, Phase 13 is 9/9 — switch the Phase 13 row in `DEVELOPM
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P13-1 ✅ 2026-06-04 — Trigger Center page + 12-card grid firing every demo endpoint with loading state + sonner toast.
+- P13-2 ✅ 2026-06-04 — Per-card logKey badges + post-fire "View in Explorer →" deep-link (nuqs-encoded); logKey literals guarded by `LOG_KEYS_CONVENTION_REGEX`. Added an `apps/api` correlation-headers interceptor (X-Request-Id/X-Trace-Id) + CORS expose so the pivot resolves by id.
+- P13-3 ✅ 2026-06-04 — Alerts page + rule form (expr/threshold/for + presets), rule list, and a pure `ruleToRulerYaml` live preview; scoped-demo callout.
+- P13-4 ✅ 2026-06-04 — Notification channel registry (slack/webhook/email-mock) with severity routing, masked endpoints, and per-channel test-fire.
+- P13-5 ✅ 2026-06-04 — Incident lifecycle (Triggered→Ack→Snoozed→Resolved), state-gated + RBAC-gated, immutable timeline, Explorer deep-link, cron-poll refresh.
+- P13-6 ✅ 2026-06-04 — Maintenance page + retention panel (TTL sweep status, admin config, read-only Loki echo) + reusable ScopedDemoCallout.
+- P13-7 ✅ 2026-06-04 — JSON/CSV export reusing the Explorer query (100k cap + truncation banner, role-gated) + RBAC role/grant matrix explaining the shared-query-builder tenant restriction.
+- P13-8 ✅ 2026-06-04 — Redaction-at-source hero (same record from Postgres + Loki side by side, "redacted at source" badge, live redact-path list via new `GET /logger/redact-paths`) + read-only audit table.
+- P13-9 ✅ 2026-06-04 — Vitest (25 unit tests) + Playwright e2e (12 journeys, live stack) covering the four DoD flows; green build/typecheck/lint across web + api. Found + fixed: incidents now poll for cron-opened rows; documented the Postgres warn+ table vs Loki info+ tier in the trigger journey.

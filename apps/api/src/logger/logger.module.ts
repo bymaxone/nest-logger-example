@@ -11,10 +11,12 @@
 import { Module } from '@nestjs/common'
 
 import { LogAuditService } from './log-audit.service.js'
+import { LoggerController } from './logger.controller.js'
 
 @Module({
+  controllers: [LoggerController],
   providers: [LogAuditService],
   exports: [LogAuditService],
 })
-/** Provides and exports {@link LogAuditService} for injection in feature modules. */
+/** Provides and exports {@link LogAuditService} and the redact-path read endpoint. */
 export class LoggerModule {}

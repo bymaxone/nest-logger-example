@@ -1,5 +1,5 @@
 /**
- * LogAuditService — CI redaction-coverage gate (Phase 8, P8-4).
+ * LogAuditService — CI redaction-coverage gate.
  *
  * Proves that the effective redact-path list covers every field listed in
  * `EXPECTED_REDACTED_FIELDS`, and that firing the signup endpoint actually
@@ -12,7 +12,7 @@
  *   2. End-to-end redaction gate: `POST /pii-demo/signup` must emit only
  *      `[REDACTED]` values for PII fields and leave `nome` in cleartext.
  *
- * Reference: `docs/tasks/phase-08-redaction.md` §P8-4.
+ * Reference: `docs/tasks/phase-08-redaction.md`.
  */
 import type { INestApplication } from '@nestjs/common'
 import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common'
@@ -129,6 +129,21 @@ describe('LogAuditService — redaction coverage gate (e2e)', () => {
     } finally {
       stdout.mockRestore()
     }
+  })
+
+  it(/*
+   * HTTP contract: GET /logger/redact-paths returns 200 with a JSON array that
+   * matches the service's effective path list. Protects the endpoint's wire shape
+   * (array of strings) and that it is gated to at least an operator role.
+   */
+  'GET /logger/redact-paths returns 200 with the effective path list for an operator', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/logger/redact-paths')
+      .set('x-role', 'operator')
+      .expect(200)
+
+    expect(Array.isArray(response.body)).toBe(true)
+    expect(response.body).toEqual(audit.listEffectiveRedactPaths())
   })
 
   it(/*
