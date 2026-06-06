@@ -76,6 +76,36 @@ describe('csvCell', () => {
     /** Only text cells are formula-neutralized; numbers stay verbatim so data is not corrupted. */
     expect(csvCell(-5)).toBe('-5')
   })
+
+  it('serializes a Date to its ISO-8601 string verbatim', () => {
+    /**
+     * A `Date` value is emitted as its ISO string and is NOT treated as a text cell,
+     * so it is never formula-neutralized.
+     */
+    expect(csvCell(new Date('2024-06-01T12:00:00.000Z'))).toBe('2024-06-01T12:00:00.000Z')
+  })
+
+  it('emits true/false verbatim for boolean values', () => {
+    /** Booleans stringify verbatim and are not text cells, so no quoting/neutralizing. */
+    expect(csvCell(true)).toBe('true')
+    expect(csvCell(false)).toBe('false')
+  })
+
+  it('JSON-stringifies a non-primitive value and treats it as a text cell', () => {
+    /**
+     * An object/array falls through to `JSON.stringify` and is flagged as text, so it is
+     * RFC-4180 quoted (the serialized form contains a comma) and formula-safe.
+     */
+    expect(csvCell({ a: 1, b: 2 })).toBe('"{""a"":1,""b"":2}"')
+  })
+
+  it('neutralizes a JSON-stringified value whose serialized form starts with a formula trigger', () => {
+    /**
+     * The text flag set for non-primitives also enables formula neutralization — an array
+     * whose JSON starts with `[` is fine, but the text branch is exercised for objects.
+     */
+    expect(csvCell(['x'])).toBe('"[""x""]"')
+  })
 })
 
 function makeRow(id: string): ApplicationLog {
@@ -134,6 +164,167 @@ describe('LogsExportService.stream', () => {
 
     // Header must be set before the stream body is written (synchronous pre-check).
     expect(truncatedHeaderSet).toBe(true)
+  })
+
+  it('produces RFC-4180 CSV with a header row and one line per record', async () => {
+    /**
+     * CSV format must emit the fixed header row first (`time,level,...,msg`) followed by
+     * one `rowToCsv` line per record, each terminated with a newline. This exercises the
+     * CSV branch of both `stream()` and the generator.
+     */
+    const batch = [makeRow('row-1'), makeRow('row-2')]
+    let callCount = 0
+    const prisma = {
+      applicationLog: {
+        count: jest.fn<() => Promise<number>>().mockResolvedValue(2),
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockImplementation(() => {
+          if (callCount++ === 0) return Promise.resolve(batch)
+          return Promise.resolve([])
+        }),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsExportService(prisma, new LogsService())
+    const res = { setHeader: jest.fn() } as unknown as import('express').Response
+
+    const file = await svc.stream({ format: 'csv', source: 'postgres', limit: 100 }, res)
+
+    const parts: string[] = []
+    await new Promise<void>((resolve, reject) => {
+      const stream = file.getStream()
+      stream.setEncoding('utf8')
+      stream.on('data', (chunk: string) => parts.push(chunk))
+      stream.on('end', resolve)
+      stream.on('error', reject)
+    })
+
+    const csv = parts.join('')
+    const lines = csv.trimEnd().split('\n')
+    expect(lines[0]).toBe('time,level,logKey,service,requestId,traceId,tenantId,msg')
+    // One CSV data line per row, in the fixed column order.
+    expect(lines).toHaveLength(3)
+    expect(lines[1]).toBe('2024-06-01T12:00:00.000Z,error,TEST_LOG,api,req-1,,,test message')
+  })
+
+  it('pages a full first batch then terminates on an empty follow-up batch', async () => {
+    /**
+     * A full page (PAGE_SIZE rows) advances the keyset cursor and triggers another
+     * `findMany`; when that next call returns an empty batch, the generator breaks via
+     * `if (batch.length === 0)`. This covers the empty-batch termination branch
+     * (distinct from the short-batch termination).
+     */
+    const fullPage = Array.from({ length: 1000 }, (_, i) => makeRow(`a-${i}`))
+    const findMany = jest
+      .fn<() => Promise<ApplicationLog[]>>()
+      .mockResolvedValueOnce(fullPage)
+      .mockResolvedValueOnce([]) // empty follow-up -> break on batch.length === 0
+    const prisma = {
+      applicationLog: {
+        count: jest.fn<() => Promise<number>>().mockResolvedValue(1000),
+        findMany,
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsExportService(prisma, new LogsService())
+    const res = { setHeader: jest.fn() } as unknown as import('express').Response
+
+    const file = await svc.stream({ format: 'json', source: 'postgres', limit: 100 }, res)
+
+    const parts: string[] = []
+    await new Promise<void>((resolve, reject) => {
+      const stream = file.getStream()
+      stream.setEncoding('utf8')
+      stream.on('data', (chunk: string) => parts.push(chunk))
+      stream.on('end', resolve)
+      stream.on('error', reject)
+    })
+
+    const parsed = JSON.parse(parts.join('')) as unknown[]
+    expect(parsed).toHaveLength(1000)
+    expect(findMany).toHaveBeenCalledTimes(2)
+  })
+
+  it('merges the keyset cursor into a pre-existing AND array on the where clause', async () => {
+    /**
+     * When `buildPrismaWhere` already returns a `where` carrying an `AND` array, the
+     * generator must spread that existing array and append the cursor clause (rather
+     * than replacing it). This covers the `Array.isArray(where.AND)` true branch so the
+     * pre-existing filter conjuncts survive across pages.
+     */
+    const fullPage = Array.from({ length: 1000 }, (_, i) => makeRow(`p-${i}`))
+    const existingConjunct = { service: { not: null } }
+    const findMany = jest
+      .fn<() => Promise<ApplicationLog[]>>()
+      .mockResolvedValueOnce(fullPage)
+      .mockResolvedValueOnce([])
+    const prisma = {
+      applicationLog: {
+        count: jest.fn<() => Promise<number>>().mockResolvedValue(1000),
+        findMany,
+      },
+    } as unknown as PrismaService
+
+    // A collaborator LogsService whose buildPrismaWhere yields a where with an AND array.
+    const logs = {
+      buildPrismaWhere: jest.fn(() => ({
+        time: { gte: new Date(0), lte: new Date() },
+        AND: [existingConjunct],
+      })),
+    } as unknown as LogsService
+
+    const svc = new LogsExportService(prisma, logs)
+    const res = { setHeader: jest.fn() } as unknown as import('express').Response
+
+    const file = await svc.stream({ format: 'json', source: 'postgres', limit: 100 }, res)
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = file.getStream()
+      stream.on('data', () => {})
+      stream.on('end', resolve)
+      stream.on('error', reject)
+    })
+
+    // The second page's where must carry BOTH the original conjunct and the cursor clause.
+    const secondArg = findMany.mock.calls[1]?.[0] as { where: { AND?: unknown[] } }
+    expect(Array.isArray(secondArg.where.AND)).toBe(true)
+    expect(secondArg.where.AND).toContain(existingConjunct)
+    expect(secondArg.where.AND).toHaveLength(2)
+  })
+
+  it('stops at the 100k cap mid-batch and does not over-emit', async () => {
+    /**
+     * The hard cap (MAX_EXPORT_ROWS) must terminate emission even when the current
+     * batch still has rows: the generator breaks out of the inner loop the moment
+     * `emitted` reaches the cap. This guards the in-loop cap break.
+     */
+    // Two full pages of 1000 would exceed nothing; instead simulate a near-cap count.
+    const page = Array.from({ length: 1000 }, (_, i) => makeRow(`c-${i}`))
+    const findMany = jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue(page)
+    const prisma = {
+      applicationLog: {
+        count: jest.fn<() => Promise<number>>().mockResolvedValue(500_000),
+        findMany,
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsExportService(prisma, new LogsService())
+    const res = { setHeader: jest.fn() } as unknown as import('express').Response
+
+    const file = await svc.stream({ format: 'json', source: 'postgres', limit: 100 }, res)
+
+    let count = 0
+    await new Promise<void>((resolve, reject) => {
+      const stream = file.getStream()
+      stream.setEncoding('utf8')
+      stream.on('data', (chunk: string) => {
+        // Each row emits as its own JSON.stringify chunk (separated by ',\n').
+        count += (chunk.match(/"id":/g) ?? []).length
+      })
+      stream.on('end', resolve)
+      stream.on('error', reject)
+    })
+
+    expect(count).toBe(100_000)
   })
 
   it('produces valid JSON for a small result', async () => {

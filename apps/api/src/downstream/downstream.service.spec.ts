@@ -21,9 +21,34 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base'
 import { context, propagation, trace } from '@opentelemetry/api'
-import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals'
+import type { PinoLoggerService } from '@bymax-one/nest-logger'
 
 import { DownstreamService } from './downstream.service.js'
+
+// ─── Logger mock factory ────────────────────────────────────────────────────
+//
+// The branch-level suite below constructs DownstreamService directly (the
+// @InjectLogger/@LogContext decorators are metadata only — DI is not required),
+// so each fetch outcome can be driven deterministically. Only the methods the
+// service actually calls are stubbed: info() for the lifecycle logs and
+// warnStructured() for the fail-soft degraded log.
+function buildLoggerMock(): PinoLoggerService {
+  return {
+    info: jest.fn(),
+    warnStructured: jest.fn(),
+    setContext: jest.fn(),
+  } as unknown as PinoLoggerService
+}
 
 // ─── Hex patterns ─────────────────────────────────────────────────────────────
 
@@ -120,5 +145,206 @@ describe('DownstreamService — manual propagation.inject (unit)', () => {
     expect(result).toEqual({ ok: false })
 
     fetchSpy.mockRestore()
+  })
+})
+
+// ─── Branch-level suite (direct construction, mocked logger + fetch) ──────────
+
+describe('DownstreamService — fail-soft branches (unit)', () => {
+  let logger: PinoLoggerService
+  let service: DownstreamService
+  let fetchSpy: ReturnType<typeof jest.spyOn>
+
+  beforeEach(() => {
+    logger = buildLoggerMock()
+    service = new DownstreamService(logger)
+    // propagation.inject must not throw even without an active span (it simply
+    // injects no traceparent), so a real propagator setup is unnecessary here.
+    fetchSpy = jest.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    fetchSpy.mockRestore()
+    jest.clearAllMocks()
+  })
+
+  /**
+   * The constructor activates the recorded context label by calling
+   * `setContext('DownstreamService')`. Protects the contract that the class
+   * decorator's label is wired through `setContext` at construction time.
+   */
+  it('constructor calls logger.setContext with the class context name', () => {
+    expect(logger.setContext).toHaveBeenCalledWith('DownstreamService')
+  })
+
+  /**
+   * `dispatchAuto` happy path: a 2xx worker response returns `{ ok: true }` and
+   * emits the START then SUCCESS lifecycle logs (the `res.ok === true` branch and
+   * the non-degraded return). No degraded warn is emitted.
+   */
+  it('dispatchAuto returns { ok: true } and logs START + SUCCESS on a 2xx response', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    const result = await service.dispatchAuto()
+
+    expect(result).toEqual({ ok: true })
+    expect(logger.info).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_START',
+      'Calling worker (auto-instrumented path)',
+    )
+    expect(logger.info).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_SUCCESS',
+      'Worker accepted dispatch (auto path)',
+    )
+    expect(logger.warnStructured).not.toHaveBeenCalled()
+  })
+
+  /**
+   * `dispatchAuto` non-2xx path: a non-ok response throws `Worker returned <status>`
+   * internally (the `!res.ok` branch), is caught, and degrades to `{ ok: false }`
+   * with the Error-message reason recorded in the structured warn meta.
+   */
+  it('dispatchAuto degrades to { ok: false } and logs the status reason on a non-2xx response', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 503 }) as never)
+
+    const result = await service.dispatchAuto()
+
+    expect(result).toEqual({ ok: false })
+    expect(logger.warnStructured).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_DEGRADED',
+      'Worker unreachable (auto path)',
+      undefined,
+      expect.objectContaining({
+        workerUrl: 'http://localhost:3002',
+        reason: 'Worker returned 503',
+      }),
+    )
+  })
+
+  /**
+   * `dispatchAuto` non-Error rejection: when `fetch` rejects with a non-Error value
+   * the catch must coerce it via `String(error)` (the `: String(error)` branch) so
+   * the reason is always a string and no throw escapes.
+   */
+  it('dispatchAuto coerces a non-Error rejection via String(error)', async () => {
+    fetchSpy.mockRejectedValue('boom-string' as never)
+
+    const result = await service.dispatchAuto()
+
+    expect(result).toEqual({ ok: false })
+    expect(logger.warnStructured).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_DEGRADED',
+      'Worker unreachable (auto path)',
+      undefined,
+      expect.objectContaining({ reason: 'boom-string' }),
+    )
+  })
+
+  /**
+   * `dispatchManual` happy path: a 2xx worker response returns `{ ok: true }`,
+   * emits the MANUAL then SUCCESS logs, and never degrades.
+   */
+  it('dispatchManual returns { ok: true } and logs MANUAL + SUCCESS on a 2xx response', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    const result = await service.dispatchManual()
+
+    expect(result).toEqual({ ok: true })
+    expect(logger.info).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_MANUAL',
+      'Calling worker (manual propagation.inject)',
+    )
+    expect(logger.info).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_SUCCESS',
+      'Worker accepted dispatch (manual path)',
+    )
+    expect(logger.warnStructured).not.toHaveBeenCalled()
+  })
+
+  /**
+   * `dispatchManual` non-2xx path: the `!res.ok` branch throws `Worker returned
+   * <status>`, is caught, and degrades to `{ ok: false }` with the manual-path
+   * degraded warn.
+   */
+  it('dispatchManual degrades to { ok: false } and logs the status reason on a non-2xx response', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 500 }) as never)
+
+    const result = await service.dispatchManual()
+
+    expect(result).toEqual({ ok: false })
+    expect(logger.warnStructured).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_DEGRADED',
+      'Worker unreachable (manual path)',
+      undefined,
+      expect.objectContaining({
+        workerUrl: 'http://localhost:3002',
+        reason: 'Worker returned 500',
+      }),
+    )
+  })
+
+  /**
+   * `dispatchManual` network-failure path: a rejected `fetch` (worker unreachable)
+   * is caught and degraded to `{ ok: false }` with the Error message as the reason.
+   */
+  it('dispatchManual degrades to { ok: false } when fetch rejects', async () => {
+    fetchSpy.mockRejectedValue(new Error('ECONNREFUSED') as never)
+
+    const result = await service.dispatchManual()
+
+    expect(result).toEqual({ ok: false })
+    expect(logger.warnStructured).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_DEGRADED',
+      'Worker unreachable (manual path)',
+      undefined,
+      expect.objectContaining({ reason: 'ECONNREFUSED' }),
+    )
+  })
+
+  /**
+   * `dispatchManual` non-Error rejection: a rejected `fetch` with a non-Error value
+   * exercises the manual catch's `: String(error)` branch so the reason is always a
+   * string and no throw escapes.
+   */
+  it('dispatchManual coerces a non-Error rejection via String(error)', async () => {
+    fetchSpy.mockRejectedValue(42 as never)
+
+    const result = await service.dispatchManual()
+
+    expect(result).toEqual({ ok: false })
+    expect(logger.warnStructured).toHaveBeenCalledWith(
+      'DOWNSTREAM_DISPATCH_DEGRADED',
+      'Worker unreachable (manual path)',
+      undefined,
+      expect.objectContaining({ reason: '42' }),
+    )
+  })
+
+  /**
+   * `dispatch` aggregates both paths in parallel and maps each sub-result's `ok`
+   * onto the `{ auto, manual }` flags. With both fetches succeeding both flags are
+   * `true` — protects the Promise.all fan-out and the flag-mapping shape.
+   */
+  it('dispatch returns { auto: true, manual: true } when both paths succeed', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    const result = await service.dispatch()
+
+    expect(result).toEqual({ auto: true, manual: true })
+  })
+
+  /**
+   * `dispatch` mixed outcome: each path degrades independently. The first fetch
+   * (auto) rejects and the second (manual) succeeds, so the flags map separately
+   * to `{ auto: false, manual: true }`.
+   */
+  it('dispatch maps each path independently to { auto: false, manual: true }', async () => {
+    fetchSpy
+      .mockRejectedValueOnce(new Error('auto down') as never)
+      .mockResolvedValueOnce(new Response(null, { status: 200 }) as never)
+
+    const result = await service.dispatch()
+
+    expect(result).toEqual({ auto: false, manual: true })
   })
 })

@@ -63,6 +63,39 @@ describe('LogsService.buildPrismaWhere', () => {
     const where = svc.buildPrismaWhere({ source: 'postgres', limit: 100 }, { tenantId: 'globex' })
     expect(where.tenantId).toBe('globex')
   })
+
+  it('service, traceId and requestId map to direct equality filters', () => {
+    /**
+     * Each of these high-selectivity fields is copied verbatim onto the where
+     * clause — guards the three conditional assignments for service/traceId/requestId.
+     */
+    const where = svc.buildPrismaWhere({
+      service: 'api',
+      traceId: 'trace-123',
+      requestId: 'req-456',
+      source: 'postgres',
+      limit: 100,
+    })
+    expect(where.service).toBe('api')
+    expect(where.traceId).toBe('trace-123')
+    expect(where.requestId).toBe('req-456')
+  })
+
+  it('explicit from/to bounds are honoured in the time window', () => {
+    /**
+     * When `from`/`to` are provided they drive `where.time` instead of the
+     * now-1h / now defaults — covers the non-default branch of the time window.
+     */
+    const where = svc.buildPrismaWhere({
+      from: '2024-06-01T00:00:00.000Z',
+      to: '2024-06-01T06:00:00.000Z',
+      source: 'postgres',
+      limit: 100,
+    })
+    const time = where.time as { gte: Date; lte: Date }
+    expect(time.gte.toISOString()).toBe('2024-06-01T00:00:00.000Z')
+    expect(time.lte.toISOString()).toBe('2024-06-01T06:00:00.000Z')
+  })
 })
 
 describe('LogsService.buildLogQL', () => {
@@ -114,6 +147,36 @@ describe('LogsService.buildLogQL', () => {
     /** The restriction tenantId appears as `| tenantId="acme"`. */
     const logql = svc.buildLogQL({ source: 'postgres', limit: 100 }, { tenantId: 'acme' })
     expect(logql).toContain('| tenantId="acme"')
+  })
+
+  it('traceId and requestId produce dedicated pipeline equality steps', () => {
+    /**
+     * `traceId`/`requestId` each append an equality pipeline step — guards the
+     * two conditional pushes at the tail of the LogQL builder.
+     */
+    const logql = svc.buildLogQL({
+      traceId: 'trace-123',
+      requestId: 'req-456',
+      source: 'postgres',
+      limit: 100,
+    })
+    expect(logql).toContain('| traceId="trace-123"')
+    expect(logql).toContain('| requestId="req-456"')
+  })
+
+  it('escapes embedded quotes and backslashes in interpolated values', () => {
+    /**
+     * `escapeLogQL` must double backslashes and escape double-quotes so a
+     * crafted value cannot break out of the selector — the injection guard.
+     */
+    const logql = svc.buildLogQL({
+      service: 'a"b\\c',
+      q: 'he said "hi"',
+      source: 'postgres',
+      limit: 100,
+    })
+    expect(logql).toContain('service="a\\"b\\\\c"')
+    expect(logql).toContain('|= "he said \\"hi\\""')
   })
 })
 

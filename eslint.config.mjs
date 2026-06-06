@@ -68,7 +68,15 @@ export default tseslint.config(
     // Relax unsafe-type and explicit-any rules in tests: Jest/Vitest globals and
     // mock objects are unresolvable at the ESLint level without full type
     // augmentation, producing false-positive errors.
-    files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/test/**'],
+    files: [
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.e2e-spec.ts',
+      '**/test/**',
+      '**/e2e/**',
+    ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -79,6 +87,14 @@ export default tseslint.config(
       // are intentional and safe in the context of test fixtures.
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       '@typescript-eslint/no-base-to-string': 'off',
+      // `expect(mock.method).toHaveBeenCalled()` references an unbound method by
+      // design — the documented Jest false-positive for this rule.
+      '@typescript-eslint/unbound-method': 'off',
+      // Mocks frequently need an `async` signature to match the mocked contract
+      // without awaiting anything inside the stub body.
+      '@typescript-eslint/require-await': 'off',
+      // Stub return values are intentionally loosely typed in fixtures.
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   prettier,

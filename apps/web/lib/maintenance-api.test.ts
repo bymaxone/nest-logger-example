@@ -14,6 +14,7 @@ import {
   getAuditEvents,
   getRetention,
   getSameRecord,
+  MaintenanceApiError,
   updateRetention,
 } from './maintenance-api'
 import type { LogQuery, RbacContext } from './types'
@@ -98,6 +99,47 @@ describe('exportLogs', () => {
     const result = await exportLogs('csv', { source: 'loki', role: 'operator' })
     expect(result.truncated).toBe(false)
   })
+
+  /** A query without a role must export with no RBAC headers (the empty-headers branch). */
+  it('sends no RBAC headers when the query carries no role', async () => {
+    let captured: HeadersInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        captured = init?.headers
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    await exportLogs('json', { source: 'postgres' })
+    expect(captured).toEqual({})
+  })
+
+  /** A query with a role but no tenant must default the tenant restriction to ''. */
+  it('attaches the x-role header and defaults the tenant when absent', async () => {
+    let captured: HeadersInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        captured = init?.headers
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    // `tenantId` is omitted so the `?? ''` fallback path is exercised.
+    await exportLogs('json', { source: 'postgres', role: 'admin' })
+    expect((captured as Record<string, string>)['x-role']).toBe('admin')
+    expect((captured as Record<string, string>)['x-tenant-id']).toBeUndefined()
+  })
+
+  /** A non-2xx export response must reject with a MaintenanceApiError carrying the status. */
+  it('throws MaintenanceApiError on a non-ok export response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    await expect(exportLogs('json', { source: 'postgres', role: 'viewer' })).rejects.toBeInstanceOf(
+      MaintenanceApiError,
+    )
+  })
 })
 
 describe('getRetention', () => {
@@ -135,6 +177,15 @@ describe('getRetention', () => {
     )
     await expect(getRetention(RBAC)).rejects.toThrow(/unexpected response shape/)
   })
+
+  /** A non-2xx GET must reject with a MaintenanceApiError carrying the status. */
+  it('throws MaintenanceApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    await expect(getRetention(RBAC)).rejects.toBeInstanceOf(MaintenanceApiError)
+  })
 })
 
 describe('updateRetention', () => {
@@ -158,6 +209,15 @@ describe('updateRetention', () => {
     expect(captured.method).toBe('PATCH')
     expect(captured.body).toEqual({ retentionDays: 7 })
     expect(result).toEqual(status)
+  })
+
+  /** A non-2xx PATCH must reject with a MaintenanceApiError carrying the status. */
+  it('throws MaintenanceApiError on a non-ok PATCH response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    await expect(updateRetention(7, RBAC)).rejects.toBeInstanceOf(MaintenanceApiError)
   })
 
   /** A malformed PATCH response must throw instead of returning garbage. */

@@ -128,7 +128,9 @@ export class IncidentsController {
         break
       case 'snooze': {
         status = 'snoozed'
-        const ms = SNOOZE_MS[body.snoozeDuration ?? '1h'] ?? SNOOZE_MS['1h']!
+        // `snoozeDuration` is enum-constrained to keys of SNOOZE_MS (defaulting
+        // to '1h'), so the lookup always resolves to a defined duration.
+        const ms = SNOOZE_MS[body.snoozeDuration ?? '1h']!
         resolvedAt = new Date(Date.now() + ms)
         break
       }

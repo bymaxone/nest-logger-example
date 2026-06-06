@@ -25,9 +25,12 @@ export default defineConfig({
     include: ['{app,components,lib,hooks}/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'text-summary', 'json-summary', 'html'],
       include: ['lib/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+      // Vendored shadcn primitives are excluded (authored upstream, not here);
+      // hand-written `lib/` and `components/` are gated at 100% on all metrics.
       exclude: ['components/ui/**', '**/*.{test,spec}.{ts,tsx}'],
+      thresholds: { branches: 100, functions: 100, lines: 100, statements: 100 },
     },
   },
 })

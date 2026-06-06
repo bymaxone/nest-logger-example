@@ -45,6 +45,16 @@ describe('buildExpr', () => {
   it('renders the heartbeat absence expr (count == 0)', () => {
     expect(buildExpr(preset('heartbeat'))).toBe('count(HTTP_REQUEST_SUCCESS) over 10m == 0')
   })
+
+  /**
+   * With neither a level filter nor a logKey the subject collapses to `*` ("any
+   * log"), so a draft that filters nothing still renders a valid expression.
+   */
+  it('renders a wildcard subject when no levels and no logKey are set', () => {
+    // Omit `logKey` so the subject has neither levels nor a key (the `*` wildcard).
+    const draft: RuleDraft = { ...preset('any-fatal'), levels: [] }
+    expect(buildExpr(draft)).toBe('count(*) over 1m >= 1')
+  })
 })
 
 describe('buildLogQlExpr', () => {

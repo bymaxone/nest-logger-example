@@ -10,7 +10,7 @@
  * requestId, traceId, tenantId, msg`.
  *
  * Export is an audited action: callers should record an `AuditEvent` row after
- * calling `stream()` (P10-9 wires the audit write).
+ * calling `stream()` (the audit write is wired by the calling controller).
  *
  * See `docs/DASHBOARD.md` §10 for the export specification.
  *

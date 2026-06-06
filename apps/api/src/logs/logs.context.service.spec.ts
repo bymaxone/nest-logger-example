@@ -66,6 +66,109 @@ describe('LogsContextService.query', () => {
     expect(result.after.map((r) => r.id)).toEqual(['d'])
   })
 
+  it('uses the keyset anchor lookup when anchorTime and anchorId are provided', async () => {
+    /**
+     * When the caller supplies both `anchorTime` and `anchorId`, the service must
+     * resolve the anchor via the exact-match `findFirst` (with the parsed Date and
+     * id) instead of the most-recent fallback — this is the keyset-windowing path.
+     */
+    const anchor = makeRow('c', new Date('2024-06-01T12:00:00.000Z'))
+    const findFirst = jest
+      .fn<(args: unknown) => Promise<ApplicationLog | null>>()
+      .mockResolvedValueOnce(anchor)
+    const prisma = {
+      applicationLog: {
+        findFirst,
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue([]),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    const result = await svc.query({
+      traceId: 'trace-1',
+      anchorTime: '2024-06-01T12:00:00.000Z',
+      anchorId: 'c',
+      before: 0,
+      after: 0,
+      source: 'postgres',
+      limit: 100,
+    })
+
+    expect(result.match?.id).toBe('c')
+    // Exact-match anchor lookup runs once; the fallback findFirst is not invoked.
+    expect(findFirst).toHaveBeenCalledTimes(1)
+    const firstArg = findFirst.mock.calls[0]?.[0] as unknown as {
+      where: { traceId?: string; id?: string }
+    }
+    expect(firstArg.where.traceId).toBe('trace-1')
+    expect(firstArg.where.id).toBe('c')
+  })
+
+  it('falls back to the most-recent match when the keyset anchor is not found', async () => {
+    /**
+     * If `anchorTime`/`anchorId` are provided but match no row, the service must fall
+     * back to the most-recent matching row (second `findFirst`) rather than returning
+     * an empty result prematurely.
+     */
+    const fallback = makeRow('z', new Date('2024-06-01T10:00:00.000Z'))
+    const findFirst = jest
+      .fn<() => Promise<ApplicationLog | null>>()
+      .mockResolvedValueOnce(null) // exact-match anchor miss
+      .mockResolvedValueOnce(fallback) // most-recent fallback
+    const prisma = {
+      applicationLog: {
+        findFirst,
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue([]),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    const result = await svc.query({
+      requestId: 'req-1',
+      anchorTime: '2024-06-01T12:00:00.000Z',
+      anchorId: 'missing',
+      before: 0,
+      after: 0,
+      source: 'postgres',
+      limit: 100,
+    })
+
+    expect(result.match?.id).toBe('z')
+    expect(findFirst).toHaveBeenCalledTimes(2)
+  })
+
+  it('builds an empty correlation filter when neither id is present', async () => {
+    /**
+     * `correlationWhere` returns `{}` when both correlation ids are absent. The DTO
+     * normally forbids this, but the service is called with already-validated DTOs;
+     * driving it directly exercises the defensive empty-filter branch.
+     */
+    const findFirst = jest
+      .fn<(args: unknown) => Promise<ApplicationLog | null>>()
+      .mockResolvedValue(null)
+    const prisma = {
+      applicationLog: {
+        findFirst,
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue([]),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    const result = await svc.query({
+      before: 0,
+      after: 0,
+      source: 'postgres',
+      limit: 100,
+    } as unknown as Parameters<LogsContextService['query']>[0])
+
+    expect(result.match).toBeNull()
+    // The fallback findFirst is called with an empty correlation `where`.
+    const fallbackArg = findFirst.mock.calls[0]?.[0] as unknown as {
+      where: Record<string, unknown>
+    }
+    expect(fallbackArg.where).toEqual({})
+  })
+
   it('returns empty result when no anchor row is found', async () => {
     /**
      * When the correlation id matches no rows, the service returns an empty

@@ -41,7 +41,7 @@ function parseDuration(s: string): number {
 interface ParsedExpr {
   level?: string | string[]
   logKey?: string | undefined
-  operator: '>' | '>=' | '==' | '<'
+  operator: '>' | '>=' | '=='
   threshold: number
 }
 
@@ -50,8 +50,9 @@ function parseExpr(expr: string): ParsedExpr {
   // Heartbeat/absence: count(logKey) over N == 0
   const absenceMatch = /count\(([A-Z_]+)\).*==\s*(\d+)/.exec(expr)
   if (absenceMatch) {
+    // Group 1 is guaranteed by the `([A-Z_]+)` capture when `exec` matched.
     return {
-      logKey: absenceMatch[1] ?? undefined,
+      logKey: absenceMatch[1]!,
       operator: '==',
       threshold: parseInt(absenceMatch[2]!, 10),
     }
@@ -67,7 +68,8 @@ function parseExpr(expr: string): ParsedExpr {
   // Specific logKey rate: rate(LOGKEY)
   const rateMatch = /rate\(([A-Z_]+)\)/.exec(expr)
   if (rateMatch) {
-    return { logKey: rateMatch[1] ?? undefined, operator: '>', threshold: 0 }
+    // Group 1 is guaranteed by the `([A-Z_]+)` capture when `exec` matched.
+    return { logKey: rateMatch[1]!, operator: '>', threshold: 0 }
   }
   return { operator: '>', threshold: 0 }
 }
@@ -141,14 +143,13 @@ export class AlertsEvaluatorService {
       return
     }
 
+    // `parseExpr` only yields '>', '>=', or '=='; '==' is the final arm.
     const isBreaching =
       parsed.operator === '>'
         ? count > rule.threshold
         : parsed.operator === '>='
           ? count >= rule.threshold
-          : parsed.operator === '=='
-            ? count === rule.threshold
-            : count < rule.threshold
+          : count === rule.threshold
 
     if (isBreaching) {
       const prev = this.breachTicks.get(rule.id) ?? 0

@@ -1,7 +1,7 @@
 /**
- * Phase 2 subpath probe — proves both `@bymax-one/nest-logger` subpaths
+ * Subpath probe — proves both `@bymax-one/nest-logger` subpaths
  * (`.` server API + `/shared` isomorphic API) type-resolve via the local link.
- * Temporary: superseded by the real wiring in Phase 3+; safe to delete then.
+ * Temporary: superseded by the real module wiring; safe to delete once that lands.
  */
 // `.` subpath — the full NestJS server surface
 import { BymaxLoggerModule, PinoLoggerService } from '@bymax-one/nest-logger'

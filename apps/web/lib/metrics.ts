@@ -107,11 +107,11 @@ export function meanOf(values: Array<number | null>): number {
  */
 export function trendPct(series: number[]): number {
   if (series.length < 2) return 0
+  // `series.length >= 2` here, so `mid >= 1` and both halves are non-empty.
   const mid = Math.floor(series.length / 2)
   const earlier = series.slice(0, mid)
   const recent = series.slice(mid)
-  const avg = (xs: number[]): number =>
-    xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length
+  const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length
   const a = avg(earlier)
   const b = avg(recent)
   if (a === 0) return b === 0 ? 0 : 100
