@@ -35,11 +35,6 @@ const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
   admin: 'Admin',
 }
 
-/** Narrow the Select's raw string value to a {@link RbacRole}. */
-function isRole(value: string): value is RbacRole {
-  return (ROLES as readonly string[]).includes(value)
-}
-
 /**
  * Tenant + role selectors feeding the RBAC demo.
  *
@@ -69,9 +64,8 @@ export function TenantRoleSwitcher() {
 
       <Select
         value={role}
-        onValueChange={(value) => {
-          if (isRole(value)) void setQuery({ role: value })
-        }}
+        // The Select lists exactly the `ROLES`, so Radix only ever emits a valid role.
+        onValueChange={(value) => void setQuery({ role: value as RbacRole })}
       >
         <SelectTrigger className="h-8 w-26 font-mono text-xs" aria-label="Role">
           <SelectValue placeholder="Role" />

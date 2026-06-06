@@ -57,4 +57,39 @@ describe('explorerHref', () => {
     expect(params.get('requestId')).toBeNull()
     expect(params.get('traceId')).toBe('trace_only')
   })
+
+  /**
+   * An absolute `from` with no `to` (open-ended window) sets `from`, omits `to`,
+   * and still drops the relative `range` — the absolute branch wins even when the
+   * upper bound is left unset.
+   */
+  it('sets from without to when only the lower bound is given', () => {
+    const href = explorerHref({ from: '2026-06-04T00:00:00.000Z' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('from')).toBe('2026-06-04T00:00:00.000Z')
+    expect(params.get('to')).toBeNull()
+    expect(params.get('range')).toBeNull()
+  })
+
+  /**
+   * An empty-string `to` alongside a real `from` is treated as "no upper bound":
+   * `to` is skipped so a blank value never reaches the Explorer query state.
+   */
+  it('skips an empty-string to while keeping the from window', () => {
+    const href = explorerHref({ from: '2026-06-04T00:00:00.000Z', to: '' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('from')).toBe('2026-06-04T00:00:00.000Z')
+    expect(params.get('to')).toBeNull()
+  })
+
+  /**
+   * A caller-supplied relative `range` overrides the default so a non-id pivot can
+   * widen or narrow the window (covers the `range ?? DEFAULT_RANGE` left branch).
+   */
+  it('honours an explicit relative range over the default', () => {
+    const href = explorerHref({ logKey: 'PAYMENT_CHARGE_FAILED', range: '1h' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('range')).toBe('1h')
+    expect(params.get('logKey')).toBe('PAYMENT_CHARGE_FAILED')
+  })
 })

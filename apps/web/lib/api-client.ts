@@ -83,14 +83,17 @@ export function rbacHeadersForQuery(q: LogQuery): Record<string, string> {
  * @typeParam T - The expected JSON payload type.
  * @param path - Path relative to the API base (e.g. `/logs?...`).
  * @param schema - Zod schema validating the response shape at the boundary.
- * @param init - Optional fetch init; its `headers` are merged last.
+ * @param headers - The per-request RBAC headers, merged after the JSON defaults.
  * @returns The parsed, shape-validated JSON payload.
  * @throws {ApiError} When the response status is not 2xx, or the body fails validation.
  */
-async function apiFetch<T>(path: string, schema: ZodType, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(
+  path: string,
+  schema: ZodType,
+  headers: Record<string, string>,
+): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
+    headers: { Accept: 'application/json', ...headers },
   })
   if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`)
   const parsed = schema.safeParse(await res.json())
@@ -107,9 +110,7 @@ async function apiFetch<T>(path: string, schema: ZodType, init?: RequestInit): P
  * @returns A page of rows plus the next keyset cursor.
  */
 export const getLogs = (q: LogQuery): Promise<LogPage> =>
-  apiFetch<LogPage>(`/logs?${encodeLogQuery(q)}`, logPageSchema, {
-    headers: rbacHeadersForQuery(q),
-  })
+  apiFetch<LogPage>(`/logs?${encodeLogQuery(q)}`, logPageSchema, rbacHeadersForQuery(q))
 
 /**
  * Fetch a time-bucketed aggregate series for a chart panel.
@@ -126,7 +127,7 @@ export const getAggregate = <M extends AggregateMetric>(
   apiFetch<Array<AggregateRowMap[M]>>(
     `/logs/aggregate?metric=${metric}&${encodeLogQuery(q)}`,
     aggregateRowSchemas[metric],
-    { headers: rbacHeadersForQuery(q) },
+    rbacHeadersForQuery(q),
   )
 
 /**
@@ -140,7 +141,7 @@ export const getFacets = (fields: FacetField[], q: LogQuery): Promise<FacetsResu
   apiFetch<FacetsResult>(
     `/logs/facets?fields=${fields.join(',')}&${encodeLogQuery(q)}`,
     facetsResultSchema,
-    { headers: rbacHeadersForQuery(q) },
+    rbacHeadersForQuery(q),
   )
 
 /** Parameters for the detail drawer's Context tab. */
@@ -166,9 +167,11 @@ export const getContext = (params: ContextParams, q: LogQuery): Promise<ContextR
   if (params.traceId !== undefined) p.set('traceId', params.traceId)
   p.set('before', String(params.before ?? DEFAULT_CONTEXT_LINES))
   p.set('after', String(params.after ?? DEFAULT_CONTEXT_LINES))
-  return apiFetch<ContextResult>(`/logs/context?${p.toString()}`, contextResultSchema, {
-    headers: rbacHeadersForQuery(q),
-  })
+  return apiFetch<ContextResult>(
+    `/logs/context?${p.toString()}`,
+    contextResultSchema,
+    rbacHeadersForQuery(q),
+  )
 }
 
 /**

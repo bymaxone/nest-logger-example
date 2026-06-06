@@ -1,0 +1,50 @@
+name: nest-logger-example-test
+
+# Dedicated, ephemeral test stack — mirrors the nest-auth-example pattern.
+# Alternate host ports (so it runs alongside the dev stack without collision) and
+# tmpfs storage (so nothing persists between runs). Credentials are static
+# test-only values; never reuse outside CI. Everything is bound to 127.0.0.1.
+#
+# Brought up by `pnpm infra:test:up`, torn down by `pnpm infra:test:down`. Used
+# only by the opt-in integration tier (`pnpm --filter api test:int`); the default
+# unit/e2e suites stay hermetic and never touch this file.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: logs_example_test
+    ports:
+      - '127.0.0.1:55432:5432'
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-postgres} -d logs_example_test']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    networks:
+      - ci
+
+  loki:
+    image: grafana/loki:latest
+    command: ['-config.file=/etc/loki/loki-config.yml']
+    ports:
+      - '127.0.0.1:53100:3100'
+    volumes:
+      - ./docker/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    healthcheck:
+      # grafana/loki is distroless; the loki binary ships a `-health` flag that
+      # probes its own /ready endpoint and exits non-zero until the ring is live.
+      test: ['CMD', '/usr/bin/loki', '-health']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    networks:
+      - ci
+
+networks:
+  ci:
+    driver: bridge

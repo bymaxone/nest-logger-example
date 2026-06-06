@@ -96,7 +96,50 @@ describe('LokiClient.labelValues', () => {
 
     const callUrl = String((fetchMock.mock.calls[0] as [string])[0])
     expect(callUrl).toContain('/loki/api/v1/label/level/values')
+    expect(callUrl).not.toContain('?')
     expect(result).toEqual(['error', 'warn', 'info'])
+  })
+
+  it('appends the RBAC-scoped query and time window when opts are supplied', async () => {
+    /**
+     * When `query`/`startNs`/`endNs` opts are provided, they must be appended as URL
+     * params so Loki restricts the returned values to streams matching the selector
+     * within the window (prevents cross-tenant label leakage). Exercises the three
+     * `if` branches and the non-empty querystring suffix.
+     */
+    const { client, fetchMock } = buildClient()
+    const mockBody = { status: 'success', data: ['api'] }
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(mockBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const result = await client.labelValues('service', {
+      query: '{tenantId="acme"}',
+      startNs: '1000000000',
+      endNs: '2000000000',
+    })
+
+    const callUrl = String((fetchMock.mock.calls[0] as [string])[0])
+    expect(callUrl).toContain('/loki/api/v1/label/service/values?')
+    expect(callUrl).toContain('query=')
+    expect(callUrl).toContain('start=1000000000')
+    expect(callUrl).toContain('end=2000000000')
+    expect(result).toEqual(['api'])
+  })
+
+  it('wraps a non-Error network rejection in LokiUnavailableError with a stringified detail', async () => {
+    /**
+     * A fetch rejection whose reason is not an `Error` (e.g. a thrown string) must still
+     * surface as `LokiUnavailableError`, with the reason coerced via `String(err)` — this
+     * exercises the `err instanceof Error ? ... : String(err)` false branch.
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockRejectedValue('boom')
+
+    await expect(client.labelValues('level')).rejects.toThrow(LokiUnavailableError)
   })
 })
 
@@ -138,5 +181,116 @@ describe('LokiProxyController.loki', () => {
       limit: 100,
     })) as { stream: string }
     expect(result.stream).toBe('/logs/stream')
+  })
+
+  it('proxies query_range with nanosecond timestamps and returns the Loki response', async () => {
+    /**
+     * Default `query_range` mode must call `LokiClient.queryRange` with the compiled
+     * LogQL, nanosecond start/end strings, the step, and the limit; the raw Loki
+     * response is returned unchanged. Omitting `from`/`to` defaults the window to the
+     * last hour, exercising the `q.from ? ... : ...` and `q.step ?? '60s'` branches.
+     */
+    const lokiResponse = { status: 'success', data: { resultType: 'streams', result: [] } }
+    const queryRange = jest.fn<() => Promise<typeof lokiResponse>>().mockResolvedValue(lokiResponse)
+    const client = { queryRange } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    const result = await controller.loki(
+      { 'x-role': 'admin' },
+      { mode: 'query_range', source: 'loki', limit: 100 },
+    )
+
+    expect(result).toBe(lokiResponse)
+    expect(queryRange).toHaveBeenCalledTimes(1)
+    const args = queryRange.mock.calls[0] as [string, string, string, string, number]
+    // start/end are nanosecond-epoch strings (no decimal point, all digits).
+    expect(args[1]).toMatch(/^\d+$/)
+    expect(args[2]).toMatch(/^\d+$/)
+    expect(args[3]).toBe('60s')
+    expect(args[4]).toBe(100)
+  })
+
+  it('proxies query_range honoring explicit from/to and step', async () => {
+    /**
+     * When `from`, `to`, and `step` are supplied, the controller must convert the
+     * explicit window to nanoseconds and forward the provided step — covering the
+     * truthy side of `q.from ? ...`, `q.to ? ...`, and `q.step ?? '60s'`.
+     */
+    const lokiResponse = { status: 'success', data: { resultType: 'streams', result: [] } }
+    const queryRange = jest.fn<() => Promise<typeof lokiResponse>>().mockResolvedValue(lokiResponse)
+    const client = { queryRange } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    await controller.loki({ 'x-role': 'admin' }, {
+      mode: 'query_range',
+      source: 'loki',
+      limit: 50,
+      from: '2024-06-01T00:00:00.000Z',
+      to: '2024-06-01T01:00:00.000Z',
+      step: '5m',
+    } as unknown as Parameters<LokiProxyController['loki']>[1])
+
+    const args = queryRange.mock.calls[0] as [string, string, string, string, number]
+    // 2024-06-01T00:00:00Z = 1717200000000 ms -> *1e6 ns.
+    expect(args[1]).toBe('1717200000000000000')
+    expect(args[2]).toBe('1717203600000000000')
+    expect(args[3]).toBe('5m')
+  })
+
+  it('returns scoped label values for labels mode', async () => {
+    /**
+     * `labels` mode must call `LokiClient.labelValues` with the requested label name
+     * scoped by the RBAC LogQL selector and time window, and return `{ values }`.
+     */
+    const labelValues = jest.fn<() => Promise<string[]>>().mockResolvedValue(['api', 'web'])
+    const client = { labelValues } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    const result = (await controller.loki({ 'x-role': 'admin' }, {
+      mode: 'labels',
+      labelName: 'service',
+      source: 'loki',
+      limit: 100,
+    } as unknown as Parameters<LokiProxyController['loki']>[1])) as { values: string[] }
+
+    expect(result.values).toEqual(['api', 'web'])
+    const args = labelValues.mock.calls[0] as [
+      string,
+      { query: string; startNs: string; endNs: string },
+    ]
+    expect(args[0]).toBe('service')
+    expect(args[1].startNs).toMatch(/^\d+$/)
+    expect(args[1].endNs).toMatch(/^\d+$/)
+  })
+
+  it('defaults labels mode to the level label when labelName is omitted', async () => {
+    /**
+     * `labels` mode without `labelName` must default to `level` — exercising the
+     * `q.labelName ?? 'level'` nullish-coalescing fallback.
+     */
+    const labelValues = jest.fn<() => Promise<string[]>>().mockResolvedValue(['error'])
+    const client = { labelValues } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    await controller.loki({ 'x-role': 'admin' }, { mode: 'labels', source: 'loki', limit: 100 })
+
+    expect((labelValues.mock.calls[0] as [string])[0]).toBe('level')
+  })
+
+  it('rethrows a non-Loki error unchanged (not as a 502)', async () => {
+    /**
+     * Only `LokiUnavailableError` maps to a 502; any other error from the client must
+     * propagate unchanged so it is not masked as a Loki-availability problem. This
+     * covers the final `throw err` re-raise branch.
+     */
+    const boom = new TypeError('unexpected programming error')
+    const client = {
+      queryRange: jest.fn<() => Promise<never>>().mockRejectedValue(boom),
+    } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    await expect(
+      controller.loki({ 'x-role': 'admin' }, { mode: 'query_range', source: 'loki', limit: 100 }),
+    ).rejects.toBe(boom)
   })
 })

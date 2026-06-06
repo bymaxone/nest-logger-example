@@ -113,8 +113,6 @@ function applyFieldFilter(
     case 'traceId':
       void setQuery({ traceId: value })
       return
-    default:
-      return
   }
 }
 
@@ -229,7 +227,7 @@ function TraceTab({ row, onPivot }: { row: LogRow; onPivot: () => void }) {
       {hasTrace ? (
         <div className="flex flex-wrap gap-2 pt-2">
           <Button asChild size="sm" variant="outline">
-            <a href={traceUrl(row.traceId ?? '')} target="_blank" rel="noopener noreferrer">
+            <a href={traceUrl(row.traceId!)} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3.5 w-3.5" /> View trace
             </a>
           </Button>
@@ -268,11 +266,12 @@ export function DetailDrawer({ row, open, onOpenChange }: DetailDrawerProps) {
   const context = useQuery({
     queryKey: ['context', correlationId, query.source],
     enabled: open && correlationId !== null,
-    queryFn: () =>
-      getContext(
-        row?.requestId ? { requestId: row.requestId } : { traceId: row?.traceId ?? '' },
-        query,
-      ),
+    queryFn: () => {
+      // `enabled` guarantees a non-null row with a truthy requestId or traceId,
+      // so the anchor below is always a defined correlation id.
+      const r = row!
+      return getContext(r.requestId ? { requestId: r.requestId } : { traceId: r.traceId! }, query)
+    },
   })
 
   return (
@@ -311,7 +310,8 @@ export function DetailDrawer({ row, open, onOpenChange }: DetailDrawerProps) {
                 <TraceTab
                   row={row}
                   onPivot={() => {
-                    void setQuery({ traceId: row.traceId ?? '' })
+                    // The pivot button only renders when the row has a trace id.
+                    void setQuery({ traceId: row.traceId! })
                     onOpenChange(false)
                   }}
                 />

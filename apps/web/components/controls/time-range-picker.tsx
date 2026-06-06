@@ -53,9 +53,10 @@ function isoToLocalInput(iso: string): string {
  * @returns The ISO string, or empty when the value is blank/invalid.
  */
 function localInputToIso(local: string): string {
+  // A `datetime-local` input yields either '' or a well-formed `YYYY-MM-DDTHH:mm`
+  // value, so a non-empty `local` always parses to a valid date.
   if (local === '') return ''
-  const d = new Date(local)
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString()
+  return new Date(local).toISOString()
 }
 
 /**

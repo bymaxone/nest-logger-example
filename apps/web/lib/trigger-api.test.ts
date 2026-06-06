@@ -182,4 +182,40 @@ describe('triggerApi', () => {
     await triggerApi.burst(0)
     expect(calls[0]?.body).toEqual({ count: 1 })
   })
+
+  /** An empty / non-JSON response body must surface as `body: null` (the json catch path). */
+  it('returns a null body when the response is not JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          status: 204,
+          headers: new Headers({ 'x-request-id': 'req_2', 'x-trace-id': 'trace_2' }),
+          // A 204/empty body makes res.json() reject; the client must swallow it to null.
+          json: () => Promise.reject(new Error('Unexpected end of JSON input')),
+        } as Response),
+      ),
+    )
+    const result: TriggerResult = await triggerApi.faultLoki()
+    expect(result.body).toBeNull()
+    expect(result.status).toBe(204)
+    expect(result.requestId).toBe('req_2')
+  })
+
+  /** Absent correlation headers must validate to `null` on the result (the boundary schema). */
+  it('surfaces null correlation ids when the headers are absent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          status: 200,
+          headers: new Headers(),
+          json: () => Promise.resolve({ ok: true }),
+        } as Response),
+      ),
+    )
+    const result: TriggerResult = await triggerApi.huge()
+    expect(result.requestId).toBeNull()
+    expect(result.traceId).toBeNull()
+  })
 })

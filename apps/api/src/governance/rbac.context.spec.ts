@@ -4,15 +4,83 @@
  * Covers: Viewer query is hard-scoped to its tenantId, Admin has no restriction,
  * export is denied to Viewers, and `isAdmin` guards correctly.
  */
-import { describe, expect, it } from '@jest/globals'
+import { afterEach, describe, expect, it } from '@jest/globals'
 
-import { buildRbacContext, canExport, isAdmin, toRestriction } from './rbac.context.js'
+import {
+  buildRbacContext,
+  canExport,
+  isAdmin,
+  NO_TENANT_SENTINEL,
+  toRestriction,
+} from './rbac.context.js'
 
 describe('buildRbacContext', () => {
+  const originalEnv = process.env.NODE_ENV
+
+  afterEach(() => {
+    // Restore NODE_ENV so the production-guard tests cannot leak into others.
+    process.env.NODE_ENV = originalEnv
+  })
+
   it('defaults to operator role when x-role header is absent', () => {
     /** Missing `x-role` header must resolve to the `operator` role. */
     const ctx = buildRbacContext({})
     expect(ctx.role).toBe('operator')
+  })
+
+  it('throws outside development/test (production)', () => {
+    /**
+     * Trusting client-supplied `x-role` headers is demo-only. The function must
+     * fail fast for any non-dev/test NODE_ENV (here: production) so a real
+     * deployment cannot accidentally ship header-based RBAC.
+     */
+    process.env.NODE_ENV = 'production'
+    expect(() => buildRbacContext({})).toThrow(/Header-based RBAC is demo-only/)
+  })
+
+  it('treats an unset NODE_ENV as development and does not throw', () => {
+    /**
+     * An absent NODE_ENV must be treated as development so local runs and CI keep
+     * working — this exercises the `?? 'development'` default branch.
+     */
+    delete process.env.NODE_ENV
+    expect(() => buildRbacContext({})).not.toThrow()
+  })
+
+  it('selects the first value of an array-valued x-tenant-id header', () => {
+    /**
+     * When `x-tenant-id` arrives as a multi-value header (string[]), only the
+     * first value is taken as the tenant; this covers the `Array.isArray` branch.
+     */
+    const ctx = buildRbacContext({ 'x-role': 'viewer', 'x-tenant-id': ['acme', 'globex'] })
+    expect(ctx.tenantId).toBe('acme')
+  })
+
+  it('derives actor from x-actor when present', () => {
+    /**
+     * `x-actor` takes precedence over `x-tenant-id` for the resolved actor; this
+     * covers the explicit-actor branch.
+     */
+    const ctx = buildRbacContext({ 'x-actor': 'alice', 'x-tenant-id': 'acme' })
+    expect(ctx.actor).toBe('alice')
+  })
+
+  it('falls back to anonymous when neither x-actor nor x-tenant-id is present', () => {
+    /**
+     * With no `x-actor` and no `x-tenant-id`, the actor must default to
+     * `anonymous`; this covers the `?? 'anonymous'` fallback branch.
+     */
+    const ctx = buildRbacContext({})
+    expect(ctx.actor).toBe('anonymous')
+  })
+
+  it('selects the first array value of x-actor and falls back to anonymous on empty', () => {
+    /**
+     * An array-valued `x-actor` resolves to its first element; an empty array
+     * falls back to `anonymous` — covering both array sub-branches of actor.
+     */
+    expect(buildRbacContext({ 'x-actor': ['bob', 'carol'] }).actor).toBe('bob')
+    expect(buildRbacContext({ 'x-actor': [] }).actor).toBe('anonymous')
   })
 
   it('parses viewer role from header', () => {
@@ -56,6 +124,17 @@ describe('toRestriction', () => {
     const ctx = buildRbacContext({ 'x-role': 'operator', 'x-tenant-id': 'globex' })
     const restriction = toRestriction(ctx)
     expect(restriction.tenantId).toBe('globex')
+  })
+
+  it('locks a non-admin with no tenantId to the no-match sentinel', () => {
+    /**
+     * A non-admin caller that omits `x-tenant-id` must be scoped to
+     * `NO_TENANT_SENTINEL` so the query matches zero rows rather than leaking
+     * cross-tenant data — this covers the sentinel fallback branch.
+     */
+    const ctx = buildRbacContext({ 'x-role': 'operator' })
+    const restriction = toRestriction(ctx)
+    expect(restriction.tenantId).toBe(NO_TENANT_SENTINEL)
   })
 })
 
