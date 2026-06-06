@@ -73,11 +73,9 @@ export function VolumeBar({ query, onBrush }: VolumeBarProps) {
           travellerWidth={8}
           tickFormatter={formatBucket}
           onChange={(range: { startIndex?: number; endIndex?: number }) => {
-            // recharts always supplies both indices in-range while the brush is
-            // interactive (it only fires onChange over non-empty data).
-            const start = points[range.startIndex!]!
-            const end = points[range.endIndex!]!
-            onBrush(start.bucket, end.bucket)
+            const start = points[range.startIndex ?? 0]
+            const end = points[range.endIndex ?? points.length - 1]
+            if (start !== undefined && end !== undefined) onBrush(start.bucket, end.bucket)
           }}
         />
       </BarChart>

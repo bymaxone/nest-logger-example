@@ -42,7 +42,7 @@ describe('ChartCard', () => {
   /** Omitting `action` (and `className`) must still render a clean titled card. */
   it('renders without an action or extra class names', () => {
     render(
-      <ChartCard title="Volume" className="custom-class">
+      <ChartCard title="Volume">
         <span>body only</span>
       </ChartCard>,
     )

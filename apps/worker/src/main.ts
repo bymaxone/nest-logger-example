@@ -34,7 +34,9 @@ async function bootstrap(): Promise<void> {
   } catch (err) {
     // PinoLoggerService not available (e.g. DI misconfiguration) — the logger itself
     // failed, so report to stderr (the fail-soft sink) and fall back to buffered logs.
-    process.stderr.write(`PinoLoggerService not available, using default logger: ${String(err)}\n`)
+    process.stderr.write(
+      `PinoLoggerService not available, using default logger: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+    )
     app.flushLogs()
   }
 
@@ -52,7 +54,9 @@ async function bootstrap(): Promise<void> {
     void app
       .close()
       .catch((err: unknown) => {
-        process.stderr.write(`app.close() failed during shutdown: ${String(err)}\n`)
+        process.stderr.write(
+          `app.close() failed during shutdown: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+        )
       })
       .then(() => otelSdk.shutdown())
       .finally(() => process.exit(0))

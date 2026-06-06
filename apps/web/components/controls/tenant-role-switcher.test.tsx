@@ -1,7 +1,7 @@
 /**
  * @fileoverview Component tests for {@link TenantRoleSwitcher} — the tenant select
- * (including the "all tenants" sentinel ⇄ a concrete tenant) and the role select
- * (with the `isRole` narrowing guard), asserting the URL writes for each.
+ * (including the "all tenants" sentinel ⇄ a concrete tenant) and the role select,
+ * asserting the URL writes for each.
  *
  * The two Radix selects are bound to the nuqs URL state, so each test seeds a
  * `NuqsTestingAdapter`, opens a select with `userEvent`, picks an option, and
