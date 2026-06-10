@@ -1,0 +1,22 @@
+{
+  "comment": [
+    "Link-check config for docs/*.md + README.md, reused by CI.",
+    "ignorePatterns reasons:",
+    "- localhost / 127.0.0.1: runtime URLs printed by the demo (api 3001, worker 3002, web 3003, Grafana 3000, Loki 3100, Tempo 3200, OTLP 4317/4318) — not navigable pages.",
+    "- github.com/bymaxone/*: the org repos are private/pre-publish, so anonymous link checks 404 even though the links are correct for an authenticated reader.",
+    "- img.shields.io: dynamically generated badge images, not navigable HTML pages; rate-limited under CI.",
+    "- npmjs.com / coralogix.com: return 403 to automated link checkers (bot protection); the pages are reachable in a browser and verified manually."
+  ],
+  "ignorePatterns": [
+    { "pattern": "^https?://localhost" },
+    { "pattern": "^https?://127\\.0\\.0\\.1" },
+    { "pattern": "^https://github\\.com/bymaxone/" },
+    { "pattern": "^https://img\\.shields\\.io/" },
+    { "pattern": "^https://www\\.npmjs\\.com/" },
+    { "pattern": "^https://coralogix\\.com/" }
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3,
+  "aliveStatusCodes": [200, 206]
+}
