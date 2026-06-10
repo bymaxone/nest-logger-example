@@ -28,6 +28,7 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { AuditService } from '../governance/audit.service.js'
 import { buildRbacContext } from '../governance/rbac.context.js'
 
+/** Request body for `PATCH /incidents` — the lifecycle action and, when snoozing, its duration. */
 export const transitionSchema = z.object({
   action: z.enum(['acknowledge', 'snooze', 'resolve']),
   /** Snooze duration — required when `action=snooze`. */

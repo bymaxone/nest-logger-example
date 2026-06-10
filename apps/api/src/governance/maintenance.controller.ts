@@ -17,6 +17,7 @@ import { AuditService } from './audit.service.js'
 import { buildRbacContext, isAdmin } from './rbac.context.js'
 import { RetentionSweepService } from './retention.sweep.service.js'
 
+/** Request body for `PATCH /maintenance/retention` — the new retention window in days (1–365). */
 export const updateRetentionSchema = z.object({
   retentionDays: z.number().int().min(1).max(365),
 })
