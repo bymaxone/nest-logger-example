@@ -204,4 +204,154 @@ describe('buildLoggerOptions', () => {
     const config = makeConfig({ LOKI_URL: REQUIRED.LOKI_URL, NODE_ENV: 'development' })
     expect(() => buildLoggerOptions(config, prisma, bus)).toThrow(/OTEL_SERVICE_NAME/)
   })
+
+  // ─── static boolean and string constants ─────────────────────────────────────
+
+  /**
+   * isGlobal, shouldUseAsNestLogger, redactCensor, and maxEntrySizeBytes are
+   * compile-time constants. A mutation to any of these literals (true/false/string/
+   * number) would not be caught by the existing tests — assert each value directly.
+   */
+  it('sets isGlobal, shouldUseAsNestLogger, redactCensor, and maxEntrySizeBytes to their declared constants', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+
+    expect(opts.isGlobal).toBe(true)
+    expect(opts.shouldUseAsNestLogger).toBe(true)
+    expect(opts.redactCensor).toBe('[REDACTED]')
+    expect(opts.maxEntrySizeBytes).toBe(65_536)
+  })
+
+  // ─── http block ───────────────────────────────────────────────────────────────
+
+  /**
+   * The http options object must have the exact boolean flags, tenant header, and
+   * exclude-path regexes declared in the source. Mutations to isEnabled/
+   * shouldCaptureExceptions/shouldGenerateRequestId/tenantIdHeader would not be
+   * caught by the existing tests that only inspect destinations.
+   */
+  it('sets http isEnabled, shouldCaptureExceptions, shouldGenerateRequestId, and tenantIdHeader', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+
+    expect(opts.http?.isEnabled).toBe(true)
+    expect(opts.http?.shouldCaptureExceptions).toBe(true)
+    expect(opts.http?.shouldGenerateRequestId).toBe(false)
+    expect(opts.http?.tenantIdHeader).toBe('x-tenant-id')
+  })
+
+  /**
+   * excludePaths must be an array of exactly three regexes with the correct
+   * pattern sources. Mutations to the array literal or any regex pattern would
+   * not be caught without asserting the sources explicitly.
+   */
+  it('sets http.excludePaths to the three anchored path regexes', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+
+    const excl = opts.http?.excludePaths
+    expect(excl).toHaveLength(3)
+    expect((excl as RegExp[])[0]!.source).toBe('^\\/health$')
+    expect((excl as RegExp[])[1]!.source).toBe('^\\/metrics$')
+    expect((excl as RegExp[])[2]!.source).toBe('^\\/logs\\/stream$')
+  })
+
+  // ─── otel block ───────────────────────────────────────────────────────────────
+
+  /**
+   * otel.shouldAutoInjectTraceContext must be true. A true→false mutation would
+   * silently disable OTLP trace-context injection without breaking any existing test.
+   */
+  it('sets otel.shouldAutoInjectTraceContext to true', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+
+    expect(opts.otel?.shouldAutoInjectTraceContext).toBe(true)
+  })
+
+  // ─── EventBusLogDestination minLevel ─────────────────────────────────────────
+
+  /**
+   * EventBusLogDestination must be wired with minLevel 'info' so the live-tail
+   * mirrors the full-fidelity Loki tier. A mutation to the 'info' literal would
+   * silently change the fan-out threshold without failing any instanceof check.
+   */
+  it('creates EventBusLogDestination with minLevel info', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+
+    const dest = opts.destinations?.[2]
+    expect(dest).toBeInstanceOf(EventBusLogDestination)
+    expect((dest as EventBusLogDestination).minLevel).toBe('info')
+  })
+
+  // ─── PrismaLogDestination options wiring ─────────────────────────────────────
+
+  /**
+   * LOG_DB_MIN_LEVEL must be threaded through as the minLevel option on
+   * PrismaLogDestination. A mutation that replaces the entire options object with {}
+   * would cause the constructor to default to 'warn' regardless of what LOG_DB_MIN_LEVEL
+   * is set to; asserting the non-default value 'error' catches that mutation.
+   */
+  it('threads LOG_DB_MIN_LEVEL through to PrismaLogDestination minLevel', () => {
+    const config = makeConfig({
+      ...REQUIRED,
+      NODE_ENV: 'development',
+      LOG_DB_MIN_LEVEL: 'error',
+    })
+    const opts = buildLoggerOptions(config, prisma, bus)
+    const dest = opts.destinations?.[1] as PrismaLogDestination
+    expect(dest).toBeInstanceOf(PrismaLogDestination)
+    expect(dest.minLevel).toBe('error')
+  })
+
+  /**
+   * When LOG_DB_MIN_LEVEL is absent, the `?? 'warn'` fallback in buildLoggerOptions
+   * must supply 'warn' as the minLevel. A mutation that blanks the 'warn' string
+   * produces an empty-string minLevel, which this assertion catches.
+   */
+  it('PrismaLogDestination minLevel falls back to warn when LOG_DB_MIN_LEVEL is absent', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+    const dest = opts.destinations?.[1] as PrismaLogDestination
+    expect(dest.minLevel).toBe('warn')
+  })
+
+  // ─── EventBusLogDestination options object ────────────────────────────────────
+
+  /**
+   * The options object { minLevel: 'info' } must be passed to the EventBusLogDestination
+   * constructor. EventBusLogDestination stores opts as a private field; accessing it via
+   * cast confirms the literal was passed rather than the constructor's own '{}' default
+   * (both produce the same minLevel, so the minLevel check alone is insufficient).
+   */
+  it('passes { minLevel: info } as the explicit options object to EventBusLogDestination', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+    const dest = opts.destinations?.[2]
+    expect(dest).toBeInstanceOf(EventBusLogDestination)
+    // EventBusLogDestination stores opts as a private field (TypeScript private,
+    // accessible at runtime); check the raw property to verify the options object
+    // was actually threaded through rather than defaulted from {}.
+    expect((dest as unknown as Record<string, unknown>)['opts']).toEqual({ minLevel: 'info' })
+  })
+
+  // ─── RollingFileDestination options ───────────────────────────────────────────
+
+  /**
+   * The RollingFileDestination must receive the exact file path, rotation frequency,
+   * and size limit. Mutations that blank any of those string literals ('logs/app.log',
+   * 'daily', '50m') leave the destination with an empty option; these assertions catch
+   * each individually.
+   */
+  it('creates RollingFileDestination with the exact file, frequency, and size options', () => {
+    const config = makeConfig({ ...REQUIRED, NODE_ENV: 'development' })
+    const opts = buildLoggerOptions(config, prisma, bus)
+    const dest = opts.destinations?.[3]
+    expect(dest).toBeInstanceOf(RollingFileDestination)
+    const destOpts = (dest as unknown as Record<string, unknown>)['opts'] as Record<string, unknown>
+    expect(destOpts.file).toBe('logs/app.log')
+    expect(destOpts.frequency).toBe('daily')
+    expect(destOpts.size).toBe('50m')
+  })
 })

@@ -350,4 +350,148 @@ describe('useLogStream', () => {
     renderHook(() => useLogStream(noRole, true))
     expect(source().url).toContain('role=viewer')
   })
+
+  /** The stream URL begins with the exact proxy path /api/logs/stream. */
+  it('opens the EventSource at the /api/logs/stream proxy path', () => {
+    renderHook(() => useLogStream(filter, true))
+    expect(source().url.startsWith('/api/logs/stream?')).toBe(true)
+  })
+
+  /** The stream URL includes the role appended as a query param. */
+  it('appends role= as a query param in the stream URL', () => {
+    renderHook(() => useLogStream(filter, true))
+    expect(source().url).toContain('role=admin')
+  })
+
+  /**
+   * After `clear()` the ring buffer is fully reset: a frame emitted immediately
+   * after must appear as the only row (not alongside pre-clear rows).
+   *
+   * Kills two BlockStatement mutations:
+   * - `clear()` body → `{}`: buffer not cleared so old rows re-appear after the
+   *   next flush, giving length=2.
+   * - `pendingRef.current = []` → `["Stryker was here"]` in clear(): the fake
+   *   entry piggy-backs on the next flush, giving length=2.
+   */
+  it('shows only the frame emitted after clear, not frames from before', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => source().emit(frame({ id: 'before' })))
+    act(() => flushRaf())
+    expect(result.current.rows).toHaveLength(1)
+    // Clear resets both the ring buffer and the pending batch.
+    act(() => result.current.clear())
+    // Emit a new frame and flush it.
+    act(() => source().emit(frame({ id: 'after' })))
+    act(() => flushRaf())
+    expect(result.current.rows).toHaveLength(1)
+    expect(result.current.rows[0]?.id).toBe('after')
+  })
+
+  /**
+   * Exactly BUFFER_CAPACITY (10 000) items in the buffer fit without eviction.
+   * This pins the `>` vs `>=` boundary of the ring-buffer capacity check.
+   */
+  it('retains exactly 10 000 rows at the ring-buffer capacity boundary', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => {
+      for (let i = 0; i < 10_000; i += 1) source().emit(frame({ id: `e${i}` }))
+    })
+    act(() => flushRaf())
+    // Exactly at capacity — nothing evicted.
+    expect(result.current.rows).toHaveLength(10_000)
+    expect(result.current.rows[0]?.id).toBe('e0')
+    expect(result.current.rows.at(-1)?.id).toBe('e9999')
+  })
+
+  /**
+   * The idle guardrail fires when the elapsed time is strictly greater than
+   * IDLE_STOP_MS (5 min). Advance to exactly 5 min + one 30 s tick = 5.5 min —
+   * the stream must be closed only after that tick, not before.
+   */
+  it('keeps the stream open at exactly the 5-minute idle threshold (not yet elapsed)', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => source().onopen?.())
+    // Advance exactly IDLE_STOP_MS = 300 000 ms; at 300 000 ms the condition is
+    // `300_000 > 300_000 = false`, so the stream must still be open.
+    void act(() => vi.advanceTimersByTime(300_000))
+    expect(source().closeCount).toBe(0)
+    expect(result.current.connected).toBe(true)
+  })
+
+  /** The idle guardrail closes the stream one interval after the threshold is passed. */
+  it('closes the stream one idle-check interval after the 5-minute threshold is passed', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => source().onopen?.())
+    // Advance past the threshold: 300 000 + 30 000 = 330 000 ms.
+    // At the 330 000 ms tick: `330_000 > 300_000 = true` → closes.
+    void act(() => vi.advanceTimersByTime(330_000))
+    expect(source().closeCount).toBeGreaterThan(0)
+    expect(result.current.connected).toBe(false)
+  })
+
+  /**
+   * A frame whose optional correlation ids are explicitly provided must surface
+   * them on the row; verifies the `?? null` nullish-coalescing assignments.
+   */
+  it('surfaces explicit correlation ids on the flushed row', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() =>
+      source().emit(
+        frame({ requestId: 'req_42', traceId: 'trace_42', spanId: 'span_42', tenantId: 'acme' }),
+      ),
+    )
+    act(() => flushRaf())
+    const row = result.current.rows[0]
+    expect(row?.requestId).toBe('req_42')
+    expect(row?.traceId).toBe('trace_42')
+    expect(row?.spanId).toBe('span_42')
+    expect(row?.tenantId).toBe('acme')
+  })
+
+  /**
+   * A string `time` value must pass through unchanged — no Date conversion.
+   * Kills the ConditionalExpression→true mutation on L75 that would always run
+   * `new Date(entry.time).toISOString()`, adding ".000" to a string like
+   * '2026-06-05T00:00:00Z' → '2026-06-05T00:00:00.000Z'.
+   */
+  it('passes a string time through without Date conversion', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => source().emit(frame({ time: '2026-06-05T00:00:00Z' })))
+    act(() => flushRaf())
+    expect(result.current.rows[0]?.time).toBe('2026-06-05T00:00:00Z')
+  })
+
+  /**
+   * A frame with no cursor must not add a `cursor` property to the row at all.
+   * Kills the ConditionalExpression→true mutation on L84 that always spreads
+   * `{ cursor: entry.cursor }` — even when undefined — so `hasOwnProperty`
+   * would return true and the `.not.toHaveProperty` assertion would fail.
+   */
+  it('does not add a cursor property to the row when the frame has no cursor', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => source().emit(frame()))
+    act(() => flushRaf())
+    expect(result.current.rows[0]).not.toHaveProperty('cursor')
+  })
+
+  /**
+   * Before any data arrives the initial rows array must be empty.
+   * Kills the ArrayDeclaration→['Stryker was here'] mutation on L116 that sets
+   * the initial `rows` state to a non-empty array.
+   */
+  it('starts with an empty rows array before any data arrives', () => {
+    const { result } = renderHook(() => useLogStream(filter, false))
+    expect(result.current.rows).toHaveLength(0)
+  })
+
+  /**
+   * The initial connected state must be false before the stream opens.
+   * Kills the BooleanLiteral→true mutation on L117 that sets the initial
+   * `connected` state to true — making the hook appear connected before
+   * `onopen` has fired.
+   */
+  it('starts with connected false before the stream opens', () => {
+    const { result } = renderHook(() => useLogStream(filter, true))
+    expect(result.current.connected).toBe(false)
+  })
 })

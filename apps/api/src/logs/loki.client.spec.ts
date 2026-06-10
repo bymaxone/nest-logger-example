@@ -202,4 +202,156 @@ describe('LokiClient.labelValues', () => {
 
     await expect(client.labelValues('level')).rejects.toThrow(LokiUnavailableError)
   })
+
+  it('URL ends with /values and has no suffix when opts are entirely omitted', async () => {
+    /**
+     * When no opts are supplied, the `suffix` variable must remain `''` (the
+     * empty-string else-branch). If mutated to a non-empty string such as
+     * `'Stryker was here!'`, the URL gains an unexpected suffix. Asserting the
+     * URL ends with `/values` kills that StringLiteral mutation (L99).
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'success', data: ['info'] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await client.labelValues('info')
+
+    const callUrl = String((fetchMock.mock.calls[0] as [string])[0])
+    // The URL must end with /values — no extra suffix appended.
+    expect(callUrl).toMatch(/\/values$/)
+  })
+})
+
+describe('LokiClient constructor', () => {
+  it('reads the LOKI_QUERY_URL config key by exact name', () => {
+    /**
+     * The constructor must call `config.getOrThrow` with the exact key string
+     * 'LOKI_QUERY_URL'. If Stryker mutates that literal to '', the assertion on
+     * which key was requested fails, killing the mutant.
+     */
+    const getOrThrow = jest.fn<(key: string) => string>().mockReturnValue('http://loki:3100')
+    const config = { getOrThrow } as unknown as ConfigService
+    new LokiClient(config)
+    expect(getOrThrow).toHaveBeenCalledWith('LOKI_QUERY_URL')
+  })
+})
+
+describe('LokiClient.get helper — fetch call shape', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  it('sends Accept: application/json as the exact header value', async () => {
+    /**
+     * The private `get` helper must set `headers: { Accept: 'application/json' }`.
+     * Using `toEqual` on the entire headers object kills mutations that change the
+     * header name or value (e.g. mutating 'application/json' to '').
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ status: 'success', data: { resultType: 'streams', result: [] } }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+    await client.queryRange('{service="api"}', '0', '1', '60s', 10)
+
+    const [, callInit] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(callInit.headers).toEqual({ Accept: 'application/json' })
+  })
+
+  it('passes the full init object including headers and signal to fetch', async () => {
+    /**
+     * The fetch RequestInit (L116 ObjectLiteral) must include both the `headers`
+     * and `signal` fields. If the object literal is mutated to `{}`, one or both
+     * fields are missing and these property assertions fail.
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'success', data: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await client.queryRange('{service="api"}', '0', '1', '60s', 10)
+
+    const [, callInit] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(callInit).toMatchObject({
+      headers: { Accept: 'application/json' },
+    })
+    // Signal must be present — ensures the AbortSignal timeout is actually wired.
+    expect(callInit.signal).toBeDefined()
+  })
+
+  it('builds a query_range URL that is precisely /loki/api/v1/query_range (not a variant)', async () => {
+    /**
+     * The URL must contain '/loki/api/v1/query_range' exactly. The negative
+     * assertion rules out mutations that add extra characters (e.g. 'query_range_'
+     * or 'query_ranges') while still containing the substring.
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({ status: 'success', data: { resultType: 'streams', result: [] } }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+    await client.queryRange('{service="api"}', '0', '1', '60s', 10)
+
+    const callUrl = String((fetchMock.mock.calls[0] as [string])[0])
+    expect(callUrl).toContain('/loki/api/v1/query_range')
+    expect(callUrl).not.toContain('/loki/api/v1/query_range_')
+    expect(callUrl).not.toContain('/loki/api/v1/query_ranges')
+  })
+
+  it('includes the ? separator before query params in the query_range URL', async () => {
+    /**
+     * The URL suffix must be `?query=...` — not `query=...` without a separator.
+     * Guards the `?${qs}` template literal in the `suffix` expression against
+     * mutations that remove or change the `?`.
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'success', data: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await client.labelValues('level', { query: '{service="api"}', startNs: '0', endNs: '1' })
+
+    const callUrl = String((fetchMock.mock.calls[0] as [string])[0])
+    // The querystring must be separated from the path by a literal '?'.
+    expect(callUrl).toMatch(/\/values\?/)
+  })
+
+  it('includes the Loki-returned status code in the error message on non-2xx', async () => {
+    /**
+     * `LokiUnavailableError` thrown on a bad response must embed the status in
+     * the message ('Loki returned 500 ...'). If the template literal is mutated
+     * to '', the message is empty and this assertion fails.
+     */
+    const { client, fetchMock } = buildClient()
+    fetchMock.mockResolvedValue(
+      new Response('err', { status: 500, statusText: 'Internal Server Error' }),
+    )
+
+    const err = await client
+      .queryRange('{service="api"}', '0', '1', '60s', 10)
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(LokiUnavailableError)
+    expect((err as Error).message).toContain('500')
+  })
 })

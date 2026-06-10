@@ -240,4 +240,45 @@ describe('ExplorerContent', () => {
     render(<ExplorerContent />)
     expect(screen.queryByRole('button', { name: /new logs/ })).not.toBeInTheDocument()
   })
+
+  /** The live count label renders the exact row count (the `{stream.rows.length} live` format). */
+  it('shows the exact live row count in the bar', () => {
+    queryState = baseQuery({ live: true })
+    streamState = baseStream({ connected: true, rows: [sampleRow, sampleRow] })
+    render(<ExplorerContent />)
+    expect(screen.getByText('2 live')).toBeInTheDocument()
+  })
+
+  /** The jump-to-latest button contains the exact count and label text. */
+  it('renders the jump button with the exact count and label text', () => {
+    queryState = baseQuery({ live: true })
+    followState = baseFollow({ paused: true, newCount: 5 })
+    render(<ExplorerContent />)
+    const btn = screen.getByRole('button', { name: /5 new logs/ })
+    expect(btn.textContent).toContain('5 new logs')
+    expect(btn.textContent).toContain('Jump to latest')
+  })
+
+  /**
+   * The jump-to-latest pill must NOT appear when Live is off, even when pending
+   * rows are present. This kills the `live && newCount > 0` → `live || newCount > 0`
+   * mutation: with `||`, `false || true` = true and the button would incorrectly show.
+   */
+  it('hides the jump-to-latest pill when Live is off even with pending rows', () => {
+    queryState = baseQuery({ live: false })
+    followState = baseFollow({ paused: true, newCount: 5 })
+    render(<ExplorerContent />)
+    expect(screen.queryByRole('button', { name: /new logs/ })).not.toBeInTheDocument()
+  })
+
+  /**
+   * A single new row (newCount=1) is the minimum that shows the jump button.
+   * Asserting this kills the `newCount > 0` → `newCount > 1` ArithmeticOperator mutation.
+   */
+  it('shows the jump-to-latest pill when exactly one new row is pending', () => {
+    queryState = baseQuery({ live: true })
+    followState = baseFollow({ paused: true, newCount: 1 })
+    render(<ExplorerContent />)
+    expect(screen.getByRole('button', { name: /1 new logs/ })).toBeInTheDocument()
+  })
 })

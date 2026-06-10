@@ -23,7 +23,8 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { AuditService } from '../governance/audit.service.js'
 import { buildRbacContext } from '../governance/rbac.context.js'
 
-const createRuleSchema = z.object({
+/** Request body for `POST /alerts/rules` — the full alert-rule definition (expression, threshold, severity, channels). */
+export const createRuleSchema = z.object({
   name: z.string().min(1).max(200),
   expr: z.string().min(1).max(1024),
   threshold: z.number().int().min(0),
@@ -32,7 +33,8 @@ const createRuleSchema = z.object({
   channels: z.array(z.string()).default([]),
 })
 
-const updateRuleSchema = createRuleSchema.partial().extend({
+/** Request body for `PATCH /alerts/rules` — a partial rule plus the optional enabled flag. */
+export const updateRuleSchema = createRuleSchema.partial().extend({
   isEnabled: z.boolean().optional(),
 })
 

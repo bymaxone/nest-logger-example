@@ -13,7 +13,7 @@ import { AuditService } from '../governance/audit.service.js'
 import { buildRbacContext, isAdmin } from '../governance/rbac.context.js'
 import { ChannelRouterService, type ChannelType } from './channel-router.service.js'
 
-const createChannelSchema = z.object({
+export const createChannelSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['slack', 'webhook', 'email-mock'] satisfies ChannelType[]),
   name: z.string().min(1).max(200),

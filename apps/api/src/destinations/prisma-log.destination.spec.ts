@@ -389,4 +389,77 @@ describe('PrismaLogDestination', () => {
     const reported = stderrSpy.mock.calls.map((c) => String(c[0]))
     expect(reported.some((s) => s.includes('LOGGER_DESTINATION_WRITE_FAILED'))).toBe(true)
   })
+
+  it('batch size defaults to exactly 50 — 49 entries must NOT trigger an early flush', async () => {
+    /**
+     * Scenario: 49 synchronous writes with no explicit batchSize option.
+     * Rule: the default threshold is exactly 50; pushing 49 entries must leave the
+     * buffer un-flushed — kills an ArithmeticOperator mutation that changes 50→49
+     * (which would trigger an early flush at entry 49).
+     */
+    const { client, createMany } = makeClient()
+    const dest = new PrismaLogDestination(client) // batchSize defaults to 50
+
+    for (let i = 0; i < 49; i += 1) {
+      dest.write(line({ level: 'warn', logKey: 'X', msg: `m${i}` }))
+    }
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(createMany).not.toHaveBeenCalled()
+    await dest.onShutdown()
+    // After shutdown the 49 buffered entries must be flushed.
+    expect(createMany).toHaveBeenCalledTimes(1)
+  })
+
+  it('default flush interval is exactly 2_000 ms — a 1_999 ms advance must not flush', async () => {
+    /**
+     * Scenario: default interval (no flushIntervalMs option), fake timers, one buffered entry.
+     * Rule: the periodic flush fires at 2_000 ms, NOT earlier — kills any mutation
+     * that reduces the default interval (e.g. 2_000→1_000).
+     */
+    jest.useFakeTimers()
+    const { client, createMany } = makeClient()
+    const dest = new PrismaLogDestination(client, { batchSize: 999 }) // size won't trigger flush
+    dest.onInit()
+    dest.write(line({ level: 'warn', logKey: 'X', msg: 'm' }))
+
+    jest.advanceTimersByTime(1_999)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(createMany).not.toHaveBeenCalled()
+
+    jest.advanceTimersByTime(1) // total 2_000 ms → interval fires
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(createMany).toHaveBeenCalledTimes(1)
+
+    await dest.onShutdown()
+  })
+
+  it('accepts a line at exactly MAX_LINE_BYTES (131_072) without the oversized stderr report', async () => {
+    /**
+     * Scenario: a line whose byte length equals the guard boundary exactly.
+     * Rule: the guard condition is `> MAX_LINE_BYTES`; a line of exactly 131_072
+     * bytes must NOT trigger the oversized report — kills the mutation that changes
+     * `131_072` to any smaller value (e.g. 131_071), which would reject this line
+     * as oversized.  The line is invalid JSON so it falls through to the parse-error
+     * path, not the oversized path.
+     */
+    const { client, createMany } = makeClient()
+    const dest = new PrismaLogDestination(client, { batchSize: 1 })
+
+    const exactLine = 'x'.repeat(131_072)
+    dest.write(exactLine)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // Should NOT be oversized (no oversized message on stderr).
+    const stderrCalls = stderrSpy.mock.calls as Array<ReadonlyArray<unknown>>
+    const reported = stderrCalls.map((c) => String(c[0]))
+    expect(reported.some((s) => s.includes('oversized'))).toBe(false)
+    // It will fail JSON parse instead (not valid JSON) — still no createMany call.
+    expect(createMany).not.toHaveBeenCalled()
+    expect(reported.some((s) => s.includes('parse'))).toBe(true)
+  })
 })

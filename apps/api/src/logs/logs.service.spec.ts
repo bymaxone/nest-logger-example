@@ -4,7 +4,7 @@
  * Covers: Prisma `where` shapes, LogQL strings, cursor round-trip, and
  * `StaleCursorError` on a malformed cursor.
  */
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it, jest } from '@jest/globals'
 
 import { LogsService, StaleCursorError } from './logs.service.js'
 
@@ -200,5 +200,169 @@ describe('LogsService cursor codec', () => {
     /** Valid base64 with an invalid JSON payload must throw `StaleCursorError`. */
     const bad = Buffer.from('{"x":1}').toString('base64url')
     expect(() => svc.decodeCursor(bad)).toThrow(StaleCursorError)
+  })
+})
+
+// ─── Additional mutation-killing tests ────────────────────────────────────────
+
+describe('LogsService — StaleCursorError identity strings', () => {
+  it('StaleCursorError carries the exact default message string', () => {
+    /**
+     * The default parameter `'cursor is stale or malformed'` is a string literal.
+     * If Stryker mutates it to '', the thrown error has an empty message and this
+     * assertion fails.
+     */
+    const err = new StaleCursorError()
+    expect(err.message).toBe('cursor is stale or malformed')
+  })
+
+  it('StaleCursorError has the exact name string StaleCursorError', () => {
+    /**
+     * `this.name = 'StaleCursorError'` — if mutated to '', `err.name` is empty and
+     * the name-based `.rejects.toMatchObject({ name: 'StaleCursorError' })` assertions
+     * in other tests (and this one) would fail.
+     */
+    const err = new StaleCursorError()
+    expect(err.name).toBe('StaleCursorError')
+  })
+})
+
+describe('LogsService — default time-window arithmetic', () => {
+  it('default from is exactly 3_600_000 ms before now (1 hour = 60*60*1000)', () => {
+    /**
+     * `Date.now() - 60 * 60 * 1000` must equal 3_600_000 ms in the past.
+     * Mutations of the arithmetic operators or numeric literals (`60` → `0`,
+     * `*` → `+`, `-` → `+`) would produce a wrong window and fail this assertion.
+     * Both `defaultFrom` (uses `Date.now()`) and `defaultTo` (uses `new Date()`)
+     * are controlled via fake timers so both ends of the window are asserted.
+     */
+    const fixedNow = new Date('2024-06-01T12:00:00.000Z').getTime()
+    jest.useFakeTimers()
+    jest.setSystemTime(fixedNow)
+
+    try {
+      const where = svc.buildPrismaWhere({ source: 'postgres', limit: 100 })
+      const time = where.time as { gte: Date; lte: Date }
+
+      expect(time.gte.getTime()).toBe(fixedNow - 3_600_000)
+      expect(time.lte.getTime()).toBe(fixedNow)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+})
+
+describe('LogsService — levelsAtOrAbove exact ordering', () => {
+  it('levelsAtOrAbove info returns exactly [fatal, error, warn, info] in insertion order', () => {
+    /**
+     * The LEVEL_RANK keys are iterated in insertion order: fatal, error, warn, info,
+     * debug, trace. `levelsAtOrAbove('info')` filters those ≥ rank 30, yielding
+     * ['fatal','error','warn','info']. The LogQL output must join them with '|' in
+     * that exact order. Mutations that change a level key (e.g. 'warn' → '') or the
+     * separator ('|' → '') produce a wrong string and fail.
+     */
+    const logql = svc.buildLogQL({ level: { gte: 'info' }, source: 'postgres', limit: 100 })
+    expect(logql).toContain('| level=~"fatal|error|warn|info"')
+  })
+
+  it('levelsAtOrAbove warn returns exactly [fatal, error, warn]', () => {
+    /**
+     * Guards the specific level strings 'fatal', 'error', 'warn' and their
+     * numeric ranks in LEVEL_RANK. A mutation of 'warn' rank from 40 to 0 would
+     * exclude it; a mutation of 'fatal' to '' would break the string.
+     */
+    const where = svc.buildPrismaWhere({
+      level: { gte: 'warn' },
+      source: 'postgres',
+      limit: 100,
+    })
+    const levels = (where.level as { in: string[] }).in
+    expect(levels).toEqual(expect.arrayContaining(['fatal', 'error', 'warn']))
+    expect(levels).toHaveLength(3)
+    // Exact set — no extra levels should be included.
+    expect(levels).not.toContain('info')
+    expect(levels).not.toContain('debug')
+    expect(levels).not.toContain('trace')
+  })
+
+  it('buildLogQL default service name falls back to api when service is omitted', () => {
+    /**
+     * `q.service ?? 'api'` — the fallback string 'api' is a literal. If mutated
+     * to '', the selector becomes `{service=""}` instead of `{service="api"}`.
+     */
+    const logql = svc.buildLogQL({ source: 'postgres', limit: 100 })
+    expect(logql).toContain('{service="api"}')
+  })
+})
+
+describe('LogsService.buildLogQL — pipe separator and line filter string', () => {
+  it('joins levels with the pipe character | as separator in the regex', () => {
+    /**
+     * `levels.join('|')` — if the separator is mutated to '' or ' ', the resulting
+     * LogQL `level=~"fatalerrorwarn"` would be syntactically wrong. The assertion
+     * requires the EXACT separator between each level name.
+     */
+    const logql = svc.buildLogQL({ level: { gte: 'warn' }, source: 'postgres', limit: 100 })
+    // The regex value must separate each level with exactly one '|'.
+    expect(logql).toMatch(/level=~"fatal\|error\|warn"/)
+  })
+
+  it('buildLogQL output has no leading or trailing whitespace', () => {
+    /**
+     * The final `.trim()` call removes surrounding whitespace. If the BlockStatement
+     * / MethodExpression mutation removes `.trim()`, the result would have a trailing
+     * space (from the pipeline join). An exact equality to the trimmed version fails
+     * if `.trim()` is absent.
+     */
+    const logql = svc.buildLogQL({ source: 'postgres', limit: 100 })
+    expect(logql).toBe(logql.trim())
+    expect(logql).not.toMatch(/^\s/)
+    expect(logql).not.toMatch(/\s$/)
+  })
+
+  it('includes the line filter |= "..." when q is provided', () => {
+    /**
+     * The line filter ` |= "${escapeLogQL(q.q)}"` is a string literal. If mutated
+     * to '' the line filter disappears from the output. Guards the template literal
+     * by asserting the EXACT prefix `|= "`.
+     */
+    const logql = svc.buildLogQL({ q: 'some text', source: 'postgres', limit: 100 })
+    expect(logql).toContain('|= "some text"')
+  })
+
+  it('line filter has a single leading space before |= separating it from the selector', () => {
+    /**
+     * The lineFilter template starts with a literal space: ` |= "..."`. If that space
+     * is mutated (e.g. replaced with another string), the line filter is no longer
+     * separated from the stream selector, producing invalid LogQL syntax such as
+     * `{service="api"}Stryker was here!|= "hello"`. Asserting `' |= "hello"'` (with
+     * the leading space) kills the StringLiteral mutation on the space node at L176.
+     */
+    const logql = svc.buildLogQL({ q: 'hello', source: 'postgres', limit: 100 })
+    expect(logql).toContain(' |= "hello"')
+  })
+
+  it('selector and first pipeline step are separated by a single space when no line filter is present', () => {
+    /**
+     * The return template is `{...}${lineFilter} ${pipeline.join(' ')}`. The literal
+     * space between `${lineFilter}` and `${pipeline}` is required. When lineFilter is
+     * empty (no q), removing that space produces `{service="api"}| json ...` (selector
+     * glued to the pipeline). Asserting the combined sequence `'{service="api"} | json'`
+     * kills the StringLiteral mutation that removes that space.
+     */
+    const logql = svc.buildLogQL({ source: 'postgres', limit: 100 })
+    expect(logql).toContain('{service="api"} | json')
+  })
+
+  it('consecutive pipeline items are separated by a single space', () => {
+    /**
+     * `pipeline.join(' ')` concatenates pipeline steps with a single space. If the
+     * separator is mutated to '' the items merge (e.g. `| json| __error__=""`). The
+     * assertion on the exact sequence `'| json | __error__=""'` requires the space
+     * between those two always-present pipeline steps and kills the StringLiteral
+     * mutation on the join separator.
+     */
+    const logql = svc.buildLogQL({ source: 'postgres', limit: 100 })
+    expect(logql).toContain('| json | __error__=""')
   })
 })

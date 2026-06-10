@@ -50,4 +50,19 @@ describe('ChartCard', () => {
     expect(screen.getByText('body only')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
+
+  /**
+   * The Card wrapper must receive `flex flex-col` so the body stretches to fill
+   * the available height. Asserting both classes kills the StringLiteral→""
+   * mutation on the `'flex flex-col'` argument to `cn()`.
+   */
+  it('applies flex and flex-col layout classes to the card root element', () => {
+    const { container } = render(
+      <ChartCard title="Layout test">
+        <div />
+      </ChartCard>,
+    )
+    expect(container.firstChild).toHaveClass('flex')
+    expect(container.firstChild).toHaveClass('flex-col')
+  })
 })

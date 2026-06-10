@@ -347,4 +347,60 @@ describe('DownstreamService — fail-soft branches (unit)', () => {
 
     expect(result).toEqual({ auto: false, manual: true })
   })
+
+  it('dispatchAuto calls fetch with the correct URL, POST method, content-type header, and mode=auto body', async () => {
+    /**
+     * Scenario: dispatchAuto happy path.
+     * Rule: the exact URL (`/tasks/process` on the default worker), the HTTP
+     * method `POST`, the `content-type: application/json` header, and the JSON
+     * body `{"mode":"auto"}` must all be passed to `fetch` — kills the eight
+     * StringLiteral and ObjectLiteral mutations in the fetch init object.
+     */
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    await service.dispatchAuto()
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://localhost:3002/tasks/process')
+    expect(init.method).toBe('POST')
+    const headers = init.headers as Record<string, string>
+    expect(headers['content-type']).toBe('application/json')
+    expect(init.body).toBe(JSON.stringify({ mode: 'auto' }))
+  })
+
+  it('dispatchManual calls fetch with the correct URL, POST method, and mode=manual body', async () => {
+    /**
+     * Scenario: dispatchManual happy path.
+     * Rule: the URL must use the same `/tasks/process` endpoint, method must be
+     * `POST`, and the body must serialize `{ mode: 'manual' }` — kills the
+     * StringLiteral mutations on the path and mode value.
+     */
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    await service.dispatchManual()
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://localhost:3002/tasks/process')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ mode: 'manual' }))
+  })
+
+  it('dispatchManual initial headers object contains content-type application/json — kills ObjectLiteral {} and StringLiteral mutants', async () => {
+    /**
+     * Scenario: dispatchManual happy path — inspect the headers passed to fetch.
+     * Rule: the headers object built on L87 must contain `'content-type':
+     * 'application/json'` BEFORE `propagation.inject` runs — kills the
+     * ObjectLiteral mutant that replaces `{ 'content-type': 'application/json' }`
+     * with `{}` and the StringLiteral mutant that replaces `'application/json'`
+     * with `''`.  The existing test verifies URL/method/body but not the
+     * content-type header in the manual path.
+     */
+    fetchSpy.mockResolvedValue(new Response(null, { status: 200 }) as never)
+
+    await service.dispatchManual()
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(headers['content-type']).toBe('application/json')
+  })
 })

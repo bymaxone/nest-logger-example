@@ -97,4 +97,49 @@ describe('TenantRoleSwitcher', () => {
     await user.click(within(listbox).getByRole('option', { name: 'Viewer' }))
     expect(onUrlUpdate.mock.calls[0]![0].searchParams.get('role')).toBe('viewer')
   })
+
+  /** The tenant dropdown offers both demo tenants ('acme' and 'globex') as options. */
+  it('lists acme and globex in the tenant dropdown', async () => {
+    renderSwitcher('')
+    await user.click(screen.getByRole('combobox', { name: 'Tenant' }))
+    const listbox = await screen.findByRole('listbox')
+    expect(within(listbox).getByRole('option', { name: 'acme' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: 'globex' })).toBeInTheDocument()
+  })
+
+  /** The role dropdown lists the human labels Viewer, Operator, and Admin (from ROLE_LABEL). */
+  it('lists Viewer, Operator and Admin in the role dropdown', async () => {
+    renderSwitcher('')
+    await user.click(screen.getByRole('combobox', { name: 'Role' }))
+    const listbox = await screen.findByRole('listbox')
+    expect(within(listbox).getByRole('option', { name: 'Viewer' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: 'Operator' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: 'Admin' })).toBeInTheDocument()
+  })
+
+  /** A seeded ?role=operator shows Operator as the trigger label (ROLE_LABEL.operator). */
+  it('shows Operator as the selected role when the URL seeds operator', () => {
+    renderSwitcher('?role=operator')
+    expect(screen.getByRole('combobox', { name: 'Role' })).toHaveTextContent('Operator')
+  })
+
+  /** Picking the Operator option writes role=operator to the URL. */
+  it('writes role=operator when the Operator option is selected', async () => {
+    const onUrlUpdate = vi.fn()
+    renderSwitcher('', onUrlUpdate)
+    await user.click(screen.getByRole('combobox', { name: 'Role' }))
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByRole('option', { name: 'Operator' }))
+    expect(onUrlUpdate.mock.calls[0]![0].searchParams.get('role')).toBe('operator')
+  })
+
+  /** Picking the acme tenant option writes tenantId=acme to the URL. */
+  it('writes tenantId=acme when the acme option is selected', async () => {
+    const onUrlUpdate = vi.fn()
+    renderSwitcher('', onUrlUpdate)
+    await user.click(screen.getByRole('combobox', { name: 'Tenant' }))
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByRole('option', { name: 'acme' }))
+    expect(onUrlUpdate.mock.calls[0]![0].searchParams.get('tenantId')).toBe('acme')
+  })
 })

@@ -116,3 +116,56 @@ describe('ErrorRateLine', () => {
     expect(label).toHaveTextContent(formatBucket('2026-06-05T10:05:00.000Z'))
   })
 })
+
+describe('ErrorRateLine — exact rate computation', () => {
+  /**
+   * The rate4xx must be `(s4xx / total) * 100`, not variants like `s4xx / total / 100`
+   * or `s4xx * total`. Using s2xx=80, s3xx=10, s4xx=10, s5xx=0 (total=100,
+   * rate4xx=10) the tooltip item value must be exactly "10".
+   *
+   * This kills all arithmetic mutations on the total sum (changing + to -) and
+   * the rate expression itself (* vs / and the *100 factor), as well as the
+   * ConditionalExpression→true mutation (which always returns 0).
+   */
+  it('shows the exact 4xx rate in the tooltip for a known bucket composition', () => {
+    aggregateState = {
+      data: [
+        // s2xx=80, s3xx=10, s4xx=10, s5xx=0 → total=100, rate4xx=10%, rate5xx=0%
+        { bucket: '2026-06-05T10:00:00.000Z', s2xx: 80, s3xx: 10, s4xx: 10, s5xx: 0 },
+      ],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    const surface = container.querySelector('.recharts-surface')
+    expect(surface).not.toBeNull()
+    fireEvent.focus(surface as Element)
+    fireEvent.keyDown(surface as Element, { key: 'ArrowRight' })
+    const items = container.querySelectorAll('.recharts-tooltip-item-value')
+    // rate4xx = (10/100)*100 = 10; rate5xx = 0
+    const itemTexts = Array.from(items).map((el) => el.textContent)
+    expect(itemTexts).toContain('10')
+  })
+
+  /**
+   * The rate5xx must be computed independently using the same total formula.
+   * Using s2xx=80, s3xx=0, s4xx=5, s5xx=15 (total=100, rate5xx=15%) the
+   * tooltip item must reflect the correct 5xx rate.
+   */
+  it('shows the exact 5xx rate in the tooltip for a known bucket composition', () => {
+    aggregateState = {
+      data: [
+        // s2xx=80, s3xx=0, s4xx=5, s5xx=15 → total=100, rate4xx=5%, rate5xx=15%
+        { bucket: '2026-06-05T10:00:00.000Z', s2xx: 80, s3xx: 0, s4xx: 5, s5xx: 15 },
+      ],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    const surface = container.querySelector('.recharts-surface')
+    expect(surface).not.toBeNull()
+    fireEvent.focus(surface as Element)
+    fireEvent.keyDown(surface as Element, { key: 'ArrowRight' })
+    const items = container.querySelectorAll('.recharts-tooltip-item-value')
+    const itemTexts = Array.from(items).map((el) => el.textContent)
+    expect(itemTexts).toContain('15')
+  })
+})

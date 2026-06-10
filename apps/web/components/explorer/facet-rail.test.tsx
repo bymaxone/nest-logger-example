@@ -215,4 +215,145 @@ describe('FacetRail', () => {
     const { container } = render(<FacetRail />)
     expect(container.querySelector('span[aria-hidden="true"]')).not.toBeNull()
   })
+
+  /** The `fatal` level value renders its decorative colour dot (kills StringLiteral mutation to 'fatal'). */
+  it('renders the level dot for the fatal level', () => {
+    facetsReturn = {
+      data: { level: [{ value: 'fatal', count: 1 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  /** The `warn` level value renders its decorative colour dot (kills StringLiteral mutation to 'warn'). */
+  it('renders the level dot for the warn level', () => {
+    facetsReturn = {
+      data: { level: [{ value: 'warn', count: 3 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  /** The `debug` level value renders its decorative colour dot (kills StringLiteral mutation to 'debug'). */
+  it('renders the level dot for the debug level', () => {
+    facetsReturn = {
+      data: { level: [{ value: 'debug', count: 10 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  /** The `trace` level value renders its decorative colour dot (kills StringLiteral mutation to 'trace'). */
+  it('renders the level dot for the trace level', () => {
+    facetsReturn = {
+      data: { level: [{ value: 'trace', count: 8 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  /**
+   * A non-level facet value (service field) must never get a colour dot.
+   * Asserting absence kills the ConditionalExpression→true mutation on the
+   * `field === 'level' && LEVELS.includes(v.value)` guard — with →true, every
+   * value (including service='api') would render a dot.
+   */
+  it('does not render a level dot for a service facet value', () => {
+    facetsReturn = {
+      data: { service: [{ value: 'api', count: 5 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).toBeNull()
+  })
+
+  /**
+   * The active level-value button must carry the `bg-brand-500/15` class;
+   * an inactive button must not. Asserting both directions kills the
+   * ConditionalExpression→true/false and StringLiteral→"" mutations on the
+   * active/inactive className ternary (L116 and L117).
+   */
+  it('applies bg-brand-500/15 to the active value button and text-white/65 to inactive', () => {
+    logQuery = { source: 'loki', level: 'error' }
+    const { container } = render(<FacetRail />)
+    const buttons = container.querySelectorAll('button')
+    const activeBtn = Array.from(buttons).find((b) => b.textContent?.includes('error') ?? false)
+    const inactiveBtn = Array.from(buttons).find((b) => b.textContent?.includes('info') ?? false)
+    expect(activeBtn).toBeDefined()
+    expect(inactiveBtn).toBeDefined()
+    expect(activeBtn!.className).toContain('bg-brand-500/15')
+    expect(activeBtn!.className).not.toContain('text-white/65')
+    expect(inactiveBtn!.className).toContain('text-white/65')
+    expect(inactiveBtn!.className).not.toContain('bg-brand-500/15')
+  })
+
+  /**
+   * The base className on every facet button contains layout classes from the
+   * `cn(...)` base string. Asserting `flex` or `rounded` kills the
+   * StringLiteral→"" mutation that removes the entire base class string (L114).
+   */
+  it('applies the base layout classes to each facet button', () => {
+    const { container } = render(<FacetRail />)
+    const btn = container.querySelector('button')
+    expect(btn).not.toBeNull()
+    expect(btn!.className).toContain('flex')
+    expect(btn!.className).toContain('rounded')
+  })
+
+  /**
+   * The level colour dot must have a non-empty `background` inline style.
+   * An ObjectLiteral→{} mutation on `style={{ background: ... }}` renders the
+   * dot element with no background. Asserting the style property is non-empty
+   * kills that mutation.
+   */
+  it('renders the level dot with a non-empty background colour', () => {
+    const { container } = render(<FacetRail />)
+    const dot = container.querySelector('span[aria-hidden="true"]') as HTMLElement | null
+    expect(dot).not.toBeNull()
+    // The background is set via an inline style; an ObjectLiteral→{} mutation
+    // would leave it empty.
+    expect(dot!.style.background).not.toBe('')
+  })
+})
+
+describe('FacetRail — LEVELS module-level re-import (kill LEVELS string mutations at module init)', () => {
+  /**
+   * Re-importing the module inside the test body forces the LEVELS array to be
+   * evaluated with Stryker's active mutation. A StringLiteral → "" mutation on a
+   * LEVELS entry (e.g. 'fatal' → '') makes LEVELS.includes('fatal') false, so the
+   * colour dot is not rendered. The assertion fails → mutation killed.
+   */
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+  })
+
+  it('re-imports and verifies all six LEVELS values produce a colour dot', async () => {
+    const levels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const
+    for (const level of levels) {
+      vi.resetModules()
+      const { FacetRail: FreshRail } = await import('./facet-rail')
+      facetsReturn = {
+        data: { level: [{ value: level, count: 1 }] },
+        isLoading: false,
+        isError: false,
+      }
+      logQuery = { source: 'loki' }
+      const { container } = render(<FreshRail />)
+      expect(
+        container.querySelector('span[aria-hidden="true"]'),
+        `colour dot absent for level "${level}"`,
+      ).not.toBeNull()
+      cleanup()
+    }
+  })
 })

@@ -203,3 +203,31 @@ describe('useLogQuery', () => {
     expect(readQuery().to).toBe('2026-06-04T12:00:30.000Z')
   })
 })
+
+describe('useLogQuery — isRelative boundary conditions', () => {
+  /**
+   * When only the `to` bound is set (no `range`, no `from`) the range is NOT
+   * relative — the user selected an absolute upper bound. Asserting `false` kills
+   * the ConditionalExpression→true mutation on `state.to === ''` inside the
+   * isRelative computation: with the mutation `true`, `(from===''&&true)` = true,
+   * making `isRelative=true` when it should be false.
+   */
+  it('marks a query with only the to bound (no range, no from) as not-relative', () => {
+    renderProbe({ to: '2026-06-02T00:00:00.000Z' })
+    expect(screen.getByTestId('relative').textContent).toBe('false')
+  })
+
+  /**
+   * When a relative range preset is set alongside a concrete `from` bound the
+   * range IS still relative (the preset takes priority). Asserting `true` here
+   * kills the LogicalOperator `||→&&` mutation: with `&&`, the second condition
+   * `(from===''&&to==='')` is false (from is set), making `isRelative=false`.
+   * It also kills the ConditionalExpression→false mutation on `state.range!==''`.
+   */
+  it('marks a query with a range preset and a concrete from bound as relative', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-04T12:00:00.000Z'))
+    renderProbe({ range: '1h', from: '2026-06-04T11:00:00.000Z' })
+    expect(screen.getByTestId('relative').textContent).toBe('true')
+  })
+})

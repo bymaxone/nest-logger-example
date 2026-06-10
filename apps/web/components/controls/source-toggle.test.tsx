@@ -78,3 +78,99 @@ describe('SourceToggle', () => {
     expect(onUrlUpdate.mock.calls[0]![0].searchParams.get('source')).toBeNull()
   })
 })
+
+describe('SourceToggle — button className, icon colour class, and title attribute', () => {
+  /**
+   * These tests kill the CSS string and icon/title conditional mutations that the
+   * aria-pressed and text-content assertions in the main describe block leave
+   * untouched.
+   */
+
+  /**
+   * The active button must carry the brand CSS classes from the active branch of
+   * the className ternary. Asserting these kills the StringLiteral→"" mutation on
+   * the active class string (L51) and confirms the right branch fires.
+   */
+  it('applies active brand classes to the Postgres button when postgres is selected', () => {
+    renderToggle('?source=postgres')
+    const activeBtn = screen.getByRole('button', { name: 'Postgres' })
+    expect(activeBtn.className).toContain('bg-brand-500/20')
+    expect(activeBtn.className).toContain('font-semibold')
+    expect(activeBtn.className).toContain('text-brand-500')
+  })
+
+  /**
+   * The inactive button must carry the muted text class from the inactive branch.
+   * Asserting presence kills the StringLiteral→"" mutation on the inactive class
+   * string (L52); asserting absence kills the ConditionalExpression→true mutation.
+   */
+  it('applies the inactive text class to the Loki button when postgres is selected', () => {
+    renderToggle('?source=postgres')
+    const inactiveBtn = screen.getByRole('button', { name: 'Loki' })
+    expect(inactiveBtn.className).toContain('text-white/55')
+    expect(inactiveBtn.className).not.toContain('bg-brand-500/20')
+  })
+
+  /**
+   * All source buttons share the base `rounded-full` layout class regardless of
+   * active state. Asserting it kills the StringLiteral→"" mutation on the base
+   * class string (L49) that is present in both branches.
+   */
+  it('applies the base rounded-full class to all source buttons', () => {
+    renderToggle('')
+    expect(screen.getByRole('button', { name: 'Loki' }).className).toContain('rounded-full')
+    expect(screen.getByRole('button', { name: 'Postgres' }).className).toContain('rounded-full')
+  })
+
+  /**
+   * With `source=postgres` the Database icon (text-amber-400) is rendered.
+   * Asserting its presence kills the ConditionalExpression→false and
+   * EqualityOperator mutations on the icon conditional (L68), as well as the
+   * StringLiteral→"" mutation on the icon colour class (L68:21).
+   */
+  it('renders the amber-coloured database icon when postgres is selected', () => {
+    renderToggle('?source=postgres')
+    expect(document.querySelector('svg[class*="text-amber-400"]')).not.toBeNull()
+  })
+
+  /**
+   * With `source=loki` the GraduationCap icon is rendered; the amber Database
+   * icon must be absent. Asserting absence kills the ConditionalExpression→true
+   * mutation that always renders the Database icon regardless of source.
+   */
+  it('does not render the amber database icon when loki is selected', () => {
+    renderToggle('')
+    expect(document.querySelector('svg[class*="text-amber-400"]')).toBeNull()
+  })
+
+  /**
+   * The title attribute on the teaching callout span must describe the Postgres
+   * source when postgres is active. The postgres title uniquely mentions
+   * "warn+, durable" and "info/debug lines". Asserting both these substrings
+   * kills ConditionalExpression→false (always Loki title), EqualityOperator
+   * (inverted comparison), and the StringLiteral mutations on the postgres title.
+   * Note: both titles cross-reference the other source by name, so a plain
+   * `not.toContain('Loki')` assertion would fail against the real title.
+   */
+  it('shows the postgres title attribute when postgres is selected', () => {
+    renderToggle('?source=postgres')
+    const span = document.querySelector('[title]') as HTMLElement | null
+    expect(span?.title).toContain('Postgres')
+    expect(span?.title).toContain('info/debug lines')
+  })
+
+  /**
+   * The title attribute must describe the Loki source when loki is active.
+   * The Loki title uniquely mentions "full fidelity". Asserting this kills
+   * ConditionalExpression→true (always Postgres title) and the StringLiteral
+   * mutation on the loki title text.
+   * Note: both titles cross-reference the other source, so a plain
+   * `not.toContain('Postgres')` assertion would fail against the real title.
+   */
+  it('shows the loki title attribute when loki is selected', () => {
+    renderToggle('')
+    const span = document.querySelector('[title]') as HTMLElement | null
+    expect(span?.title).toContain('Loki')
+    expect(span?.title).toContain('full fidelity')
+  })
+})

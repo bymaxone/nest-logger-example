@@ -19,7 +19,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "mutation": "NODE_OPTIONS='--experimental-vm-modules' stryker run",
+    "mutation:incremental": "NODE_OPTIONS='--experimental-vm-modules' stryker run --incremental",
+    "mutation:dry-run": "NODE_OPTIONS='--experimental-vm-modules' stryker run --dryRunOnly"
   },
   "dependencies": {
     "@bymax-one/nest-logger": "file:../../../nest-logger",
@@ -50,6 +53,9 @@
     "@jest/globals": "^30.4.1",
     "@nestjs/cli": "^11",
     "@nestjs/testing": "^11.1.24",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/jest-runner": "^9.6.1",
+    "@stryker-mutator/typescript-checker": "^9.6.1",
     "@types/express": "^5",
     "@types/jest": "^30.0.0",
     "@types/node": "^24",

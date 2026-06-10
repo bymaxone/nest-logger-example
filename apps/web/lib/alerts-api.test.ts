@@ -191,6 +191,31 @@ describe('transitionIncident', () => {
       /unexpected response shape/,
     )
   })
+
+  /**
+   * The error message for a non-ok response must be `"${status} ${statusText}"`.
+   * A mutation that removes the `!res.ok` guard makes the code fall through to
+   * schema validation, which throws a different message (`"unexpected response
+   * shape …"`). Asserting the exact HTTP message format kills both the
+   * ConditionalExpression→false mutation and the StringLiteral→"" mutation that
+   * replaces the template literal with an empty string.
+   */
+  it('throws with the HTTP status message for a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          json: () => Promise.resolve({}),
+        } as Response),
+      ),
+    )
+    await expect(
+      transitionIncident('i1', 'acknowledge', { role: 'viewer', tenantId: '' }),
+    ).rejects.toMatchObject({ message: '403 Forbidden' })
+  })
 })
 
 describe('listRules', () => {
@@ -216,6 +241,62 @@ describe('listRules', () => {
     expect(captured.method).toBe('GET')
     expect((captured.headers as Record<string, string>)['x-role']).toBe('admin')
     expect((captured.headers as Record<string, string>)['x-tenant-id']).toBe('acme')
+  })
+
+  /**
+   * Every request must advertise JSON via the `Accept` header.
+   * A StringLiteral→"" mutation sets `Accept: ""`, making the server choose an
+   * arbitrary content type. Asserting the exact value kills that mutation.
+   */
+  it('sends Accept: application/json header', async () => {
+    let capturedHeaders: HeadersInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = init?.headers
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect((capturedHeaders as Record<string, string>)?.['Accept']).toBe('application/json')
+  })
+
+  /**
+   * A GET request (no body) must not include a `content-type` header.
+   * A ConditionalExpression→true mutation on the `body !== undefined` guard would
+   * always spread `{ 'content-type': 'application/json' }`. Asserting the header
+   * is absent for a bodyless request kills that mutation.
+   */
+  it('omits the content-type header for a GET request with no body', async () => {
+    let capturedHeaders: HeadersInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = init?.headers
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect((capturedHeaders as Record<string, string>)?.['content-type']).toBeUndefined()
+  })
+
+  /**
+   * A GET request (no body) must not include a `body` in the fetch options.
+   * A ConditionalExpression→true mutation on the `body !== undefined` guard would
+   * always spread `{ body: JSON.stringify(body) }` (with `undefined` body).
+   * Asserting `init.body` is absent kills that mutation.
+   */
+  it('omits the body property for a GET request', async () => {
+    let capturedBody: unknown = 'SENTINEL'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedBody = init?.body
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect(capturedBody).toBeUndefined()
   })
 })
 
@@ -359,5 +440,463 @@ describe('listIncidents', () => {
     const incidents = await listIncidents(RBAC)
     expect(url).toContain('/incidents')
     expect(incidents).toEqual([VALID_INCIDENT])
+  })
+
+  /**
+   * An incident whose timeline event is missing the required `actor`, `action`,
+   * and `at` fields must be rejected with an `AlertsApiError`. Asserting the
+   * rejection kills the `ObjectLiteral → {}` mutation on `incidentEventSchema`
+   * that replaces the strict z.object() with an empty schema, which would then
+   * accept any object (including structurally invalid events).
+   */
+  it('throws AlertsApiError when a timeline event is missing required fields', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse([{ ...VALID_INCIDENT, timeline: [{ bogusField: 'not-an-event' }] }]),
+        ),
+      ),
+    )
+    await expect(listIncidents(RBAC)).rejects.toBeInstanceOf(AlertsApiError)
+  })
+})
+
+describe('AlertsApiError', () => {
+  /** The error class sets `name` to its own class name for instanceof-free identification. */
+  it('sets name to AlertsApiError', () => {
+    const err = new AlertsApiError(404, 'not found')
+    expect(err.name).toBe('AlertsApiError')
+  })
+
+  /** The status is stored on the instance for callers that branch on HTTP status. */
+  it('exposes the HTTP status as a property', () => {
+    const err = new AlertsApiError(403, 'forbidden')
+    expect(err.status).toBe(403)
+  })
+
+  /** The human-readable message is forwarded to the Error base class. */
+  it('forwards the message to Error', () => {
+    const err = new AlertsApiError(500, 'server error')
+    expect(err.message).toBe('server error')
+  })
+})
+
+describe('maskEndpoint — boundary cases', () => {
+  /**
+   * A path of exactly 4 characters is at the `<= MASK_REVEAL` boundary:
+   * the entire path is hidden, no tail is revealed.
+   */
+  it('masks a URL whose path is exactly 4 characters with no tail', () => {
+    // pathname = '/abc' = 4 chars → <= 4 → return scheme://host/****
+    expect(maskEndpoint('https://host.example.com/abc')).toBe('https://host.example.com/****')
+  })
+
+  /**
+   * A path of 5 characters is just above the boundary: the last 4 chars are
+   * revealed.
+   */
+  it('reveals the last 4 chars of a 5-character path', () => {
+    // pathname = '/abcd' = 5 chars > 4 → reveal path.slice(-4) = 'abcd'
+    expect(maskEndpoint('https://host.example.com/abcd')).toBe('https://host.example.com/****abcd')
+  })
+
+  /**
+   * A URL with a longer token path reveals only the trailing 4 chars of the
+   * full `pathname + search` composite, not host chars.
+   */
+  it('reveals exactly 4 trailing chars of the token path', () => {
+    const masked = maskEndpoint('https://hooks.slack.com/services/T000/B000/xRealToken1234')
+    expect(masked).toBe('https://hooks.slack.com/****1234')
+  })
+
+  /**
+   * A non-URL plain address of exactly 4 characters is fully hidden as `****`.
+   */
+  it('masks a 4-character plain address to ****', () => {
+    expect(maskEndpoint('abcd')).toBe('****')
+  })
+
+  /**
+   * A non-URL plain address of 5 characters reveals only the trailing 4 chars.
+   */
+  it('reveals the last 4 chars of a 5-character plain address', () => {
+    expect(maskEndpoint('abcde')).toBe('****bcde')
+  })
+})
+
+describe('transitionIncident — URL encoding', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The incident id must be URL-encoded in the PATCH path. */
+  it('URL-encodes the incident id in the PATCH path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(VALID_INCIDENT),
+        } as Response)
+      }),
+    )
+    await transitionIncident('i 1', 'resolve', RBAC)
+    expect(capturedUrl).toContain('/incidents/i%201')
+  })
+})
+
+describe('testChannel — URL encoding', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** A channel id with a special character must be URL-encoded in the test path. */
+  it('URL-encodes the channel id in the test path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ ok: true }))
+      }),
+    )
+    await testChannel('c 1', RBAC)
+    expect(capturedUrl).toContain('/alerts/channels/c%201/test')
+  })
+})
+
+describe('listRules — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must hit exactly /alerts/rules (not /alerts/rule or similar). */
+  it('requests the exact /alerts/rules path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect(capturedUrl).toContain('/alerts/rules')
+  })
+})
+
+describe('API base URL', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When `NEXT_PUBLIC_API_URL` is absent the URL must fall back to
+   * `http://localhost:3001`. Asserting `startsWith` kills:
+   *  - the `??` → `&&` LogicalOperator mutation (gives `'undefined/...'`)
+   *  - the `'http://localhost:3001'` → `''` StringLiteral mutation (gives `'/...'`)
+   */
+  it('uses http://localhost:3001 as the default base URL', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect(capturedUrl.startsWith('http://localhost:3001')).toBe(true)
+  })
+})
+
+describe('createRule — request headers and URL', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * A POST with a body must set `content-type: application/json`.
+   * Asserting this kills:
+   *  - the `'content-type'` → `''` StringLiteral mutation
+   *  - the `'application/json'` → `''` StringLiteral mutation
+   *  - the ObjectLiteral → `{}` mutation (removes the header object)
+   *  - the ConditionalExpression→false mutation (never adds the header)
+   */
+  it('sets content-type: application/json when a body is present', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = init?.headers as Record<string, string>
+        return Promise.resolve(jsonResponse(VALID_RULE))
+      }),
+    )
+    const input: AlertRuleInput = {
+      name: 'test',
+      expr: 'count(*) over 1m > 0',
+      threshold: 0,
+      forDuration: '1m',
+      severity: 'critical',
+      channels: [],
+    }
+    await createRule(input, RBAC)
+    expect(capturedHeaders['content-type']).toBe('application/json')
+  })
+
+  /**
+   * The `createRule` POST must target exactly `/alerts/rules`.
+   * Asserting this kills the StringLiteral mutation that empties the path.
+   */
+  it('POSTs to /alerts/rules', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse(VALID_RULE))
+      }),
+    )
+    const input: AlertRuleInput = {
+      name: 'test',
+      expr: 'count(*) over 1m > 0',
+      threshold: 0,
+      forDuration: '1m',
+      severity: 'critical',
+      channels: [],
+    }
+    await createRule(input, RBAC)
+    expect(capturedUrl).toContain('/alerts/rules')
+    expect(capturedUrl).not.toBe('/alerts/rules')
+    expect(capturedUrl.startsWith('http')).toBe(true)
+  })
+})
+
+describe('testChannel — exact URL', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The test path must contain `/test` after the encoded channel id.
+   * Asserting this kills the StringLiteral mutation that empties the `/test` suffix.
+   */
+  it('appends /test to the encoded channel id in the test path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ ok: true }))
+      }),
+    )
+    await testChannel('c1', RBAC)
+    expect(capturedUrl).toContain('/test')
+    expect(capturedUrl).toContain('c1')
+  })
+})
+
+describe('listIncidents — full URL base', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * Incidents must be fetched from the correct base URL.
+   * Asserting `startsWith('http')` kills the StringLiteral mutation
+   * that empties the `/incidents` path segment.
+   */
+  it('requests /incidents from the API base', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_INCIDENT]))
+      }),
+    )
+    await listIncidents(RBAC)
+    expect(capturedUrl).toContain('/incidents')
+    expect(capturedUrl.startsWith('http')).toBe(true)
+  })
+})
+
+describe('listChannels — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must hit exactly /alerts/channels. */
+  it('requests the exact /alerts/channels path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_CHANNEL]))
+      }),
+    )
+    await listChannels(RBAC)
+    expect(capturedUrl).toContain('/alerts/channels')
+  })
+})
+
+describe('listIncidents — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must hit exactly /incidents. */
+  it('requests the exact /incidents path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_INCIDENT]))
+      }),
+    )
+    await listIncidents(RBAC)
+    expect(capturedUrl).toContain('/incidents')
+  })
+})
+
+describe('listChannels — method must be GET', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** listChannels must use the GET verb; an empty-string method would bypass server routing. */
+  it('sends GET when listing channels', async () => {
+    let capturedMethod: string | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedMethod = init?.method
+        return Promise.resolve(jsonResponse([VALID_CHANNEL]))
+      }),
+    )
+    await listChannels(RBAC)
+    expect(capturedMethod).toBe('GET')
+  })
+})
+
+describe('createChannel — URL must contain /alerts/channels', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** createChannel must POST to /alerts/channels; an empty path would target the base URL only. */
+  it('POSTs to the /alerts/channels path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ ok: true, channel: VALID_CHANNEL }))
+      }),
+    )
+    await createChannel(VALID_CHANNEL, RBAC)
+    expect(capturedUrl).toContain('/alerts/channels')
+  })
+})
+
+describe('listIncidents — method must be GET', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** listIncidents must use the GET verb; an empty-string method would bypass server routing. */
+  it('sends GET when listing incidents', async () => {
+    let capturedMethod: string | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedMethod = init?.method
+        return Promise.resolve(jsonResponse([VALID_INCIDENT]))
+      }),
+    )
+    await listIncidents(RBAC)
+    expect(capturedMethod).toBe('GET')
+  })
+})
+
+describe('request — GET fetch init must not have a body key', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * For a GET request the fetch init must not carry a `body` key at all — not
+   * even `body: undefined`. An always-true condition would spread `{ body: undefined }`
+   * making the key present; `not.toHaveProperty` detects that, where `toBeUndefined`
+   * would not.
+   */
+  it('omits the body key entirely from the fetch init for a GET request', async () => {
+    let capturedInit: RequestInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedInit = init
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await listRules(RBAC)
+    expect(capturedInit).not.toHaveProperty('body')
+  })
+})
+
+describe('alerts-api — module-level re-import (kill API, schema enum string mutations)', () => {
+  /**
+   * Re-importing the module inside the test body forces the `API` constant and
+   * all Zod schema initializations to be evaluated with Stryker's active mutation.
+   *
+   * - `API = 'http://localhost:3001'` → '' makes every URL relative (no host).
+   * - alertSeveritySchema `'critical'`/`'warning'` → '' breaks severity validation.
+   * - channelTypeSchema `'slack'`/`'webhook'`/`'email-mock'` → '' breaks type validation.
+   * - incidentStatusSchema `'triggered'`/`'acknowledged'`/`'snoozed'`/`'resolved'` → ''
+   *   breaks status parsing.
+   */
+  afterEach(() => {
+    vi.resetModules()
+    vi.unstubAllGlobals()
+  })
+
+  it('re-imports and verifies the API base URL starts with http://localhost:3001', async () => {
+    vi.resetModules()
+    const { listRules: freshListRules } = await import('./alerts-api')
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([VALID_RULE]))
+      }),
+    )
+    await freshListRules(RBAC)
+    expect(capturedUrl.startsWith('http://localhost:3001')).toBe(true)
+  })
+
+  it('re-imports and verifies alertSeveritySchema accepts critical and warning', async () => {
+    vi.resetModules()
+    const { listRules: freshListRules } = await import('./alerts-api')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([{ ...VALID_RULE, severity: 'critical' }]))),
+    )
+    const rules = await freshListRules(RBAC)
+    expect(rules[0]?.severity).toBe('critical')
+
+    vi.resetModules()
+    const { listRules: freshListRules2 } = await import('./alerts-api')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([{ ...VALID_RULE, severity: 'warning' }]))),
+    )
+    const rules2 = await freshListRules2(RBAC)
+    expect(rules2[0]?.severity).toBe('warning')
+  })
+
+  it('re-imports and verifies channelTypeSchema accepts slack, webhook, and email-mock', async () => {
+    for (const type of ['slack', 'webhook', 'email-mock'] as const) {
+      vi.resetModules()
+      const { listChannels: freshListChannels } = await import('./alerts-api')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(jsonResponse([{ ...VALID_CHANNEL, type }]))),
+      )
+      const channels = await freshListChannels(RBAC)
+      expect(channels[0]?.type, `type ${type} failed validation`).toBe(type)
+    }
+  })
+
+  it('re-imports and verifies incidentStatusSchema accepts all four statuses', async () => {
+    for (const status of ['triggered', 'acknowledged', 'snoozed', 'resolved'] as const) {
+      vi.resetModules()
+      const { listIncidents: freshListIncidents } = await import('./alerts-api')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(jsonResponse([{ ...VALID_INCIDENT, status }]))),
+      )
+      const incidents = await freshListIncidents(RBAC)
+      expect(incidents[0]?.status, `status ${status} failed validation`).toBe(status)
+    }
   })
 })

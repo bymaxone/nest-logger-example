@@ -10,7 +10,7 @@ import { describe, expect, it, jest, beforeEach } from '@jest/globals'
 import { ForbiddenException } from '@nestjs/common'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
-import { AuditController } from './audit.controller.js'
+import { AuditController, auditQuerySchema } from './audit.controller.js'
 import { NO_TENANT_SENTINEL } from './rbac.context.js'
 
 /** Typed helper for the mocked Prisma surface. */
@@ -98,5 +98,85 @@ describe('AuditController.list', () => {
       orderBy: { at: 'desc' },
       take: 200,
     })
+  })
+
+  it('throws ForbiddenException with the exact viewer-denied message', async () => {
+    /**
+     * Scenario: viewer accesses the audit trail.
+     * Rule: the ForbiddenException message must be exactly
+     * `'Viewers cannot access the audit trail'` — kills the StringLiteral mutation.
+     */
+    let thrown: unknown
+    try {
+      await controller.list({ 'x-role': 'viewer' }, { ...baseQuery })
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(ForbiddenException)
+    expect((thrown as ForbiddenException).message).toBe('Viewers cannot access the audit trail')
+  })
+
+  it('applies only the actor filter when action is undefined', async () => {
+    /**
+     * Scenario: only actor filter provided, no action.
+     * Rule: only `actor` must appear in the `where` clause — kills the MethodExpression
+     * mutation that would unconditionally add `action: undefined` to the query.
+     */
+    await controller.list({ 'x-role': 'admin' }, { limit: 50, actor: 'bob' })
+
+    const callArg = findManyMock.mock.calls[0]?.[0] as { where: Record<string, unknown> }
+    expect(callArg.where['actor']).toBe('bob')
+    expect(Object.prototype.hasOwnProperty.call(callArg.where, 'action')).toBe(false)
+  })
+
+  it('applies only the action filter when actor is undefined', async () => {
+    /**
+     * Scenario: only action filter provided, no actor.
+     * Rule: only `action` must appear in the `where` clause — kills the MethodExpression
+     * mutation that would unconditionally add `actor: undefined` to the query.
+     */
+    await controller.list({ 'x-role': 'admin' }, { limit: 50, action: 'rule.created' })
+
+    const callArg = findManyMock.mock.calls[0]?.[0] as { where: Record<string, unknown> }
+    expect(callArg.where['action']).toBe('rule.created')
+    expect(Object.prototype.hasOwnProperty.call(callArg.where, 'actor')).toBe(false)
+  })
+})
+
+describe('auditQuerySchema — limit boundary validation', () => {
+  it('rejects limit 0 — kills z.coerce.number().max(1) mutant', () => {
+    /**
+     * Scenario: limit below the minimum.
+     * Rule: `z.coerce.number().int().min(1)` must reject 0 — kills the
+     * MethodExpression mutant that replaces `.min(1)` with `.max(1)`.
+     */
+    expect(auditQuerySchema.safeParse({ limit: 0 }).success).toBe(false)
+  })
+
+  it('accepts limit 1 — kills z.coerce.number().min(1).min(500) mutant', () => {
+    /**
+     * Scenario: limit at the minimum boundary.
+     * Rule: `min(1)` must accept the value 1 — kills the MethodExpression mutant
+     * that replaces `.max(500)` with `.min(500)`, which would reject values below 500.
+     */
+    expect(auditQuerySchema.safeParse({ limit: 1 }).success).toBe(true)
+  })
+
+  it('accepts limit 500 — confirms upper boundary', () => {
+    /**
+     * Scenario: limit at the maximum boundary.
+     * Rule: `.max(500)` must accept 500 — paired with the limit-501 test, this
+     * proves the boundary is exactly at 500.
+     */
+    expect(auditQuerySchema.safeParse({ limit: 500 }).success).toBe(true)
+  })
+
+  it('rejects limit 501 — kills z.coerce.number().min(1).min(500) mutant', () => {
+    /**
+     * Scenario: limit above the maximum.
+     * Rule: `.max(500)` must reject 501 — kills the MethodExpression mutant that
+     * changes `.max(500)` to `.min(500)`, which would accept any value ≥ 500.
+     */
+    expect(auditQuerySchema.safeParse({ limit: 501 }).success).toBe(false)
   })
 })

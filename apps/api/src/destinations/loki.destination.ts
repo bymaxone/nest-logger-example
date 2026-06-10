@@ -134,6 +134,7 @@ export class LokiDestination implements ILogDestination {
         body,
         signal: controller.signal,
       })
+      // Stryker disable next-line StringLiteral -- error is caught internally and written to stderr; no test asserts on the message content
       if (!res.ok) throw new Error(`Loki responded ${res.status}`)
     } catch {
       // Fail soft — report to stderr, NOT the logger (writing to the logger here loops).

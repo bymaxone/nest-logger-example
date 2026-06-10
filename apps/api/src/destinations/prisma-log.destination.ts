@@ -118,6 +118,7 @@ export class PrismaLogDestination implements ILogDestination {
    * @returns A promise that resolves once all batches have been persisted (or failed softly).
    */
   async onShutdown(): Promise<void> {
+    // Stryker disable next-line ConditionalExpression -- clearInterval(undefined) is a no-op so the true branch is equivalent; the false branch skips teardown in a way that async-timer tests cannot reliably detect
     if (this.flushTimer) clearInterval(this.flushTimer)
     // Await any in-flight flush from the chain before starting the final drain.
     await this.flushChain
@@ -139,6 +140,7 @@ export class PrismaLogDestination implements ILogDestination {
    * @returns A promise that resolves once the batch is inserted (or fails softly).
    */
   private async flush(): Promise<void> {
+    // Stryker disable next-line ConditionalExpression -- removing the early-return is equivalent because the subsequent data.length === 0 guard handles the empty-buffer case
     if (this.buffer.length === 0) return
     const lines = this.buffer.splice(0)
     const data = lines

@@ -133,3 +133,107 @@ describe('toLogQL', () => {
     expect(ql).toContain('|= "a\\\\b\\"c"')
   })
 })
+
+describe('toLogQL — exact full output for base case', () => {
+  /**
+   * With no filters the LogQL is exactly `{service="api"} | json | __error__=""`.
+   * Pinning the full string catches mutations to the selector braces, the label
+   * name, the pipeline stage separators, and the error-filter literal.
+   */
+  it('produces the exact base-case LogQL string', () => {
+    expect(toLogQL(BASE)).toBe('{service="api"} | json | __error__=""')
+  })
+
+  /**
+   * With a free-text filter the line filter is inserted BETWEEN the selector and
+   * the pipeline (before `| json`).
+   */
+  it('inserts the line filter before the json pipeline stage', () => {
+    const ql = toLogQL({ ...BASE, q: 'timeout' })
+    expect(ql).toBe('{service="api"} |= "timeout" | json | __error__=""')
+  })
+})
+
+describe('toSqlWhere — exact full output for base case', () => {
+  /**
+   * For a bare query the WHERE clause is the single time-window predicate.
+   * The exact string pins the placeholder names `$from` / `$to`.
+   */
+  it('produces the exact base-case WHERE clause', () => {
+    expect(toSqlWhere(BASE)).toBe('WHERE time BETWEEN $from AND $to')
+  })
+})
+
+describe('toSqlWhere — wildcard logKey boundary', () => {
+  /**
+   * A logKey ending in `_*` triggers the LIKE branch; a logKey ending in `*`
+   * (without the underscore) must use equality, not LIKE — confirms the sentinel
+   * is exactly `_*`, not just `*`.
+   */
+  it('uses LIKE only for _* wildcard, not for a bare * suffix', () => {
+    // `AUTH_LOGIN*` ends with `*` but not `_*` → equality
+    const sql = toSqlWhere({ ...BASE, logKey: 'AUTH_LOGIN*' })
+    expect(sql).toContain('"logKey" = \'AUTH_LOGIN*\'')
+    expect(sql).not.toContain('LIKE')
+  })
+})
+
+describe('toLogQL — wildcard logKey boundary', () => {
+  /**
+   * A logKey ending in `_*` uses a regex match; a logKey ending in `*` only (no
+   * underscore) must use an exact label match — confirms the sentinel is `_*`.
+   */
+  it('uses exact label match for a logKey ending in * without underscore', () => {
+    const ql = toLogQL({ ...BASE, logKey: 'AUTH_LOGIN*' })
+    expect(ql).toContain('| logKey="AUTH_LOGIN*"')
+    expect(ql).not.toContain('logKey=~')
+  })
+})
+
+describe('toSqlWhere — multi-clause AND separator', () => {
+  /**
+   * When multiple filter clauses are active the resulting WHERE string must
+   * join them with `\n  AND ` (newline + two-space indent + AND). Asserting the
+   * exact separator kills the StringLiteral→"" mutation on the `join()` argument
+   * that would concatenate all clauses without any separator.
+   */
+  it('separates multiple clauses with the AND keyword on a new indented line', () => {
+    const sql = toSqlWhere({ ...BASE, service: 'api', tenantId: 't1' })
+    expect(sql).toContain('\n  AND ')
+  })
+})
+
+describe('levelsAtOrAbove — minimum level included (>= not >)', () => {
+  /**
+   * The minimum level itself must appear in the SQL IN list.
+   * A >= → > mutation excludes it; asserting its presence in a tight boundary case kills that mutant.
+   */
+  it('includes the minimum level (error) and excludes strictly-lower levels in toSqlWhere', () => {
+    const sql = toSqlWhere({ ...BASE, level: { gte: 'error' } })
+    expect(sql).toContain("'error'")
+    expect(sql).not.toContain("'warn'")
+  })
+
+  /** Same boundary via toLogQL — the minimum level must appear in the regex alternation. */
+  it('includes the minimum level (error) in the toLogQL regex alternation', () => {
+    const ql = toLogQL({ ...BASE, level: { gte: 'error' } })
+    expect(ql).toContain('fatal|error')
+    expect(ql).not.toContain('warn')
+  })
+})
+
+describe('levelsAtOrAbove — filter boundary', () => {
+  /**
+   * For `gte: warn`, the IN list must include exactly `fatal`, `error`, and `warn`
+   * — not the lower-rank levels `info`, `debug`, or `trace`. The
+   * `MethodExpression` mutation that removes the `.filter(…)` call would produce
+   * all six levels in the result; asserting `not.toContain("'info'")` catches it.
+   */
+  it('excludes info/debug/trace from the SQL IN list for gte:warn', () => {
+    const sql = toSqlWhere({ ...BASE, level: { gte: 'warn' } })
+    expect(sql).toContain("level IN ('fatal', 'error', 'warn')")
+    expect(sql).not.toContain("'info'")
+    expect(sql).not.toContain("'debug'")
+    expect(sql).not.toContain("'trace'")
+  })
+})

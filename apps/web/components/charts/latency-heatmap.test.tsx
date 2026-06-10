@@ -136,4 +136,25 @@ describe('LatencyHeatmap', () => {
       expect((cell as HTMLElement).style.background).toBe('rgba(255, 255, 255, 0.04)')
     }
   })
+
+  /**
+   * A p95 cell with value half the max (p99) gets a fractional intensity that
+   * is distinct from both the floor and the saturated max. Asserting the exact
+   * RGBA value kills ArithmeticOperator mutations to `value / max`; e.g.
+   * `value * max` would give intensity 1 and colour 0.9, not 0.51.
+   *
+   * max = p99 = 400; p95 = 200 → intensity = 200/400 = 0.5
+   * → (0.12 + 0.5 × 0.78).toFixed(3) = "0.510" (jsdom normalises to "0.51").
+   */
+  it('colours an intermediate cell at the correct fractional intensity', () => {
+    aggregateReturn = {
+      data: [{ bucket: '2026-06-05T10:00:00.000Z', p50: 50, p95: 200, p99: 400 }],
+      isLoading: false,
+    }
+    const { container } = render(<LatencyHeatmap query={query} />)
+    const cells = container.querySelectorAll('div[title]')
+    const p95Cell = [...cells].find((c) => c.getAttribute('title')?.includes('p95 200ms'))
+    expect(p95Cell).toBeDefined()
+    expect((p95Cell as HTMLElement).style.background).toBe('rgba(239, 68, 68, 0.51)')
+  })
 })

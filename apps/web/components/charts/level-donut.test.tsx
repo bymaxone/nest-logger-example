@@ -103,6 +103,35 @@ describe('LevelDonut', () => {
   })
 
   /**
+   * All six known levels with exactly n=1 each produce six slices.
+   * Asserting six slices kills StringLiteral mutations to every LEVELS entry
+   * ('fatal', 'warn', 'debug', 'trace') and the `s.n > 0` → `s.n > 1`
+   * ArithmeticOperator mutation (since n=1 would be excluded if the threshold
+   * were > 1).
+   */
+  it('renders a slice for each of the six known levels when all have n=1', () => {
+    aggregateReturn = {
+      data: [
+        { bucket: 'b1', level: 'fatal', n: 1 },
+        { bucket: 'b1', level: 'error', n: 1 },
+        { bucket: 'b1', level: 'warn', n: 1 },
+        { bucket: 'b1', level: 'info', n: 1 },
+        { bucket: 'b1', level: 'debug', n: 1 },
+        { bucket: 'b1', level: 'trace', n: 1 },
+      ],
+      isLoading: false,
+    }
+    render(<LevelDonut />)
+    const slices = screen.getAllByRole('button', { name: 'slice' })
+    expect(slices).toHaveLength(6)
+    // Each slice is coloured per SEVERITY — verify fatal and trace are wired.
+    const fills = slices.map((s) => s.getAttribute('data-fill'))
+    expect(fills).toContain(SEVERITY.fatal.color)
+    expect(fills).toContain(SEVERITY.warn.color)
+    expect(fills).toContain(SEVERITY.trace.color)
+  })
+
+  /**
    * Known-level rows are summed across buckets into one slice per non-zero level,
    * coloured per `lib/severity.ts`; clicking a slice pivots the Explorer to that level.
    */

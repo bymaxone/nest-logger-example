@@ -4,7 +4,7 @@
  * Covers: correct `query_range` URL + LogQL composition, `label/<name>/values`
  * URL, and a 502 on Loki 500 or network failure.
  */
-import { describe, expect, it, jest, beforeEach } from '@jest/globals'
+import { describe, expect, it, jest, beforeEach, afterEach } from '@jest/globals'
 import { BadGatewayException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
@@ -191,7 +191,17 @@ describe('LokiProxyController.loki', () => {
      * last hour, exercising the `q.from ? ... : ...` and `q.step ?? '60s'` branches.
      */
     const lokiResponse = { status: 'success', data: { resultType: 'streams', result: [] } }
-    const queryRange = jest.fn<() => Promise<typeof lokiResponse>>().mockResolvedValue(lokiResponse)
+    const queryRange = jest
+      .fn<
+        (
+          logql: string,
+          startNs: string,
+          endNs: string,
+          step: string,
+          limit: number,
+        ) => Promise<typeof lokiResponse>
+      >()
+      .mockResolvedValue(lokiResponse)
     const client = { queryRange } as unknown as LokiClient
     const controller = new LokiProxyController(new LogsService(), client)
 
@@ -217,7 +227,17 @@ describe('LokiProxyController.loki', () => {
      * truthy side of `q.from ? ...`, `q.to ? ...`, and `q.step ?? '60s'`.
      */
     const lokiResponse = { status: 'success', data: { resultType: 'streams', result: [] } }
-    const queryRange = jest.fn<() => Promise<typeof lokiResponse>>().mockResolvedValue(lokiResponse)
+    const queryRange = jest
+      .fn<
+        (
+          logql: string,
+          startNs: string,
+          endNs: string,
+          step: string,
+          limit: number,
+        ) => Promise<typeof lokiResponse>
+      >()
+      .mockResolvedValue(lokiResponse)
     const client = { queryRange } as unknown as LokiClient
     const controller = new LokiProxyController(new LogsService(), client)
 
@@ -242,7 +262,14 @@ describe('LokiProxyController.loki', () => {
      * `labels` mode must call `LokiClient.labelValues` with the requested label name
      * scoped by the RBAC LogQL selector and time window, and return `{ values }`.
      */
-    const labelValues = jest.fn<() => Promise<string[]>>().mockResolvedValue(['api', 'web'])
+    const labelValues = jest
+      .fn<
+        (
+          name: string,
+          opts?: { query?: string; startNs?: string; endNs?: string },
+        ) => Promise<string[]>
+      >()
+      .mockResolvedValue(['api', 'web'])
     const client = { labelValues } as unknown as LokiClient
     const controller = new LokiProxyController(new LogsService(), client)
 
@@ -268,7 +295,14 @@ describe('LokiProxyController.loki', () => {
      * `labels` mode without `labelName` must default to `level` — exercising the
      * `q.labelName ?? 'level'` nullish-coalescing fallback.
      */
-    const labelValues = jest.fn<() => Promise<string[]>>().mockResolvedValue(['error'])
+    const labelValues = jest
+      .fn<
+        (
+          name: string,
+          opts?: { query?: string; startNs?: string; endNs?: string },
+        ) => Promise<string[]>
+      >()
+      .mockResolvedValue(['error'])
     const client = { labelValues } as unknown as LokiClient
     const controller = new LokiProxyController(new LogsService(), client)
 
@@ -292,5 +326,329 @@ describe('LokiProxyController.loki', () => {
     await expect(
       controller.loki({ 'x-role': 'admin' }, { mode: 'query_range', source: 'loki', limit: 100 }),
     ).rejects.toBe(boom)
+  })
+
+  it('includes the hint text about the SSE live-tail path in the tail mode response', async () => {
+    /**
+     * The `tail` response must include a non-empty `hint` field containing 'SSE' so
+     * consumers know how to reach the live-tail endpoint. Guards the `hint` string
+     * literal (L111) against an empty-string mutation — if the literal is mutated to
+     * `''`, the hint is empty and this assertion fails.
+     */
+    const client = {} as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+    const result = (await controller.loki(
+      { 'x-role': 'admin' },
+      {
+        mode: 'tail',
+        source: 'loki',
+        limit: 100,
+      },
+    )) as { stream: string; hint: string }
+
+    expect(result.hint).toBeTruthy()
+    expect(result.hint).toContain('SSE')
+  })
+
+  it('includes LOKI_QUERY_URL in the BadGatewayException message when Loki is unavailable', async () => {
+    /**
+     * The 502 message must mention `LOKI_QUERY_URL` so operators know which env var
+     * to check. Guards the template literal at L128 against an empty-string mutation —
+     * if the literal is `''`, the message is empty and the regex match fails.
+     */
+    const client = {
+      queryRange: jest
+        .fn<() => Promise<never>>()
+        .mockRejectedValue(new LokiUnavailableError('conn refused')),
+    } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    await expect(
+      controller.loki({ 'x-role': 'admin' }, { mode: 'query_range', source: 'loki', limit: 100 }),
+    ).rejects.toThrow(/LOKI_QUERY_URL/)
+  })
+
+  it('sets the default start time 1 hour BEFORE end — not after (guards the - operator)', async () => {
+    /**
+     * When no `from`/`to` are supplied, the start is `now - 60 * 60 * 1000` ms.
+     * Three ArithmeticOperator mutations on L94 are killed:
+     *   1. `+` instead of `-` → start is 1h in the future → startNs > endNs (assert fails)
+     *   2. `60 * 60 / 1000` → ~3.6 ms window → outside the ≈1h tolerance band
+     *   3. `60 / 60 * 1000` → 1 000 ms window → also outside the tolerance band
+     */
+    const lokiResponse = { status: 'success', data: { resultType: 'streams', result: [] } }
+    const queryRange = jest
+      .fn<
+        (
+          logql: string,
+          startNs: string,
+          endNs: string,
+          step: string,
+          limit: number,
+        ) => Promise<typeof lokiResponse>
+      >()
+      .mockResolvedValue(lokiResponse)
+    const client = { queryRange } as unknown as LokiClient
+    const controller = new LokiProxyController(new LogsService(), client)
+
+    await controller.loki(
+      { 'x-role': 'admin' },
+      { mode: 'query_range', source: 'loki', limit: 100 },
+    )
+
+    const args = queryRange.mock.calls[0] as [string, string, string, string, number]
+    const startNs = BigInt(args[1])
+    const endNs = BigInt(args[2])
+
+    // Start must be BEFORE end — the + mutant reverses this.
+    expect(startNs < endNs).toBe(true)
+
+    // Window must be approximately 1 hour (3 600 000 ms ± 5 s tolerance).
+    const windowMs = Number((endNs - startNs) / 1_000_000n)
+    expect(windowMs).toBeGreaterThan(3_595_000)
+    expect(windowMs).toBeLessThan(3_605_000)
+  })
+})
+
+// ─── Schema validation via NestJS HTTP pipeline ───────────────────────────────
+// These tests go through the real ZodValidationPipe decorator so mutations to
+// the labelName enum values and the step regex are caught.
+
+import type { INestApplication } from '@nestjs/common'
+import { Test } from '@nestjs/testing'
+import supertest from 'supertest'
+
+async function buildApp(overrideClient: Partial<LokiClient> = {}): Promise<{
+  app: INestApplication
+  labelValuesSpy: ReturnType<typeof jest.fn>
+  queryRangeSpy: ReturnType<typeof jest.fn>
+}> {
+  /** Spy on the LokiClient methods so callers can assert exact invocation args. */
+  const labelValuesSpy = jest.fn<() => Promise<string[]>>().mockResolvedValue([])
+  const queryRangeSpy = jest
+    .fn<() => Promise<{ status: string; data: { resultType: string; result: unknown[] } }>>()
+    .mockResolvedValue({ status: 'success', data: { resultType: 'streams', result: [] } })
+
+  const client = {
+    labelValues: labelValuesSpy,
+    queryRange: queryRangeSpy,
+    ...overrideClient,
+  } as unknown as LokiClient
+
+  const moduleRef = await Test.createTestingModule({
+    controllers: [LokiProxyController],
+    providers: [
+      { provide: LogsService, useValue: new LogsService() },
+      { provide: LokiClient, useValue: client },
+    ],
+  }).compile()
+
+  // `emitDecoratorMetadata: false` in tsconfig.spec.json means NestJS cannot auto-inject
+  // dependencies from type metadata. Patch the controller instance directly after
+  // the module compiles so the HTTP pipeline has working service references.
+  const ctrl = moduleRef.get(LokiProxyController) as Record<string, unknown>
+  ctrl['logs'] = new LogsService()
+  ctrl['client'] = client
+
+  const app = moduleRef.createNestApplication()
+  await app.init()
+  return { app, labelValuesSpy, queryRangeSpy }
+}
+
+describe('lokiQuerySchema — labelName enum via HTTP pipeline', () => {
+  let app: INestApplication
+  let labelValuesSpy: ReturnType<typeof jest.fn>
+
+  afterEach(async () => {
+    await app.close()
+    jest.clearAllMocks()
+  })
+
+  it('accepts labelName=logKey and passes the exact string to labelValues', async () => {
+    /**
+     * When `labelName=logKey` is sent as a query param, the ZodValidationPipe must
+     * parse it as a valid enum value and the controller must pass exactly 'logKey'
+     * to `LokiClient.labelValues`. If the enum string 'logKey' is mutated, Zod
+     * rejects the request (400) and this assertion fails.
+     */
+    ;({ app, labelValuesSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'labels', labelName: 'logKey', source: 'loki', limit: 100 })
+      .expect(200)
+
+    expect(labelValuesSpy).toHaveBeenCalledTimes(1)
+    const [name] = labelValuesSpy.mock.calls[0] as [string]
+    expect(name).toBe('logKey')
+  })
+
+  it('accepts labelName=tenantId and passes the exact string to labelValues', async () => {
+    /**
+     * Same guard for 'tenantId' — the fourth enum value. A mutation of 'tenantId'
+     * to '' makes the pipe reject the request with 400 so the 200 assertion fails.
+     */
+    ;({ app, labelValuesSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'labels', labelName: 'tenantId', source: 'loki', limit: 100 })
+      .expect(200)
+
+    expect(labelValuesSpy).toHaveBeenCalledTimes(1)
+    const [name] = labelValuesSpy.mock.calls[0] as [string]
+    expect(name).toBe('tenantId')
+  })
+
+  it('accepts labelName=level and passes the exact string to labelValues', async () => {
+    /**
+     * Guards the 'level' enum literal — the first value in the array. If mutated
+     * to '' the pipe rejects, causing the 200 assertion to fail.
+     */
+    ;({ app, labelValuesSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'labels', labelName: 'level', source: 'loki', limit: 100 })
+      .expect(200)
+
+    const [name] = labelValuesSpy.mock.calls[0] as [string]
+    expect(name).toBe('level')
+  })
+
+  it('accepts labelName=service and passes the exact string to labelValues', async () => {
+    /**
+     * Guards the 'service' enum literal — second value in the array. Same kill
+     * mechanism as the other enum tests above.
+     */
+    ;({ app, labelValuesSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'labels', labelName: 'service', source: 'loki', limit: 100 })
+      .expect(200)
+
+    const [name] = labelValuesSpy.mock.calls[0] as [string]
+    expect(name).toBe('service')
+  })
+
+  it('rejects an unknown labelName with 400', async () => {
+    /**
+     * A value outside the enum must be rejected so the 200 tests above are the
+     * only valid path — makes the boundary concrete.
+     */
+    ;({ app, labelValuesSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'labels', labelName: 'unknown_field', source: 'loki', limit: 100 })
+      .expect(400)
+
+    expect(labelValuesSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('lokiQuerySchema — step regex via HTTP pipeline', () => {
+  let app: INestApplication
+  let queryRangeSpy: ReturnType<typeof jest.fn>
+
+  afterEach(async () => {
+    await app.close()
+    jest.clearAllMocks()
+  })
+
+  it('accepts a valid step matching /^\\d+[smhdw]$/ and forwards it unchanged', async () => {
+    /**
+     * A step that matches `^\d+[smhdw]$` (e.g. '5m') must pass validation and be
+     * forwarded to `queryRange`. If the regex is mutated to accept everything, the
+     * negative test below would catch the difference.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: '5m', source: 'loki', limit: 100 })
+      .expect(200)
+
+    const callArgs = queryRangeSpy.mock.calls[0] as [string, string, string, string, number]
+    expect(callArgs[3]).toBe('5m')
+  })
+
+  it('rejects a step that does not match the regex (trailing non-unit char) with 400', async () => {
+    /**
+     * '60x' has a non-unit suffix character; the regex `/^\d+[smhdw]$/` must reject
+     * it. If the regex is mutated to `/(?:)/` (match anything), the request is
+     * accepted and `queryRange` is called — but this assertion expects 400.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: '60x', source: 'loki', limit: 100 })
+      .expect(400)
+
+    expect(queryRangeSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects a step with no numeric prefix with 400', async () => {
+    /**
+     * A non-numeric prefix ('ms') does not match `^\d+[smhdw]$`. Guards the `\d+`
+     * part of the regex against mutations that broaden the accepted character set.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: 'ms', source: 'loki', limit: 100 })
+      .expect(400)
+  })
+
+  it('rejects a step with a leading non-digit prefix (kills the no-^ anchor mutant)', async () => {
+    /**
+     * The regex `/^\d+[smhdw]$/` without `^` becomes `/\d+[smhdw]$/`, which would
+     * accept 'x5m' because `\d+[smhdw]$` matches the trailing '5m'. The real regex
+     * must reject it — asserting 400 kills that regex mutant.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: 'x5m', source: 'loki', limit: 100 })
+      .expect(400)
+
+    expect(queryRangeSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects a step with a trailing non-unit character (kills the no-$ anchor mutant)', async () => {
+    /**
+     * The regex without `$` becomes `/^\d+[smhdw]/`, which would accept '5mz' because
+     * `^\d+[smhdw]` matches '5m' at the start. The real regex must reject it — asserting
+     * 400 kills that regex mutant.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: '5mz', source: 'loki', limit: 100 })
+      .expect(400)
+
+    expect(queryRangeSpy).not.toHaveBeenCalled()
+  })
+
+  it('accepts a multi-digit step such as 10s (kills the single-digit-only mutant)', async () => {
+    /**
+     * A regex mutated to `/^\d[smhdw]$/` (single digit) would reject '10s' because
+     * two digits don't match `\d`. The real regex `/^\d+[smhdw]$/` (one or more) must
+     * accept it — asserting 200 kills that mutant.
+     */
+    ;({ app, queryRangeSpy } = await buildApp())
+
+    await supertest(app.getHttpServer())
+      .get('/logs/loki')
+      .query({ mode: 'query_range', step: '10s', source: 'loki', limit: 100 })
+      .expect(200)
+
+    const callArgs = queryRangeSpy.mock.calls[0] as [string, string, string, string, number]
+    expect(callArgs[3]).toBe('10s')
   })
 })

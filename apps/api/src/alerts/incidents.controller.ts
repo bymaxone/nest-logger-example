@@ -28,14 +28,15 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { AuditService } from '../governance/audit.service.js'
 import { buildRbacContext } from '../governance/rbac.context.js'
 
-const transitionSchema = z.object({
+/** Request body for `PATCH /incidents` — the lifecycle action and, when snoozing, its duration. */
+export const transitionSchema = z.object({
   action: z.enum(['acknowledge', 'snooze', 'resolve']),
   /** Snooze duration — required when `action=snooze`. */
   snoozeDuration: z.enum(['1h', '4h', '8h', '24h']).optional(),
 })
 
 /** Snooze duration to millisecond map. */
-const SNOOZE_MS: Record<string, number> = {
+export const SNOOZE_MS: Record<string, number> = {
   '1h': 60 * 60 * 1000,
   '4h': 4 * 60 * 60 * 1000,
   '8h': 8 * 60 * 60 * 1000,

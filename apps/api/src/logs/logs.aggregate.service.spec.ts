@@ -70,6 +70,51 @@ describe('LogsAggregateService.query — latency', () => {
     // p50 is 1ms — not the 1251ms arithmetic mean.
     expect(row.p50).toBe(1)
   })
+
+  it('passes through all three percentile fields (p50, p95, p99) with distinct values', async () => {
+    /**
+     * The service must not drop or zero p95/p99 — omitting high percentiles would mask
+     * tail-latency outliers.  Uses three distinct values so a field-swap mutation is also caught.
+     */
+    const bucket = new Date('2024-06-01T12:00:00.000Z')
+    const mockRows: LatencyRow[] = [{ bucket, p50: 10, p95: 950, p99: 990 }]
+    const prisma = buildPrismaMock(mockRows)
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    const result = await svc.query({
+      metric: 'latency',
+      source: 'postgres',
+      limit: 100,
+      bucket: 'auto',
+    })
+    const row = (result as LatencyRow[])[0]
+    if (row === undefined) throw new Error('Expected first latency row to be defined')
+    expect(row.p50).toBe(10)
+    expect(row.p95).toBe(950)
+    expect(row.p99).toBe(990)
+  })
+
+  it('binds percentile fractions 0.50, 0.95, 0.99 in the raw SQL so all three orders are present', async () => {
+    /**
+     * The latency SQL must contain the three percentile_cont fractions as bound values.
+     * If any fraction were mutated (e.g. 0.95 → 0.50), two percentile columns would
+     * compute the same thing and tail-latency visibility would be silently lost.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'latency', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    // percentile_cont values are interpolated into the SQL as bound parameters.
+    const sql = call[0] as unknown as { strings: readonly string[] }
+    const fullSql = sql.strings.join('')
+    expect(fullSql).toContain('0.50')
+    expect(fullSql).toContain('0.95')
+    expect(fullSql).toContain('0.99')
+  })
 })
 
 describe('LogsAggregateService.query — errorRate', () => {
@@ -93,6 +138,25 @@ describe('LogsAggregateService.query — errorRate', () => {
     const row = (result as ErrorRateRow[])[0]
     if (row === undefined) throw new Error('Expected first errorRate row to be defined')
     expect(row.errorRate).toBeCloseTo(0.3)
+  })
+
+  it('scopes the error-rate query to log keys matching the HTTP_REQUEST_ prefix', async () => {
+    /**
+     * The errorRate SQL must filter rows with "logKey" LIKE 'HTTP_REQUEST_%'.
+     * If that prefix were mutated or removed, unrelated log keys would be counted,
+     * silently widening the error-rate denominator.  Asserting the joined SQL template
+     * strings catches any string-literal mutation of the prefix.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'errorRate', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { strings: readonly string[] }
+    expect(sql.strings.join('')).toContain('HTTP_REQUEST_')
   })
 
   it('returns null errorRate for an empty bucket (NULLIF protects against /0)', async () => {
@@ -136,6 +200,56 @@ describe('LogsAggregateService.query — statusMix', () => {
     })
     expect(result).toEqual(mockRows)
     expect(prisma.$queryRaw as jest.Mock).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes through all four status-class counts with distinct values', async () => {
+    /**
+     * s2xx, s3xx, s4xx, s5xx must all be present and match the raw query output.
+     * Using four distinct counts means a field-swap mutation (e.g. s2xx and s4xx
+     * swapped) would be caught by this test.
+     */
+    const bucket = new Date('2024-06-01T12:00:00.000Z')
+    const mockRows: StatusMixRow[] = [{ bucket, s2xx: 200, s3xx: 30, s4xx: 40, s5xx: 50 }]
+    const prisma = buildPrismaMock(mockRows)
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    const result = await svc.query({
+      metric: 'statusMix',
+      source: 'postgres',
+      limit: 100,
+      bucket: 'auto',
+    })
+    const row = (result as StatusMixRow[])[0]
+    if (row === undefined) throw new Error('Expected first statusMix row to be defined')
+    expect(row.s2xx).toBe(200)
+    expect(row.s3xx).toBe(30)
+    expect(row.s4xx).toBe(40)
+    expect(row.s5xx).toBe(50)
+  })
+
+  it('scopes status-class counts via the 200-299 / 300-399 / 400-499 / 500+ boundaries in the SQL', async () => {
+    /**
+     * The BETWEEN boundaries and >= 500 threshold are static strings in the SQL template.
+     * If any boundary were mutated (e.g. 299 → 300), two status classes would overlap
+     * or have gaps.  Asserting the joined template strings catches literal mutations.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'statusMix', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { strings: readonly string[] }
+    const fullSql = sql.strings.join('')
+    expect(fullSql).toContain('200')
+    expect(fullSql).toContain('299')
+    expect(fullSql).toContain('300')
+    expect(fullSql).toContain('399')
+    expect(fullSql).toContain('400')
+    expect(fullSql).toContain('499')
+    expect(fullSql).toContain('500')
   })
 })
 
@@ -234,6 +348,46 @@ describe('LogsAggregateService — filter SQL fragment', () => {
     const sql = call[0] as unknown as { values: unknown[] }
     expect(sql.values).toContain('error')
   })
+
+  it('does not add a level filter when no level is supplied (covers the falsy level guard)', async () => {
+    /**
+     * When `level` is absent the level filter block must be entirely skipped.
+     * This exercises the false path of `typeof level === 'string'` and the false
+     * path of `level && typeof level === 'object' && ...` — the level guard prevents
+     * a null/undefined from being passed to Array.isArray.
+     */
+    const { prisma, queryRaw } = capture([])
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'volume', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { strings: readonly string[]; values: readonly unknown[] }
+    // No level value should be bound when no level filter is active.
+    const levelValues = ['fatal', 'error', 'warn', 'info', 'debug', 'trace']
+    for (const lv of levelValues) {
+      expect(sql.values).not.toContain(lv)
+    }
+    expect(sql.strings.join('')).not.toContain('"level"')
+  })
+
+  it('does not add a logKey filter when no logKey is supplied (covers the logKey guard branches)', async () => {
+    /**
+     * When `logKey` is absent neither the equality nor the LIKE branch of the logKey
+     * filter runs.  Exercises the false path of `typeof logKey === 'string'` and the
+     * false path of `logKey && typeof logKey === 'object' && ...`.
+     */
+    const { prisma, queryRaw } = capture([])
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'volume', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { strings: readonly string[] }
+    expect(sql.strings.join('')).not.toContain('"logKey"')
+  })
 })
 
 describe('LogsAggregateService — bucket and tenant context', () => {
@@ -259,6 +413,56 @@ describe('LogsAggregateService — bucket and tenant context', () => {
     const sql = call[0] as unknown as { values: unknown[] }
     expect(sql.values).toContain('5 minutes')
     expect(sql.values).toContain('minute')
+  })
+
+  it('uses the exact string minute and 1 minute for the 1m explicit bucket', async () => {
+    /**
+     * EXPLICIT_BUCKET['1m'] must bind unit='minute' and interval='1 minute'.
+     * If either string literal were mutated the SQL would use the wrong granularity,
+     * silently corrupting 1-minute charts without any runtime error.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({
+      metric: 'volume',
+      source: 'postgres',
+      limit: 100,
+      bucket: '1m',
+    })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { values: unknown[] }
+    // '1 minute' is the interval unique to the 1m bucket (5m uses '5 minutes').
+    expect(sql.values).toContain('1 minute')
+    expect(sql.values).toContain('minute')
+  })
+
+  it('uses the exact string hour and 1 hour for the 1h explicit bucket', async () => {
+    /**
+     * EXPLICIT_BUCKET['1h'] must bind unit='hour' and interval='1 hour'.
+     * If either string literal were mutated the hour-level chart panels would
+     * group data at the wrong granularity.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({
+      metric: 'volume',
+      source: 'postgres',
+      limit: 100,
+      bucket: '1h',
+    })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { values: unknown[] }
+    // 'hour' appears only in the 1h bucket entry; '1 hour' uniquely identifies the interval.
+    expect(sql.values).toContain('1 hour')
+    expect(sql.values).toContain('hour')
   })
 
   it('threads a tenantId from a restriction-driven where clause', async () => {
@@ -312,5 +516,187 @@ describe('LogsAggregateService — bucket and tenant context', () => {
     const oneHourMs = 60 * 60 * 1000
     expect(ctx.from.getTime()).toBeGreaterThanOrEqual(before - oneHourMs)
     expect(ctx.from.getTime()).toBeLessThanOrEqual(after - oneHourMs)
+  })
+
+  it('binds exactly the string minute (not empty) for the 1m bucket unit', async () => {
+    /**
+     * Extra assertion to guarantee the unit string bound for the '1m' explicit bucket
+     * is 'minute' and not the empty string produced by a StringLiteral mutation.
+     * Complements the `toContain('minute')` check by asserting `''` is absent.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'volume', source: 'postgres', limit: 100, bucket: '1m' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { values: unknown[] }
+    expect(sql.values).toContain('1 minute')
+    expect(sql.values).toContain('minute')
+    // Mutant changes 'minute' or '1 minute' to ''. An empty string in the values array
+    // means the wrong granularity is used — assert it is absent.
+    expect(sql.values).not.toContain('')
+  })
+
+  it('binds exactly the string hour (not empty) for the 1h bucket unit', async () => {
+    /**
+     * Same guard for the '1h' explicit bucket — unit='hour', interval='1 hour'.
+     * A StringLiteral mutation to '' would silently break hour-level chart panels.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'volume', source: 'postgres', limit: 100, bucket: '1h' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { values: unknown[] }
+    expect(sql.values).toContain('1 hour')
+    expect(sql.values).toContain('hour')
+    expect(sql.values).not.toContain('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildFilterSql — null-safety and type-guard branches
+//
+// `buildFilterSql` is private, so these tests access it via an unsafe cast.
+// This is intentional: `buildPrismaWhere` always produces well-typed values
+// so the guards are never exercised through the normal call path. Directly
+// crafted `where` objects reach the false sides of every guard.
+// ---------------------------------------------------------------------------
+
+describe('LogsAggregateService — buildFilterSql null-safety and type-guard branches', () => {
+  type FilterSql = { strings: readonly string[]; values: readonly unknown[] }
+
+  function callFilter(where: Record<string, unknown>): FilterSql {
+    const prisma = {
+      $queryRaw: jest.fn<() => Promise<unknown>>().mockResolvedValue([]),
+    } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+    type BFS = (w: Record<string, unknown>) => FilterSql
+    return (svc as unknown as { buildFilterSql: BFS }).buildFilterSql.call(svc, where)
+  }
+
+  it('does not add service, traceId, or requestId filters when those fields are absent', async () => {
+    /**
+     * Guards the `typeof where.service === 'string'`, `typeof where.traceId === 'string'`,
+     * and `typeof where.requestId === 'string'` conditions against ConditionalExpression
+     * mutations that replace each with `true`. If any condition is always-true, the filter
+     * is emitted even for undefined fields, producing broken SQL with unbound parameters.
+     */
+    const queryRaw = jest.fn<(args: unknown) => Promise<unknown>>().mockResolvedValue([])
+    const prisma = { $queryRaw: queryRaw } as unknown as PrismaService
+    const svc = new LogsAggregateService(prisma, new LogsService())
+
+    await svc.query({ metric: 'volume', source: 'postgres', limit: 100, bucket: 'auto' })
+
+    const call = queryRaw.mock.calls[0]
+    if (call === undefined) throw new Error('Expected $queryRaw to be called')
+    const sql = call[0] as unknown as { strings: readonly string[] }
+    const fullSql = sql.strings.join('')
+    expect(fullSql).not.toContain('"service"')
+    expect(fullSql).not.toContain('"traceId"')
+    expect(fullSql).not.toContain('"requestId"')
+  })
+
+  it('does not throw when where.level is null (guards the level && short-circuit)', () => {
+    /**
+     * When `where.level` is `null`, the `level &&` must short-circuit before any
+     * property access. The LogicalOperator mutation `&&` → `||` makes
+     * `(null || typeof null === 'object')` evaluate to `true`, then crashes on
+     * `null.in`. Asserting no throw kills that mutant.
+     */
+    expect(() => callFilter({ level: null })).not.toThrow()
+    expect(callFilter({ level: null }).values).toHaveLength(0)
+  })
+
+  it('returns no level IN filter when where.level is an object without an in array', () => {
+    /**
+     * An object without `.in` (e.g. `{}`) must not trigger the IN-list branch.
+     * Guards the `Array.isArray(level.in)` condition: a ConditionalExpression mutation
+     * that replaces it with `true` would push `Prisma.join(undefined)`, which throws.
+     * Asserting both no-throw and empty values kills that mutant.
+     */
+    expect(() => callFilter({ level: {} })).not.toThrow()
+    expect(callFilter({ level: {} }).values).toHaveLength(0)
+  })
+
+  it('does not throw when where.logKey is null (guards the logKey && short-circuit)', () => {
+    /**
+     * Same null-safety guard as for level — the `logKey &&` must prevent access on
+     * null before the `typeof logKey === 'object'` check. The OR mutant would proceed
+     * to access `null.startsWith`, throwing a TypeError.
+     */
+    expect(() => callFilter({ logKey: null })).not.toThrow()
+    expect(callFilter({ logKey: null }).values).toHaveLength(0)
+  })
+
+  it('returns no logKey LIKE filter when logKey is a truthy non-object (typeof !== object)', () => {
+    /**
+     * A function has typeof='function', not 'object'. The original condition correctly
+     * skips the else-if branch. A ConditionalExpression mutation replacing
+     * `typeof logKey === 'object'` with `true` would then check `typeof fn.startsWith`
+     * where `.startsWith` is a string — and add a spurious LIKE clause.
+     * Empty values assert the filter is not emitted.
+     */
+    const fnWithStartsWith = Object.assign((): void => undefined, { startsWith: 'PAY_' })
+    expect(callFilter({ logKey: fnWithStartsWith }).values).toHaveLength(0)
+  })
+
+  it('returns no logKey LIKE filter when logKey.startsWith is not a string', () => {
+    /**
+     * A numeric `startsWith` must not produce a LIKE clause. A ConditionalExpression
+     * mutation replacing `typeof logKey.startsWith === 'string'` with `true` would
+     * bind `42 + '%'` = `'42%'` as the filter value — the empty-values assertion kills it.
+     */
+    expect(callFilter({ logKey: { startsWith: 42 } }).values).toHaveLength(0)
+  })
+
+  it('does not throw when where.message is null (guards the message && short-circuit)', () => {
+    /**
+     * Same pattern as level/logKey — the `message &&` must prevent access on null.
+     * The OR mutant would proceed to `null.contains`, throwing a TypeError.
+     */
+    expect(() => callFilter({ message: null })).not.toThrow()
+    expect(callFilter({ message: null }).values).toHaveLength(0)
+  })
+
+  it('returns no message ILIKE filter when message is a truthy non-object (typeof !== object)', () => {
+    /**
+     * Guards the `typeof message === 'object'` condition (ConditionalExpression → true).
+     * A function with a string `contains` property has typeof='function', so the original
+     * skips the block; the always-true mutant would add a spurious ILIKE clause.
+     */
+    const fnWithContains = Object.assign((): void => undefined, { contains: 'error' })
+    expect(callFilter({ message: fnWithContains }).values).toHaveLength(0)
+  })
+
+  it('returns no message ILIKE filter when message.contains is not a string', () => {
+    /**
+     * A numeric `contains` must not produce an ILIKE filter. Guards the
+     * `typeof message.contains === 'string'` ConditionalExpression — the always-true
+     * mutant would bind `'%42%'` as the filter value.
+     */
+    expect(callFilter({ message: { contains: 42, mode: 'insensitive' } }).values).toHaveLength(0)
+  })
+
+  it('joins multiple active filter conditions with a single-space separator', () => {
+    /**
+     * When two or more filters are active, `Prisma.join(parts, ' ')` must use `' '`
+     * as the separator so consecutive AND conditions are syntactically valid SQL.
+     * A StringLiteral mutation to `''` removes the leading space from the second
+     * fragment's first string — detected by asserting `' AND "level" = '` appears
+     * in the strings array (the space is the separator, not from any static template).
+     */
+    const result = callFilter({ service: 'api', level: 'error' })
+    expect(result.values).toContain('api')
+    expect(result.values).toContain('error')
+    // With ' ' separator, Prisma.join prepends ' ' to the second fragment's first string,
+    // so ' AND "level" = ' is a substring of the joined strings array.
+    expect(result.strings.join('|')).toContain(' AND "level" = ')
   })
 })

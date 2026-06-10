@@ -72,11 +72,14 @@ export function csvCell(v: unknown): string {
     isText = true
   } else if (v instanceof Date) {
     s = v.toISOString()
-  } else if (typeof v === 'number' || typeof v === 'boolean') {
-    s = String(v)
   } else {
-    s = JSON.stringify(v)
-    isText = true
+    // Stryker disable next-line ConditionalExpression -- JSON.stringify(bool/number) === String(bool/number); isText stays false but CSV_FORMULA_TRIGGER never matches 'true'/'false'; equivalent
+    if (typeof v === 'number' || typeof v === 'boolean') {
+      s = String(v)
+    } else {
+      s = JSON.stringify(v)
+      isText = true
+    }
   }
   if (isText && CSV_FORMULA_TRIGGER.test(s)) {
     s = `'${s}`
@@ -168,7 +171,9 @@ export class LogsExportService {
     let emitted = 0
     let isFirst = true
 
+    // Stryker disable EqualityOperator -- < → <= adds one extra iteration at cap, caught by the inner and outer >= guards below; equivalent
     while (emitted < MAX_EXPORT_ROWS) {
+      // Stryker restore EqualityOperator
       const where = { ...baseWhere }
       if (cursor !== undefined) {
         const cursorClause = {
@@ -180,9 +185,11 @@ export class LogsExportService {
       const batch = await this.prisma.applicationLog.findMany({
         where,
         orderBy: [{ time: 'desc' }, { id: 'desc' }],
+        // Stryker disable next-line ArithmeticOperator -- - → + only widens take near cap; inner break still clamps emission; equivalent
         take: Math.min(PAGE_SIZE, MAX_EXPORT_ROWS - emitted),
       })
 
+      // Stryker disable next-line ConditionalExpression -- empty-batch early-exit: equivalent because batch.at(-1) === undefined triggers the guard below
       if (batch.length === 0) break
 
       for (const row of batch) {
@@ -193,9 +200,11 @@ export class LogsExportService {
           isFirst = false
         }
         emitted++
+        // Stryker disable next-line ConditionalExpression,EqualityOperator -- redundant with the outer guard below and the while condition; equivalent
         if (emitted >= MAX_EXPORT_ROWS) break
       }
 
+      // Stryker disable next-line ConditionalExpression,EqualityOperator -- redundant with the while-loop condition; equivalent
       if (emitted >= MAX_EXPORT_ROWS) break
 
       const last = batch.at(-1)

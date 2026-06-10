@@ -95,6 +95,28 @@ describe('buildRbacContext', () => {
     const ctx = buildRbacContext({ 'x-role': 'admin' })
     expect(ctx.role).toBe('admin')
   })
+
+  it('falls back to x-tenant-id as actor when x-actor is absent but x-tenant-id is present', () => {
+    /**
+     * Scenario: no x-actor header, but x-tenant-id is present.
+     * Rule: `rawActor = headers['x-actor'] ?? headers['x-tenant-id']` must resolve
+     * to the tenant value — kills the StringLiteral mutation that changes the
+     * `'x-tenant-id'` fallback key.
+     */
+    const ctx = buildRbacContext({ 'x-role': 'operator', 'x-tenant-id': 'acme' })
+    expect(ctx.actor).toBe('acme')
+  })
+
+  it('does not throw when NODE_ENV is set to development', () => {
+    /**
+     * Scenario: NODE_ENV='development'.
+     * Rule: the guard allows `development` explicitly (in addition to the `?? 'development'`
+     * fallback) — kills any mutation that changes `'development'` to a different literal
+     * in the `env !== 'development'` check.
+     */
+    process.env.NODE_ENV = 'development'
+    expect(() => buildRbacContext({})).not.toThrow()
+  })
 })
 
 describe('toRestriction', () => {
@@ -161,5 +183,52 @@ describe('isAdmin', () => {
     expect(isAdmin('admin')).toBe(true)
     expect(isAdmin('operator')).toBe(false)
     expect(isAdmin('viewer')).toBe(false)
+  })
+})
+
+describe('NO_TENANT_SENTINEL — literal value', () => {
+  it('has the exact expected string value __NO_TENANT__', () => {
+    /**
+     * Scenario: inspect the exported constant directly.
+     * Rule: `NO_TENANT_SENTINEL` must equal the hardcoded string `'__NO_TENANT__'` —
+     * kills the StringLiteral mutation that changes the constant's value while
+     * tests that only use the imported symbol (never the literal) would miss it.
+     */
+    expect(NO_TENANT_SENTINEL).toBe('__NO_TENANT__')
+  })
+
+  it('is not an empty string — kills StringLiteral "" mutant on constant definition', () => {
+    /**
+     * Scenario: the StringLiteral mutant replaces `'__NO_TENANT__'` with `''`.
+     * Rule: the sentinel must never be an empty string — an empty-string sentinel
+     * would silently match tenant-less rows rather than matching zero rows, creating
+     * a data-isolation bypass.
+     */
+    expect(NO_TENANT_SENTINEL).not.toBe('')
+    expect(NO_TENANT_SENTINEL.length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildRbacContext — x-role header key usage', () => {
+  it('reads role via the exact header key x-role, not an empty key', () => {
+    /**
+     * Scenario: the StringLiteral mutant replaces `'x-role'` with `''`.
+     * Rule: `buildRbacContext({ 'x-role': 'admin' })` must return `role === 'admin'` —
+     * under the mutant, `headers['']` is undefined so the default 'operator' is used,
+     * making the role 'operator' instead of 'admin'.  Asserting admin here kills that
+     * mutant.
+     */
+    const ctx = buildRbacContext({ 'x-role': 'admin' })
+    expect(ctx.role).toBe('admin')
+  })
+
+  it('reads viewer role from x-role header — confirms header key is x-role', () => {
+    /**
+     * Scenario: viewer role via explicit x-role header.
+     * Rule: `buildRbacContext({ 'x-role': 'viewer', 'x-tenant-id': 't1' })` must
+     * return `role === 'viewer'` — kills the StringLiteral mutant on `'x-role'`.
+     */
+    const ctx = buildRbacContext({ 'x-role': 'viewer', 'x-tenant-id': 't1' })
+    expect(ctx.role).toBe('viewer')
   })
 })

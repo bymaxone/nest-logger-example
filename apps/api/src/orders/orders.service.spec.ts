@@ -138,6 +138,26 @@ describe('OrdersService (unit)', () => {
     )
   })
 
+  it('findOne throws an HttpException whose response body contains the exact "Order not found" message', async () => {
+    /**
+     * Scenario: the order is absent.
+     * Rule: `new HttpException('Order not found', HttpStatus.NOT_FOUND)` must carry
+     * the exact response string `'Order not found'` — kills the StringLiteral mutation
+     * that changes the message text while `rejects.toBeInstanceOf(HttpException)` alone
+     * would still pass.
+     */
+    ;(prisma.order.findUnique as jest.Mock).mockResolvedValue(null as never)
+
+    let thrown: unknown
+    try {
+      await service.findOne('missing')
+    } catch (e) {
+      thrown = e
+    }
+    const resp = (thrown as HttpException).getResponse()
+    expect(resp).toBe('Order not found')
+  })
+
   /**
    * `slow` runs under the real `@LogPerformance(50)` wrapper. Its 75 ms sleep exceeds the
    * 50 ms threshold, so the decorator must emit `METHOD_SLOW_EXECUTION` (warn) while the

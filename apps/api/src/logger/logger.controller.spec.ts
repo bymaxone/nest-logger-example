@@ -81,4 +81,27 @@ describe('LoggerController', () => {
     expect(controller.redactPaths({ 'x-role': 'admin' })).toEqual(effective)
     expect(listEffective).toHaveBeenCalledTimes(1)
   })
+
+  // ─── exact ForbiddenException message ─────────────────────────────────────────
+
+  it('throws ForbiddenException with the exact viewer-denied message', () => {
+    /**
+     * Scenario: viewer calls GET /logger/redact-paths.
+     * Rule: the ForbiddenException message must equal the exact string
+     * `'Viewers cannot access the redact-path list'` — kills the StringLiteral
+     * mutation that changes the message text while `toThrow(ForbiddenException)`
+     * alone would still pass.
+     */
+    const { controller } = makeController(['x.y'])
+    let thrown: unknown
+    try {
+      controller.redactPaths({ 'x-role': 'viewer' })
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(ForbiddenException)
+    expect((thrown as ForbiddenException).message).toBe(
+      'Viewers cannot access the redact-path list',
+    )
+  })
 })

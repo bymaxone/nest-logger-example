@@ -114,8 +114,28 @@ describe('AuditTable', () => {
 
     // The header columns are present.
     expect(screen.getByRole('columnheader', { name: 'Actor' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Target' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Tenant' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'At' })).toBeInTheDocument()
 
     await waitFor(() => expect(getAuditEventsMock).toHaveBeenCalledTimes(1))
+  })
+
+  /** The action cell text ('export.csv') and target text ('logs-export.csv') render verbatim. */
+  it('renders the action and target values for each event', async () => {
+    getAuditEventsMock.mockResolvedValue([
+      {
+        id: 'a1',
+        actor: 'alice@example.com',
+        action: 'rule.create',
+        target: 'Error spike rule',
+        tenantId: 'acme',
+        at: '2026-01-02T03:04:05.000Z',
+      },
+    ])
+    renderWithClient(<AuditTable />)
+    expect(await screen.findByText('rule.create')).toBeInTheDocument()
+    expect(screen.getByText('Error spike rule')).toBeInTheDocument()
   })
 })

@@ -130,6 +130,26 @@ describe('exportLogs', () => {
     expect((captured as Record<string, string>)['x-tenant-id']).toBeUndefined()
   })
 
+  /**
+   * When the query carries both a role and a tenantId, the x-tenant-id header
+   * must be forwarded with the exact tenantId value. Asserting the exact value
+   * kills the LogicalOperator mutation (`?? ''` → `&& ''`) that replaces the
+   * tenantId with an empty string, causing the header to be omitted.
+   */
+  it('attaches x-tenant-id when both role and tenantId are present', async () => {
+    let captured: HeadersInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        captured = init?.headers
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    await exportLogs('json', { source: 'postgres', role: 'admin', tenantId: 'acme' })
+    expect((captured as Record<string, string>)['x-role']).toBe('admin')
+    expect((captured as Record<string, string>)['x-tenant-id']).toBe('acme')
+  })
+
   /** A non-2xx export response must reject with a MaintenanceApiError carrying the status. */
   it('throws MaintenanceApiError on a non-ok export response', async () => {
     vi.stubGlobal(
@@ -304,5 +324,302 @@ describe('getSameRecord', () => {
     expect(urls.some((u) => u.includes('source=postgres'))).toBe(true)
     expect(urls.some((u) => u.includes('source=loki'))).toBe(true)
     expect(urls.every((u) => u.includes('requestId=req_1') && u.includes('limit=1'))).toBe(true)
+  })
+
+  /** Same record by traceId must attach the traceId to both parallel calls. */
+  it('fetches one row from each backend by traceId', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        urls.push(url)
+        return Promise.resolve(jsonResponse(logPage))
+      }),
+    )
+    const query: LogQuery = { source: 'loki', role: 'operator' }
+    const result = await getSameRecord({ traceId: 'trace_99' }, query)
+    expect(result.postgres).toEqual(logPage.data)
+    expect(result.loki).toEqual(logPage.data)
+    expect(urls.every((u) => u.includes('traceId=trace_99') && u.includes('limit=1'))).toBe(true)
+  })
+})
+
+describe('MaintenanceApiError', () => {
+  /** The name is set for instanceof-free identification in catch handlers. */
+  it('sets name to MaintenanceApiError', () => {
+    const err = new MaintenanceApiError(404, 'not found')
+    expect(err.name).toBe('MaintenanceApiError')
+  })
+
+  /** The status is accessible as a property. */
+  it('exposes the HTTP status', () => {
+    const err = new MaintenanceApiError(403, 'forbidden')
+    expect(err.status).toBe(403)
+  })
+})
+
+describe('getRetention — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must request the /maintenance/retention path. */
+  it('requests the exact /maintenance/retention path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(
+          jsonResponse({
+            retentionDays: 30,
+            nextSweep: '2026-06-05T00:00:00.000Z',
+            pendingRows: 0,
+          }),
+        )
+      }),
+    )
+    await getRetention(RBAC)
+    expect(capturedUrl).toContain('/maintenance/retention')
+  })
+})
+
+describe('updateRetention — exact URL and headers', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The PATCH must target /maintenance/retention with the content-type header. */
+  it('PATCHes /maintenance/retention with content-type application/json', async () => {
+    let captured: { url: string; headers: Record<string, string> } = { url: '', headers: {} }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        captured = { url, headers: (init?.headers ?? {}) as Record<string, string> }
+        return Promise.resolve(
+          jsonResponse({ retentionDays: 7, nextSweep: '2026-06-05T00:00:00.000Z', pendingRows: 0 }),
+        )
+      }),
+    )
+    await updateRetention(7, RBAC)
+    expect(captured.url).toContain('/maintenance/retention')
+    expect(captured.headers['content-type']).toBe('application/json')
+  })
+
+  /**
+   * The PATCH must also carry `Accept: application/json` so the server knows
+   * the client expects a JSON response body. Asserting the exact value kills
+   * the StringLiteral→"" mutation on the Accept header value.
+   */
+  it('sends Accept: application/json header on the PATCH', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve(
+          jsonResponse({ retentionDays: 7, nextSweep: '2026-06-05T00:00:00.000Z', pendingRows: 0 }),
+        )
+      }),
+    )
+    await updateRetention(7, RBAC)
+    expect(capturedHeaders['Accept']).toBe('application/json')
+  })
+})
+
+describe('getAuditEvents — exact URL path and error path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must request the /audit path. */
+  it('requests the exact /audit path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    await getAuditEvents(RBAC)
+    expect(capturedUrl).toContain('/audit')
+  })
+
+  /** A non-2xx response must throw a MaintenanceApiError. */
+  it('throws MaintenanceApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    await expect(getAuditEvents(RBAC)).rejects.toBeInstanceOf(MaintenanceApiError)
+  })
+})
+
+describe('getActiveRedactPaths — exact URL path and error path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The GET must request the /logger/redact-paths path. */
+  it('requests the exact /logger/redact-paths path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse(['req.body.password']))
+      }),
+    )
+    await getActiveRedactPaths(RBAC)
+    expect(capturedUrl).toContain('/logger/redact-paths')
+  })
+
+  /** A non-2xx response must throw a MaintenanceApiError. */
+  it('throws MaintenanceApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    await expect(getActiveRedactPaths(RBAC)).rejects.toBeInstanceOf(MaintenanceApiError)
+  })
+})
+
+describe('exportLogs — header value boundary', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The `x-export-truncated` comparison is strict equality against the string `'true'`.
+   * A header present with value `'false'` must NOT set truncated=true.
+   */
+  it('reports truncated=false when the header value is "false"', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(jsonResponse([], { headers: { 'x-export-truncated': 'false' } })),
+      ),
+    )
+    const result = await exportLogs('json', { source: 'postgres', role: 'admin' })
+    expect(result.truncated).toBe(false)
+  })
+
+  /**
+   * An `x-export-truncated: 1` value is not strictly `'true'` and must also be
+   * treated as non-truncated.
+   */
+  it('reports truncated=false when the header value is "1"', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([], { headers: { 'x-export-truncated': '1' } }))),
+    )
+    const result = await exportLogs('json', { source: 'postgres', role: 'admin' })
+    expect(result.truncated).toBe(false)
+  })
+})
+
+describe('getJson — Accept header and error message format', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The request must carry `Accept: application/json` and the thrown error
+   * message must not be empty. Both assertions kill their respective
+   * StringLiteral mutations: the Accept header value and the template literal
+   * that produces `'${status} ${statusText}'`.
+   */
+  it('sends Accept: application/json and produces a non-empty error message', async () => {
+    let captured: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        captured = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve(jsonResponse(null, { ok: false, status: 503 }))
+      }),
+    )
+    const err = await getRetention(RBAC).catch((e) => e)
+    expect(captured['Accept']).toBe('application/json')
+    // The message format is '${status} ${statusText}' — must not be empty.
+    expect(err.message).toBe('503 OK')
+  })
+})
+
+describe('updateRetention — error message format', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The thrown MaintenanceApiError message must equal `'${status} ${statusText}'`.
+   * Asserting the exact non-empty format kills the StringLiteral mutation that
+   * replaces the whole template literal with an empty string.
+   */
+  it('produces a non-empty error message on a non-ok PATCH response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 500 }))),
+    )
+    const err = await updateRetention(7, RBAC).catch((e) => e)
+    expect(err.message).toBe('500 OK')
+  })
+})
+
+describe('exportLogs — error message format', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The thrown MaintenanceApiError message must equal `'${status} ${statusText}'`.
+   * Asserting the exact format kills the StringLiteral mutation that replaces
+   * the template literal with an empty string.
+   */
+  it('produces a non-empty error message on a non-ok export response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 403 }))),
+    )
+    const err = await exportLogs('json', { source: 'postgres', role: 'viewer' }).catch((e) => e)
+    expect(err.message).toBe('403 OK')
+  })
+})
+
+describe('API base URL — default localhost', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When `NEXT_PUBLIC_API_URL` is not set the governance client falls back to
+   * `http://localhost:3001`. Asserting that the captured URL starts with that
+   * prefix kills both mutations on the fallback expression: the `LogicalOperator`
+   * that swaps `??` for `&&` (yielding `undefined` when the env var is absent)
+   * and the `StringLiteral→""` that empties the fallback string.
+   */
+  it('prefixes governance requests with the http://localhost:3001 base URL', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(
+          jsonResponse({
+            retentionDays: 30,
+            nextSweep: '2026-06-05T00:00:00.000Z',
+            pendingRows: 0,
+          }),
+        )
+      }),
+    )
+    await getRetention(RBAC)
+    expect(capturedUrl).toMatch(/^http:\/\/localhost:3001\//)
+  })
+})
+
+describe('exportLogs — no role omits x-role header', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When `query.role` is undefined the export helper must take the `{}` headers
+   * branch rather than calling `rbacHeaders`. `toEqual({})` ignores
+   * `undefined`-valued properties, so this test uses `not.toHaveProperty` to
+   * detect the ConditionalExpression→true mutation that always calls
+   * `rbacHeaders({ role: undefined, … })` and sets `headers['x-role'] = undefined`.
+   */
+  it('does not attach x-role when the query has no role', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    await exportLogs('json', { source: 'postgres' })
+    expect(capturedHeaders).not.toHaveProperty('x-role')
   })
 })

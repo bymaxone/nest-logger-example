@@ -14,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js'
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { NO_TENANT_SENTINEL, buildRbacContext } from './rbac.context.js'
 
-const auditQuerySchema = z.object({
+export const auditQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(50),
   actor: z.string().optional(),
   action: z.string().optional(),

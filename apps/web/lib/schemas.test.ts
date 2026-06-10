@@ -41,6 +41,18 @@ describe('logLevelSchema', () => {
   it('rejects an unknown level', () => {
     expect(logLevelSchema.safeParse('verbose').success).toBe(false)
   })
+
+  /**
+   * Every entry in the six-value enum must be accepted. Iterating all levels
+   * and asserting `success` kills the StringLiteral→"" mutations that replace
+   * any individual level name ('fatal', 'info', 'debug', 'trace') with an empty
+   * string, causing safeParse to return false for that level.
+   */
+  it('accepts all six log levels', () => {
+    for (const level of ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const) {
+      expect(logLevelSchema.safeParse(level).success).toBe(true)
+    }
+  })
 })
 
 describe('coerceLevel', () => {
@@ -208,5 +220,103 @@ describe('streamQuerySchema', () => {
   /** An invalid enum value (bad source) is rejected. */
   it('rejects an unknown source', () => {
     expect(streamQuerySchema.safeParse({ source: 'elastic' }).success).toBe(false)
+  })
+
+  /**
+   * The minimum limit is 1: a value of exactly 1 must be accepted.
+   * This pins the `min(1)` bound so a mutation to `min(0)` is caught.
+   */
+  it('accepts the minimum limit value of 1', () => {
+    const parsed = streamQuerySchema.parse({ limit: '1' })
+    expect(parsed.limit).toBe(1)
+  })
+
+  /**
+   * The maximum limit is 1000: a value of exactly 1000 must be accepted.
+   * This pins the `max(1000)` bound so a mutation to `max(999)` is caught.
+   */
+  it('accepts the maximum limit value of 1000', () => {
+    const parsed = streamQuerySchema.parse({ limit: '1000' })
+    expect(parsed.limit).toBe(1000)
+  })
+
+  /**
+   * A limit of 0 is below the minimum and must be rejected.
+   * This pins the lower boundary of `min(1)`.
+   */
+  it('rejects a limit of 0 (below minimum)', () => {
+    expect(streamQuerySchema.safeParse({ limit: '0' }).success).toBe(false)
+  })
+
+  /**
+   * A limit of 1001 is above the maximum and must be rejected.
+   * This pins the upper boundary of `max(1000)`.
+   */
+  it('rejects a limit of 1001 (above maximum)', () => {
+    expect(streamQuerySchema.safeParse({ limit: '1001' }).success).toBe(false)
+  })
+
+  /** The role enum accepts all three documented values. */
+  it('accepts all three role values', () => {
+    for (const role of ['viewer', 'operator', 'admin']) {
+      const parsed = streamQuerySchema.parse({ role })
+      expect(parsed.role).toBe(role)
+    }
+  })
+
+  /** An invalid role value is rejected. */
+  it('rejects an unknown role value', () => {
+    expect(streamQuerySchema.safeParse({ role: 'superadmin' }).success).toBe(false)
+  })
+})
+
+describe('logLevelSchema — all six values', () => {
+  /** Each of the six log levels is accepted by the strict enum. */
+  it('accepts all six log levels', () => {
+    for (const level of ['fatal', 'error', 'warn', 'info', 'debug', 'trace']) {
+      expect(logLevelSchema.parse(level)).toBe(level)
+    }
+  })
+})
+
+describe('coerceLevel — all six values pass through', () => {
+  /** Each known level passes through unchanged. */
+  it('returns each known level unchanged', () => {
+    for (const level of ['fatal', 'error', 'warn', 'info', 'debug', 'trace']) {
+      expect(coerceLevel(level)).toBe(level)
+    }
+  })
+})
+
+describe('streamEntrySchema — optional cursor', () => {
+  /** A frame with no cursor field must parse successfully with cursor=undefined. */
+  it('accepts a frame with no cursor field', () => {
+    const parsed = streamEntrySchema.parse({
+      id: 'e1',
+      time: '2026-06-04T00:00:00.000Z',
+      level: 'info',
+      logKey: 'HTTP_REQUEST',
+      message: 'ok',
+      service: 'api',
+    })
+    expect(parsed.cursor).toBeUndefined()
+  })
+})
+
+describe('streamQuerySchema — source enum completeness', () => {
+  /**
+   * Both source values must be accepted. This kills the StringLiteral mutation
+   * that replaces `'postgres'` with `''`, making the source enum `['', 'loki']`
+   * and therefore rejecting the literal `'postgres'`.
+   */
+  it('accepts postgres as a valid source value', () => {
+    const parsed = streamQuerySchema.parse({ source: 'postgres' })
+    expect(parsed.source).toBe('postgres')
+  })
+
+  /** `loki` is accepted alongside `postgres` (covers the second enum value). */
+  it('accepts loki as a valid source value', () => {
+    const parsed = streamQuerySchema.parse({ source: 'loki' })
+    expect(parsed.source).toBe('loki')
   })
 })

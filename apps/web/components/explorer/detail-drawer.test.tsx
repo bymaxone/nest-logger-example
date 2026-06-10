@@ -132,6 +132,33 @@ describe('DetailDrawer', () => {
     expect(filterButtons.length).toBeGreaterThan(0)
   })
 
+  /**
+   * Null fields must never render the string "null" or "undefined" in the Overview list.
+   * Asserting this kills the ConditionalExpression→false and LogicalOperator→&&
+   * mutations on the `raw === null || raw === undefined` guard at L139 — both
+   * would bypass the guard and call `String(null)` or `String(undefined)`, rendering
+   * those literal strings as visible text.
+   */
+  it('does not render the text "null" or "undefined" for absent nullable fields', () => {
+    const sparse: LogRow = {
+      id: 'sparse-null-check',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'info',
+      logKey: 'ORDER_OK',
+      message: 'ok',
+      service: 'api',
+      tenantId: null,
+      requestId: null,
+      traceId: null,
+      spanId: null,
+      status: null,
+      durationMs: null,
+    }
+    renderWithClient(<DetailDrawer row={sparse} open onOpenChange={vi.fn()} />)
+    expect(screen.queryByText('null')).not.toBeInTheDocument()
+    expect(screen.queryByText('undefined')).not.toBeInTheDocument()
+  })
+
   /** Clicking a field's "filter for" pivots the URL state for that field. */
   it('applies a level filter pivot from the Overview tab', async () => {
     const user = userEvent.setup()
@@ -281,6 +308,286 @@ describe('DetailDrawer', () => {
   })
 })
 
+describe('DetailDrawer Overview field labels', () => {
+  /** Every OVERVIEW_FIELDS label renders as a dt element in the Overview tab. */
+  it('renders all eleven field labels in the Overview tab', () => {
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const expectedLabels = [
+      'time',
+      'level',
+      'logKey',
+      'service',
+      'tenantId',
+      'requestId',
+      'traceId',
+      'spanId',
+      'status',
+      'durationMs',
+      'message',
+    ]
+    for (const label of expectedLabels) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  /** Non-filterable fields (time, spanId, status, durationMs, message) render no "filter for" button. */
+  it('renders exactly six filter-for buttons for the filterable fields', () => {
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const buttons = screen.getAllByRole('button', { name: 'filter for' })
+    // Filterable fields: level, logKey, service, tenantId, requestId, traceId — 6 total.
+    expect(buttons).toHaveLength(6)
+  })
+
+  /** Clicking the logKey filter pivot calls setQuery with the exact logKey value. */
+  it('applies a logKey filter pivot from the Overview tab', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const pivots = screen.getAllByRole('button', { name: 'filter for' })
+    // logKey is the 2nd filterable field in OVERVIEW_FIELDS order.
+    await user.click(pivots[1] as HTMLElement)
+    expect(setQueryMock).toHaveBeenCalledWith({ logKey: 'PAYMENT_CHARGE_FAIL' })
+  })
+
+  /** Clicking the service filter pivot calls setQuery with the exact service value. */
+  it('applies a service filter pivot from the Overview tab', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const pivots = screen.getAllByRole('button', { name: 'filter for' })
+    // service is the 3rd filterable field.
+    await user.click(pivots[2] as HTMLElement)
+    expect(setQueryMock).toHaveBeenCalledWith({ service: 'api' })
+  })
+
+  /** Clicking the tenantId filter pivot calls setQuery with the exact tenantId value. */
+  it('applies a tenantId filter pivot from the Overview tab', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const pivots = screen.getAllByRole('button', { name: 'filter for' })
+    // tenantId is the 4th filterable field.
+    await user.click(pivots[3] as HTMLElement)
+    expect(setQueryMock).toHaveBeenCalledWith({ tenantId: 'acme' })
+  })
+
+  /** Clicking the requestId filter pivot calls setQuery with the exact requestId value. */
+  it('applies a requestId filter pivot from the Overview tab', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const pivots = screen.getAllByRole('button', { name: 'filter for' })
+    // requestId is the 5th filterable field.
+    await user.click(pivots[4] as HTMLElement)
+    expect(setQueryMock).toHaveBeenCalledWith({ requestId: 'req-1' })
+  })
+})
+
+describe('DetailDrawer Trace tab content', () => {
+  /**
+   * The panes JSON in the Grafana href encodes the refId, queryType, range, and
+   * datasource. Decoding and asserting these kills StringLiteral mutations on
+   * 'A', 'traceql', 'tempo', 'now-1h', and 'now'.
+   */
+  it('includes the queryType, datasource, refId and range in the Grafana panes href', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    const href = link.getAttribute('href') ?? ''
+    const decoded = decodeURIComponent(href)
+    expect(decoded).toContain('"traceql"')
+    expect(decoded).toContain('"now-1h"')
+    expect(decoded).toContain('"now"')
+    expect(decoded).toContain('"tempo"')
+    expect(decoded).toContain('"A"')
+  })
+
+  /** The Trace tab shows the row's traceId and spanId labels. */
+  it('shows traceId and spanId labels in the Trace tab', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    // The Trace tab renders "traceId" and "spanId" as mono label spans.
+    const traceContent = await screen.findByRole('button', { name: 'All logs for this trace' })
+    expect(traceContent).toBeInTheDocument()
+    expect(screen.getByText('traceId')).toBeInTheDocument()
+    expect(screen.getByText('spanId')).toBeInTheDocument()
+  })
+
+  /** When traceId is null the Trace tab shows '—' as the fallback value. */
+  it('shows the dash fallback for a null traceId in the Trace tab', async () => {
+    const noTrace: LogRow = { ...fullRow, traceId: null, spanId: null }
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={noTrace} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    // Both traceId and spanId are null, so both render '—'.
+    const dashes = await screen.findAllByText('—')
+    expect(dashes.length).toBeGreaterThanOrEqual(2)
+  })
+
+  /** The "View trace" link href encodes the traceId in the Grafana panes query. */
+  it('encodes the traceId in the View-trace href', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    const href = link.getAttribute('href') ?? ''
+    // The href must contain the trace id encoded in the panes JSON.
+    expect(href).toContain('trace-1')
+    // The href must reference the configured Grafana orgId.
+    expect(href).toContain('orgId=1')
+    // schemaVersion=1 must be present in the URL.
+    expect(href).toContain('schemaVersion=1')
+  })
+
+  /** The "View trace" link target is _blank and has the noopener rel. */
+  it('opens the View-trace link in a new tab with noopener rel', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  /**
+   * The top-level panes entry must have `"datasource":"tempo"`.
+   * Asserting the exact string (without a loose `toContain('"tempo"')`)
+   * kills the L70 StringLiteral→"" mutation: if the datasource field were
+   * replaced with "", the decoded href would contain `"datasource":""` instead.
+   */
+  it('sets the top-level panes datasource to "tempo"', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    const decoded = decodeURIComponent(link.getAttribute('href') ?? '')
+    expect(decoded).toContain('"datasource":"tempo"')
+  })
+
+  /**
+   * The nested query datasource object must carry both `"type":"tempo"` and
+   * `"uid":"tempo"`. Asserting both kills the L74 ObjectLiteral→{} mutation
+   * (which would strip the object) and both StringLiteral→"" mutations inside it.
+   */
+  it('sets type:"tempo" and uid:"tempo" on the nested query datasource', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    const decoded = decodeURIComponent(link.getAttribute('href') ?? '')
+    expect(decoded).toContain('"type":"tempo"')
+    expect(decoded).toContain('"uid":"tempo"')
+  })
+})
+
+describe('DetailDrawer Context tab — null match line', () => {
+  /** When context has no match line the surrounding lines still render. */
+  it('renders before/after lines without a highlighted match when match is null', async () => {
+    const before: LogRow = {
+      id: 'b1',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'info',
+      logKey: 'ORDER_VALIDATE_START',
+      message: 'before only',
+      service: 'api',
+    }
+    const after: LogRow = {
+      id: 'a1',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'warn',
+      logKey: 'ORDER_VALIDATE_RETRY',
+      message: 'after only',
+      service: 'api',
+    }
+    getContextMock.mockResolvedValue({ before: [before], match: null, after: [after] })
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Context' }))
+    expect(await screen.findByText('before only')).toBeInTheDocument()
+    expect(screen.getByText('after only')).toBeInTheDocument()
+  })
+
+  /** When context data is undefined (query not yet resolved) the loading note persists. */
+  it('shows the no-correlation-id note for a row with an empty requestId (|| fallback)', async () => {
+    const emptyRequestId: LogRow = { ...fullRow, requestId: '', traceId: null }
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={emptyRequestId} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Context' }))
+    // requestId '' is falsy; traceId is null → correlationId becomes null → query disabled.
+    expect(await screen.findByText('No correlation id on this row.')).toBeInTheDocument()
+    expect(getContextMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The matched context line (line.id === rowId) must carry `bg-brand-500/15`.
+   * Asserting this kills the L199 ConditionalExpression→false mutation (which would
+   * remove the highlight from every line) and the L200 StringLiteral→"" mutation
+   * (which would strip the brand background class). A companion assertion that
+   * non-matched lines do NOT carry the brand bg kills the inverse false-positive.
+   */
+  it('highlights only the matched context line with the brand background class', async () => {
+    const before: LogRow = {
+      id: 'ctx-before',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'info',
+      logKey: 'ORDER_START',
+      message: 'before line',
+      service: 'api',
+    }
+    const match: LogRow = { ...fullRow, message: 'matched line' }
+    const after: LogRow = {
+      id: 'ctx-after',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'warn',
+      logKey: 'ORDER_RETRY',
+      message: 'after line',
+      service: 'api',
+    }
+    getContextMock.mockResolvedValue({ before: [before], match, after: [after] })
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Context' }))
+    await screen.findByText('before line')
+    // Exactly one line in the context list carries the brand highlight.
+    const highlighted = Array.from(document.querySelectorAll('div')).filter((el) =>
+      el.classList.contains('bg-brand-500/15'),
+    )
+    expect(highlighted).toHaveLength(1)
+    // The highlighted element contains the matched line's message text.
+    expect(highlighted[0]).toHaveTextContent('matched line')
+    // Non-highlighted lines carry the muted text class (kills L201 StringLiteral→"").
+    // Filter to divs whose className DIRECTLY contains the class token, not ancestor
+    // wrappers whose textContent happens to include the message text.
+    const unhighlightedRows = Array.from(document.querySelectorAll('div')).filter((el) =>
+      el.classList.contains('text-white/55'),
+    )
+    expect(unhighlightedRows.length).toBeGreaterThan(0)
+    // Level spans inside each context row carry a non-empty inline color style
+    // (kills L204 ObjectLiteral→{} and StringLiteral→"" mutations on the style prop).
+    const coloredSpans = Array.from(document.querySelectorAll('span')).filter(
+      (el) => el.style.color !== '',
+    )
+    expect(coloredSpans.length).toBeGreaterThan(0)
+  })
+})
+
+describe('DetailDrawer Trace tab — empty traceId', () => {
+  /**
+   * An empty-string traceId must be treated as absent — `hasTrace` must be false.
+   * `hasTrace = row.traceId != null && row.traceId !== ''`:
+   *  - `'' != null` is true (kills the `!= null` → `false` mutation)
+   *  - `'' !== ''` is false → hasTrace = false → "No trace context" renders
+   * Asserting this kills the `row.traceId !== ''` → `row.traceId !== 'Stryker was here'`
+   * StringLiteral mutation (which would make hasTrace=true for an empty traceId).
+   */
+  it('treats an empty-string traceId as absent in the Trace tab', async () => {
+    const emptyTrace: LogRow = { ...fullRow, traceId: '', spanId: null }
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={emptyTrace} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    expect(await screen.findByText('No trace context on this row.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /View trace/ })).not.toBeInTheDocument()
+  })
+})
+
 describe('DetailDrawer traceUrl base-URL validation', () => {
   afterEach(() => {
     // Restore the real env and drop the freshly-evaluated module so the next
@@ -319,5 +626,23 @@ describe('DetailDrawer traceUrl base-URL validation', () => {
     await user.click(screen.getByRole('tab', { name: 'Trace' }))
     const link = await screen.findByRole('link', { name: /View trace/ })
     expect(link).toHaveAttribute('href', '#')
+  })
+
+  /**
+   * A Grafana base using `https` is a valid scheme, so the trace link is NOT
+   * the `#` fallback. Asserting the non-fallback value kills the
+   * `base.protocol !== 'https:'` → `!== ''` mutation (if mutated, `https:`
+   * would fail the scheme check and return `#` instead of the real URL).
+   */
+  it('renders a real trace link when the Grafana base uses https', async () => {
+    vi.stubEnv('NEXT_PUBLIC_GRAFANA_URL', 'https://grafana.example.com')
+    vi.resetModules()
+    const { DetailDrawer: Drawer } = await import('./detail-drawer')
+    const user = userEvent.setup()
+    renderWithClient(<Drawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    expect(link.getAttribute('href')).not.toBe('#')
+    expect(link.getAttribute('href')).toContain('https://grafana.example.com')
   })
 })

@@ -113,4 +113,15 @@ describe('Sidebar', () => {
     await user.click(screen.getByRole('link', { name: 'Settings' }))
     expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
   })
+
+  /**
+   * A path that starts with a nav href but is not a true sub-route (no `/` separator)
+   * must NOT activate the parent. This kills the `item.href + '/'` → `item.href + ''`
+   * StringLiteral mutation on the `startsWith` guard.
+   */
+  it('does not mark Explorer active for a path that only shares a prefix with its href', () => {
+    currentPathname = '/explorerx'
+    render(<Sidebar isOpen={false} />)
+    expect(screen.getByRole('link', { name: 'Explorer' })).not.toHaveAttribute('aria-current')
+  })
 })

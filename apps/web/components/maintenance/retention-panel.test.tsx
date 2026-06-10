@@ -210,6 +210,54 @@ describe('RetentionPanel', () => {
     )
   })
 
+  /** A TTL of 1 is exactly at the minimum bound and is valid (the `>= TTL_MIN_DAYS` branch). */
+  it('accepts TTL=1 as valid (the minimum boundary)', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    await waitFor(() => expect(field).toHaveValue(30))
+    await user.clear(field)
+    await user.type(field, '1')
+    expect(field).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByRole('button', { name: 'Update TTL' })).toBeEnabled()
+  })
+
+  /** A TTL of 0 is below the minimum and must mark the field invalid. */
+  it('rejects TTL=0 as below the minimum (aria-invalid)', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    await waitFor(() => expect(field).toHaveValue(30))
+    await user.clear(field)
+    await user.type(field, '0')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'Update TTL' })).toBeDisabled()
+  })
+
+  /** A TTL of 365 is exactly at the maximum bound and is valid (the `<= TTL_MAX_DAYS` branch). */
+  it('accepts TTL=365 as valid (the maximum boundary)', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    await waitFor(() => expect(field).toHaveValue(30))
+    await user.clear(field)
+    await user.type(field, '365')
+    expect(field).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByRole('button', { name: 'Update TTL' })).toBeEnabled()
+  })
+
+  /** A TTL of 366 is above the maximum and must mark the field invalid. */
+  it('rejects TTL=366 as above the maximum (aria-invalid)', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    await waitFor(() => expect(field).toHaveValue(30))
+    await user.clear(field)
+    await user.type(field, '366')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'Update TTL' })).toBeDisabled()
+  })
+
   /** While the save is pending the button shows "Saving…" and is disabled. */
   it('shows the pending label and disables the button while saving', async () => {
     let resolveSave!: (value: RetentionStatus) => void
@@ -229,5 +277,67 @@ describe('RetentionPanel', () => {
     expect(saving).toBeDisabled()
     resolveSave(makeStatus({ retentionDays: 50 }))
     await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled())
+  })
+
+  /**
+   * When the component loads successfully, the error message must NOT appear.
+   * Asserting absence kills the ConditionalExpression→true mutation on the
+   * `isError &&` guard that would always render the error message.
+   */
+  it('does not show the error message when the retention status loads successfully', async () => {
+    renderWithClient(<RetentionPanel />)
+    await screen.findByText('30 days')
+    expect(screen.queryByText('Failed to load retention status.')).not.toBeInTheDocument()
+  })
+
+  /**
+   * Before the retention status query resolves, the TTL input must start empty
+   * (not pre-filled with a stale or incorrect initial value). Asserting
+   * `aria-invalid="false"` in the loading state kills the StringLiteral mutation
+   * on `useState('')` that initialises ttlInput to a non-empty invalid string,
+   * which would immediately set `aria-invalid="true"` before data arrives.
+   */
+  it('does not flag the TTL field as invalid before data loads', async () => {
+    let resolve!: (v: RetentionStatus) => void
+    getRetentionMock.mockReturnValue(
+      new Promise<RetentionStatus>((r) => {
+        resolve = r
+      }),
+    )
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    expect(field).toHaveAttribute('aria-invalid', 'false')
+    resolve(makeStatus())
+  })
+
+  /**
+   * After a successful save the retention query is invalidated and the
+   * component refetches. Asserting the mock was called twice (initial load +
+   * refetch) kills the StringLiteral mutation on the useQuery `queryKey`
+   * `'retention'` key that would break the prefix match for `invalidateQueries`.
+   */
+  it('refetches the retention status after a successful save', async () => {
+    updateRetentionMock.mockResolvedValue(makeStatus({ retentionDays: 60 }))
+    const user = userEvent.setup()
+    renderWithClient(<RetentionPanel />)
+    const field = await screen.findByLabelText('TTL (days)')
+    await waitFor(() => expect(field).toHaveValue(30))
+    await user.clear(field)
+    await user.type(field, '60')
+    await user.click(screen.getByRole('button', { name: 'Update TTL' }))
+    await waitFor(() => expect(getRetentionMock).toHaveBeenCalledTimes(2))
+  })
+
+  /**
+   * The Loki retention card must render the compactor and retention_enabled
+   * code snippets with `font-mono` styling. Asserting the class kills the
+   * StringLiteral→"" mutations on the `className="font-mono"` attributes
+   * of those two inline code elements.
+   */
+  it('renders Loki compactor and retention_enabled snippets with font-mono class', async () => {
+    renderWithClient(<RetentionPanel />)
+    await screen.findByText('Loki retention (read-only)')
+    expect(screen.getByText('compactor').className).toContain('font-mono')
+    expect(screen.getByText('retention_enabled: true').className).toContain('font-mono')
   })
 })

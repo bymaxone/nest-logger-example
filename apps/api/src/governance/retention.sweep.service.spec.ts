@@ -136,4 +136,94 @@ describe('RetentionSweepService', () => {
     await expect(svc.sweep()).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Retention sweep failed', 'plain string failure')
   })
+
+  it('getStatus passes a lt-operator predicate with the correct arithmetic cutoff to count', async () => {
+    /**
+     * Scenario: getStatus queries pending rows.
+     * Rule: the Prisma `count` call must use `{ where: { time: { lt: cutoff } } }`
+     * where `cutoff` is `now - 30 * 24 * 60 * 60 * 1000` ms — kills both the
+     * ObjectLiteral mutation (wrong operator key) and the five ArithmeticOperator
+     * mutations on the formula at line 68 of the source.
+     */
+    const countMock = prisma.applicationLog.count as ReturnType<typeof jest.fn>
+    const before = Date.now()
+    await svc.getStatus()
+    const after = Date.now()
+
+    expect(countMock).toHaveBeenCalledTimes(1)
+    const countArg = countMock.mock.calls[0] as [{ where: { time: { lt: Date } } }]
+    const cutoff = countArg[0].where.time.lt
+    expect(cutoff).toBeInstanceOf(Date)
+    // Must use `lt`, never any other operator key.
+    expect(Object.keys(countArg[0].where.time)).toEqual(['lt'])
+    // Cutoff must be ~30 days in the past (within a 1-minute tolerance window).
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+    expect(Math.abs(cutoff.getTime() - (before - thirtyDaysMs))).toBeLessThan(60_000)
+    expect(Math.abs(cutoff.getTime() - (after - thirtyDaysMs))).toBeLessThan(60_000)
+  })
+
+  it('default retentionDays is exactly 30, not any neighbour value', async () => {
+    /**
+     * Scenario: no RETENTION_DAYS env var set.
+     * Rule: `retentionDays` must be exactly `30` — kills the StringLiteral mutation
+     * on the default `30` literal in the constructor guard.
+     */
+    const status = await svc.getStatus()
+    expect(status.retentionDays).toBe(30)
+    // Explicitly confirm it is not a neighbour value.
+    expect(status.retentionDays).not.toBe(29)
+    expect(status.retentionDays).not.toBe(31)
+  })
+
+  it('sweep uses identical arithmetic constant as getStatus for the cutoff', async () => {
+    /**
+     * Scenario: both sweep() and getStatus() compute a cutoff from the same
+     * formula `retentionDays * 24 * 60 * 60 * 1000`.
+     * Rule: after calling sweep, the deleteMany cutoff and the count cutoff from
+     * a subsequent getStatus call must both be ~30 days in the past — confirms the
+     * per-day milliseconds constant (86_400_000) is correct in both call sites.
+     */
+    const countMock = prisma.applicationLog.count as ReturnType<typeof jest.fn>
+
+    const before = Date.now()
+    await svc.sweep()
+    await svc.getStatus()
+    const after = Date.now()
+
+    const sweepArg = deleteMock.mock.calls[0] as [{ where: { time: { lt: Date } } }]
+    const countArg = countMock.mock.calls[0] as [{ where: { time: { lt: Date } } }]
+
+    const perDayMs = 24 * 60 * 60 * 1000
+    const expectedMin = before - 30 * perDayMs
+    const expectedMax = after - 30 * perDayMs
+
+    expect(sweepArg[0].where.time.lt.getTime()).toBeGreaterThanOrEqual(expectedMin)
+    expect(sweepArg[0].where.time.lt.getTime()).toBeLessThanOrEqual(expectedMax)
+    expect(countArg[0].where.time.lt.getTime()).toBeGreaterThanOrEqual(expectedMin)
+    expect(countArg[0].where.time.lt.getTime()).toBeLessThanOrEqual(expectedMax)
+  })
+
+  it('logs the exact success message template including count and cutoff — kills StringLiteral mutant on L56', async () => {
+    /**
+     * Scenario: sweep completes successfully.
+     * Rule: `logger.log` must be called with a message matching the template
+     * `"Retention sweep: deleted N rows older than <iso>"` — kills the
+     * StringLiteral mutant that replaces the template literal with `''` (which would
+     * produce an empty log message, failing the content assertions below).
+     */
+    const logSpy = jest
+      .spyOn(
+        svc['logger' as keyof typeof svc] as unknown as { log: (...args: unknown[]) => void },
+        'log',
+      )
+      .mockImplementation(() => undefined)
+
+    await svc.sweep()
+
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    const message = String(logSpy.mock.calls[0]?.[0])
+    expect(message).toContain('Retention sweep: deleted')
+    expect(message).toContain('42') // count returned by the deleteMock
+    expect(message).toContain('rows older than')
+  })
 })

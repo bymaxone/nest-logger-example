@@ -15,7 +15,8 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { buildRbacContext, NO_TENANT_SENTINEL } from './rbac.context.js'
 import { logQuerySchema } from '../logs/dto/log-query.dto.js'
 
-const createViewSchema = z.object({
+/** Request body for `POST /views` — names a saved view and stores its log query. */
+export const createViewSchema = z.object({
   name: z.string().min(1).max(100),
   query: logQuerySchema,
 })
