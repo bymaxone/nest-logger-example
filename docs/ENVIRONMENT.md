@@ -1,9 +1,10 @@
 # Environment
 
-All runtime configuration is environment-variable driven and **validated at boot with Zod**
-(`apps/api/src/config/env.schema.ts`; `apps/worker` has its own slim schema). The root `.env.example`
-documents every variable; each service reads its own `.env`. An invalid or missing required variable **aborts
-startup** with a precise message — there is no "boots anyway with a bad config" path.
+Runtime configuration is environment-variable driven, and the core variables are **validated at boot with
+Zod** (`apps/api/src/config/env.schema.ts`; `apps/worker` has its own slim schema). A missing or invalid
+schema variable **aborts startup** with a precise message. A few values live outside the schema —
+`RETENTION_DAYS` is read where the retention sweep uses it, and `SENTRY_DSN` only matters if you add the
+optional Sentry integration. The root `.env.example` documents every variable; each service reads its own `.env`.
 
 The `Maps to` column names the `BymaxLoggerModuleOptions` / OTel target each variable feeds; the mapping is
 implemented in `apps/api/src/logger/logger.config.ts` and `apps/api/src/instrumentation.ts`.
@@ -29,7 +30,7 @@ implemented in `apps/api/src/logger/logger.config.ts` and `apps/api/src/instrume
 | `RETENTION_DAYS`          | api          | `30`                                                           | TTL sweep over `ApplicationLog` (Maintenance page)                         | retention sweep window                                |
 | `WORKER_URL`              | api          | `http://localhost:3002`                                        | `apps/api` → `apps/worker` dispatch hop (cross-service trace)              | `downstream` HTTP target                              |
 | `WEB_ORIGIN`              | api          | `http://localhost:3003`                                        | Dashboard origin allowed by the API CORS policy                            | CORS allow-list                                       |
-| `SENTRY_DSN`              | api          | _(unset)_                                                      | Optional — gates the Sentry + OTel integration                             | `Sentry.init({ dsn })` (skipped when empty)           |
+| `SENTRY_DSN`              | api          | _(unset)_                                                      | Optional — only used if you add the Sentry + OTel integration              | `Sentry.init({ dsn })` (opt-in; see OTEL.md)          |
 | `NEXT_PUBLIC_API_URL`     | web          | `http://localhost:3001`                                        | Dashboard → `apps/api` `logs/` API base                                    | browser fetch base URL                                |
 | `NEXT_PUBLIC_GRAFANA_URL` | web          | `http://localhost:3000`                                        | "View trace" deep-links to Tempo via Grafana                               | browser deep-link base                                |
 

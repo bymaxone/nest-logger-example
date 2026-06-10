@@ -18,7 +18,7 @@ Express auto-instrumentation never patched in and there is no active span to rea
 
 **Fix.** Walk the checklist:
 
-1. Is `import './instrumentation'` the **literal first line** of `main.ts`, before any NestJS import? If not,
+1. Is the instrumentation module imported **first** in `main.ts`, before any NestJS import? If not,
    move it. `otelSdk.start()` must run before NestJS loads.
 2. Is `@opentelemetry/api` installed? Without it the library degrades gracefully and omits trace fields by
    design.

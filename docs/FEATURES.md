@@ -278,7 +278,7 @@ curl -sS http://localhost:3001/orders/slow
 
 - **stdout** — JSON via `DefaultStdoutDestination` (and a pretty copy in dev).
 - **Loki** — pushed in a batch by `LokiDestination` (`minLevel: 'info'`).
-- **Postgres** — a row in `application_logs` via `PrismaLogDestination` (`minLevel: 'warn'`), because this
+- **Postgres** — a row in `ApplicationLog` via `PrismaLogDestination` (`minLevel: 'warn'`), because this
   entry is `warn`. An `info` entry would reach stdout + Loki but **not** Postgres.
 
 Inspect the durable row with Prisma Studio:

@@ -96,7 +96,7 @@ An `start:instrumented` variant uses the Node 20.6+ `--import` bootstrap, which 
 the app entrypoint without relying on the first-import convention:
 
 ```dockerfile
-CMD ["node", "--enable-source-maps", "--import", "./dist/instrumentation.mjs", "dist/main.js"]
+CMD ["node", "--enable-source-maps", "--import", "./dist/instrumentation.js", "dist/main.js"]
 ```
 
 A production compose file (`docker-compose.prod.yml`) wires the two services against managed backends; it is a

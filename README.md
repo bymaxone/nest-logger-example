@@ -41,7 +41,10 @@ Loki / Tempo / Grafana / OpenTelemetry Collector + PostgreSQL stack.
 ```bash
 git clone https://github.com/bymaxone/nest-logger-example.git
 cd nest-logger-example
-pnpm install && pnpm infra:up && pnpm dev
+pnpm install && pnpm infra:up
+cp .env.example apps/api/.env
+pnpm --filter api db:migrate && pnpm --filter api db:seed
+pnpm dev
 ```
 
 > The library is **pre-publish** — it is consumed via a local `link:`/`file:` to the sibling `../nest-logger`
@@ -117,8 +120,8 @@ diagram in **[docs/OVERVIEW.md §3](docs/OVERVIEW.md#3-architecture-at-a-glance)
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 > **Coverage rule.** Every public export of `@bymax-one/nest-logger` (the `.` and `/shared` subpaths) is
-> referenced from at least one file under `apps/`, enforced in CI by `scripts/audit-library-exports.mjs`. The
-> mapping is the **[Feature Coverage Matrix](docs/OVERVIEW.md#6-feature-coverage-matrix)**.
+> referenced from at least one file under `apps/` — the
+> **[Feature Coverage Matrix](docs/OVERVIEW.md#6-feature-coverage-matrix)** maps each one to where it is used.
 
 ---
 

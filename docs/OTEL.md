@@ -11,8 +11,8 @@ and **[OVERVIEW.md §14](./OVERVIEW.md#14-opentelemetry-correlation)** for the p
 
 ## The hard rule
 
-> **The OTel SDK must `start()` before any NestJS code loads.** The example enforces this by making
-> `import './instrumentation'` the **literal first line** of `main.ts`. If the SDK starts after NestJS is
+> **The OTel SDK must `start()` before any NestJS code loads.** The example enforces this by importing the
+> instrumentation module (`./instrumentation.js`) **before any NestJS import** in `main.ts`. If the SDK starts after NestJS is
 > imported, auto-instrumentation cannot patch the HTTP / Express / pg modules, and **`traceId` will silently
 > never appear in your logs** — no error, just missing fields.
 
@@ -38,7 +38,9 @@ export const otelSdk = new NodeSDK({
     [ATTR_SERVICE_VERSION]: process.env.RELEASE_SHA ?? 'dev',
     'deployment.environment': process.env.NODE_ENV ?? 'development',
   }),
-  traceExporter: new OTLPTraceExporter({ url: process.env.OTLP_TRACE_ENDPOINT }),
+  traceExporter: new OTLPTraceExporter({
+    url: process.env.OTLP_TRACE_ENDPOINT ?? 'http://localhost:4318/v1/traces',
+  }),
   instrumentations: [
     getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-fs': { enabled: false }, // noisy in dev
@@ -55,8 +57,8 @@ otelSdk.start()
 `enableShutdownHooks()`, which on NestJS 11 re-raises the signal and races the SDK flush):
 
 ```typescript
-import './instrumentation' // MUST be first — starts the OTel SDK before NestJS loads
-import { otelSdk } from './instrumentation'
+import './instrumentation.js' // MUST be first — starts the OTel SDK before NestJS loads
+import { otelSdk } from './instrumentation.js'
 // …
 let isShuttingDown = false
 const shutdown = (): void => {
@@ -165,8 +167,9 @@ directly.
 
 ## Optional Sentry integration
 
-Gated behind `SENTRY_DSN` — unset means fully disabled, zero runtime cost. When set, `instrumentation.ts`
-initializes Sentry **before** the OTel SDK and registers Sentry's propagator on it:
+Sentry is an **optional add-on** — it is not bundled in this repo. To enable it, add the `@sentry/node` (≥ 10.18)
+and `@sentry/opentelemetry` dependencies, then gate the wiring behind `SENTRY_DSN`: initialize Sentry **before**
+the OTel SDK and register its propagator on the SDK:
 
 ```typescript
 import * as Sentry from '@sentry/node'
