@@ -194,6 +194,105 @@ describe('LogsContextService.query', () => {
     expect(result.before).toHaveLength(0)
     expect(result.after).toHaveLength(0)
   })
+
+  it('passes the exact requestId correlation where to the fallback anchor findFirst', async () => {
+    /**
+     * `correlationWhere` returns `{ requestId: q.requestId }` when requestId is
+     * provided. Asserting the full `where` object passed to `findFirst` kills the
+     * ObjectLiteral mutation that replaces the return value with `{}`, which would
+     * silently drop the correlation filter.
+     */
+    const findFirst = jest
+      .fn<(args: unknown) => Promise<ApplicationLog | null>>()
+      .mockResolvedValue(null)
+    const prisma = {
+      applicationLog: {
+        findFirst,
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue([]),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    await svc.query({ requestId: 'req-42', before: 0, after: 0, source: 'postgres', limit: 100 })
+
+    const args = findFirst.mock.calls[0]?.[0] as unknown as {
+      where: Record<string, unknown>
+      orderBy: unknown[]
+    }
+    expect(args.where).toEqual({ requestId: 'req-42' })
+    expect(args.orderBy).toEqual([{ time: 'desc' }, { id: 'desc' }])
+  })
+
+  it('passes the exact traceId correlation where to the fallback anchor findFirst', async () => {
+    /**
+     * `correlationWhere` returns `{ traceId: q.traceId }` when traceId is provided.
+     * Asserting the `where` object kills the ObjectLiteral mutation that replaces
+     * `{ traceId: q.traceId }` with `{}`, losing the traceId scoping.
+     */
+    const findFirst = jest
+      .fn<(args: unknown) => Promise<ApplicationLog | null>>()
+      .mockResolvedValue(null)
+    const prisma = {
+      applicationLog: {
+        findFirst,
+        findMany: jest.fn<() => Promise<ApplicationLog[]>>().mockResolvedValue([]),
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    await svc.query({ traceId: 'trace-99', before: 0, after: 0, source: 'postgres', limit: 100 })
+
+    const args = findFirst.mock.calls[0]?.[0] as unknown as {
+      where: Record<string, unknown>
+    }
+    expect(args.where).toEqual({ traceId: 'trace-99' })
+  })
+
+  it('passes the exact keyset lt/gt OR clause, orderBy, and take to both findMany calls', async () => {
+    /**
+     * Asserts the full `where`, `orderBy`, and `take` for both the before (`lt` /
+     * `desc`) and after (`gt` / `asc`) Prisma queries. Kills ObjectLiteral mutations
+     * on `{ lt: anchorTime }`, `{ gt: anchorId }`, etc., ArrayDeclaration mutations
+     * on the OR tuple, and StringLiteral mutations on `"asc"` / `"desc"`.
+     */
+    const anchorTime = new Date('2024-06-01T12:00:00.000Z')
+    const anchor = makeRow('c', anchorTime)
+
+    const findMany = jest.fn<(args: unknown) => Promise<ApplicationLog[]>>().mockResolvedValue([])
+    const prisma = {
+      applicationLog: {
+        findFirst: jest.fn<() => Promise<ApplicationLog | null>>().mockResolvedValueOnce(anchor),
+        findMany,
+      },
+    } as unknown as PrismaService
+
+    const svc = new LogsContextService(prisma)
+    await svc.query({ requestId: 'req-1', before: 3, after: 5, source: 'postgres', limit: 100 })
+
+    const beforeArgs = findMany.mock.calls[0]?.[0] as unknown as {
+      where: Record<string, unknown>
+      orderBy: unknown[]
+      take: number
+    }
+    expect(beforeArgs.where).toEqual({
+      requestId: 'req-1',
+      OR: [{ time: { lt: anchorTime } }, { time: anchorTime, id: { lt: 'c' } }],
+    })
+    expect(beforeArgs.orderBy).toEqual([{ time: 'desc' }, { id: 'desc' }])
+    expect(beforeArgs.take).toBe(3)
+
+    const afterArgs = findMany.mock.calls[1]?.[0] as unknown as {
+      where: Record<string, unknown>
+      orderBy: unknown[]
+      take: number
+    }
+    expect(afterArgs.where).toEqual({
+      requestId: 'req-1',
+      OR: [{ time: { gt: anchorTime } }, { time: anchorTime, id: { gt: 'c' } }],
+    })
+    expect(afterArgs.orderBy).toEqual([{ time: 'asc' }, { id: 'asc' }])
+    expect(afterArgs.take).toBe(5)
+  })
 })
 
 describe('contextQuerySchema validation', () => {

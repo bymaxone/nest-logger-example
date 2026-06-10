@@ -90,4 +90,40 @@ describe('AuditService', () => {
     expect(written).toContain('"level":"warn"')
     expect(written).toContain('rule.muted')
   })
+
+  it('stderr output is valid JSON with the exact logKey and level keys', async () => {
+    /**
+     * Scenario: DB write failure.
+     * Rule: `JSON.stringify({ level: 'warn', logKey: 'AUDIT_WRITE_FAILED', input })`
+     * must produce valid JSON whose `logKey` property equals `'AUDIT_WRITE_FAILED'`
+     * and `level` equals `'warn'` — kills the StringLiteral mutation that changes
+     * the `'logKey'` key name to something else (e.g. `'log_key'`), which the
+     * `toContain('AUDIT_WRITE_FAILED')` check alone cannot detect.
+     */
+    createMock.mockRejectedValueOnce(new Error('crash'))
+
+    await svc.record({ actor: 'x', action: 'y', target: 'z' })
+
+    const raw = String(stderrSpy.mock.calls[0]?.[0]).trimEnd()
+    const parsed = JSON.parse(raw) as { level: string; logKey: string }
+    expect(parsed.logKey).toBe('AUDIT_WRITE_FAILED')
+    expect(parsed.level).toBe('warn')
+  })
+
+  it('stderr line ends with a newline character — kills StringLiteral "" mutant on the \\n suffix', async () => {
+    /**
+     * Scenario: DB write failure.
+     * Rule: `JSON.stringify({...}) + '\\n'` must append a newline so each record is
+     * on its own line in structured log pipelines — kills the StringLiteral mutant
+     * that replaces `'\\n'` with `''`.  The existing JSON-parse tests call
+     * `.trimEnd()` which masks the missing newline; this test checks the raw output
+     * before trimming.
+     */
+    createMock.mockRejectedValueOnce(new Error('nl-check'))
+
+    await svc.record({ actor: 'u', action: 'v', target: 'w' })
+
+    const raw = String(stderrSpy.mock.calls[0]?.[0])
+    expect(raw.endsWith('\n')).toBe(true)
+  })
 })

@@ -224,3 +224,143 @@ describe('formatBucket', () => {
     expect(formatBucket('not-a-date')).toBe('not-a-date')
   })
 })
+
+describe('formatCount — boundary values', () => {
+  /**
+   * Exactly 1 000 000 is the million threshold.
+   * `(1_000_000 / 1_000_000).toFixed(1) = '1.0'` → `'1.0M'`.
+   */
+  it('formats exactly 1 000 000 as 1.0M', () => {
+    expect(formatCount(1_000_000)).toBe('1.0M')
+  })
+
+  /**
+   * Exactly 1 000 is the thousand threshold.
+   * `(1_000 / 1_000).toFixed(1) = '1.0'` → `'1.0k'`.
+   */
+  it('formats exactly 1 000 as 1.0k', () => {
+    expect(formatCount(1_000)).toBe('1.0k')
+  })
+
+  /**
+   * 999 is below both thresholds and must be rounded to a plain integer.
+   */
+  it('formats 999 as 999 with no suffix', () => {
+    expect(formatCount(999)).toBe('999')
+  })
+
+  /** 0 is a valid count and must render as '0' (the Math.round path). */
+  it('formats 0 as 0', () => {
+    expect(formatCount(0)).toBe('0')
+  })
+})
+
+describe('formatMs — boundary values', () => {
+  /**
+   * Exactly 1 000 ms is the seconds threshold.
+   * `(1000 / 1000).toFixed(2) = '1.00'` → `'1.00s'`.
+   */
+  it('formats exactly 1000 ms as 1.00s', () => {
+    expect(formatMs(1_000)).toBe('1.00s')
+  })
+
+  /**
+   * 999 ms is below the threshold and must render as rounded milliseconds.
+   */
+  it('formats 999 ms as 999ms', () => {
+    expect(formatMs(999)).toBe('999ms')
+  })
+
+  /** 0 ms formats as '0ms'. */
+  it('formats 0 ms as 0ms', () => {
+    expect(formatMs(0)).toBe('0ms')
+  })
+})
+
+describe('statusTotals — multiple buckets', () => {
+  /** Multiple buckets each reduce to the sum of their four status classes. */
+  it('maps each bucket to the sum of all its status classes', () => {
+    const rows: StatusMixRow[] = [
+      { bucket: 'b1', s2xx: 10, s3xx: 0, s4xx: 2, s5xx: 1 },
+      { bucket: 'b2', s2xx: 5, s3xx: 2, s4xx: 0, s5xx: 0 },
+    ]
+    expect(statusTotals(rows)).toEqual([
+      { bucket: 'b1', total: 13 },
+      { bucket: 'b2', total: 7 },
+    ])
+  })
+})
+
+describe('trendPct — multi-point even series', () => {
+  /**
+   * A four-element series splits evenly: earlier=[1,3], recent=[5,7].
+   * avg(earlier)=2, avg(recent)=6; pct = (6−2)/2 × 100 = 200.
+   * Pins the `Math.floor(series.length / 2)` midpoint split.
+   */
+  it('splits a four-element series evenly and returns the correct trend', () => {
+    expect(trendPct([1, 3, 5, 7])).toBe(200)
+  })
+})
+
+describe('trendPct — odd-length series (kills ArithmeticOperator mutation)', () => {
+  /**
+   * A three-element series splits as earlier=[10], recent=[20,30].
+   * avg(earlier) = 10/1 = 10, avg(recent) = 50/2 = 25.
+   * pct = (25−10)/10 × 100 = 150.
+   *
+   * The ArithmeticOperator→* mutation changes `/ xs.length` to `* xs.length`
+   * inside the local `avg` helper. For even-length halves the percentage formula
+   * cancels the length factor, so the result is identical. An odd-length split
+   * (earlier.length ≠ recent.length) breaks the cancellation: with the mutation,
+   * avg_mut(earlier)=10*1=10, avg_mut(recent)=50*2=100 → pct=900, not 150.
+   */
+  it('returns 150 for a three-element rising series [10, 20, 30]', () => {
+    expect(trendPct([10, 20, 30])).toBe(150)
+  })
+})
+
+describe('meanOf — exact value', () => {
+  /** The mean of three numbers with nulls is the exact numeric mean. */
+  it('returns the exact mean ignoring nulls', () => {
+    expect(meanOf([1, null, 3, null, 5])).toBe(3)
+  })
+})
+
+describe('pivotVolume — all six known levels counted', () => {
+  /**
+   * The ALL_LEVELS constant lists all six log levels. Tests for `fatal`, `debug`,
+   * and `trace` are intentionally separate: each one passes a single-row input for
+   * that level and asserts a non-zero count, catching any StringLiteral mutation
+   * that replaces one of those level names with an empty string.
+   */
+
+  /**
+   * A `fatal` row must populate `point.fatal`.
+   * If `'fatal'` were replaced with `''` in ALL_LEVELS, the includes-guard would
+   * reject the `fatal` row and leave the count at zero, failing this assertion.
+   */
+  it('assigns the count for the fatal level', () => {
+    const [pt] = pivotVolume([{ bucket: 'b', level: 'fatal', n: 3 }])
+    expect(pt!.fatal).toBe(3)
+  })
+
+  /**
+   * A `debug` row must populate `point.debug`.
+   * If `'debug'` were replaced with `''`, the includes-guard would skip `debug`
+   * rows and the count would remain zero.
+   */
+  it('assigns the count for the debug level', () => {
+    const [pt] = pivotVolume([{ bucket: 'b', level: 'debug', n: 4 }])
+    expect(pt!.debug).toBe(4)
+  })
+
+  /**
+   * A `trace` row must populate `point.trace`.
+   * If `'trace'` were replaced with `''`, the includes-guard would skip `trace`
+   * rows and the count would remain zero.
+   */
+  it('assigns the count for the trace level', () => {
+    const [pt] = pivotVolume([{ bucket: 'b', level: 'trace', n: 7 }])
+    expect(pt!.trace).toBe(7)
+  })
+})

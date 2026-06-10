@@ -128,6 +128,45 @@ describe('ChannelRouterService.testFire', () => {
     expect(ok).toBe(false)
     expect(logSpy).not.toHaveBeenCalled()
   })
+
+  it('testFire log includes the exact channel type and endpoint for slack-critical', () => {
+    /**
+     * Scenario: test-fire the default slack-critical channel.
+     * Rule: the log message must contain the channel's exact `type` string
+     * `'slack'` and endpoint string `'https://hooks.slack.example/mock/critical'`
+     * — kills the six StringLiteral mutations at L37–L38 and their sibling
+     * lines in DEFAULT_CHANNELS.
+     */
+    router.testFire('slack-critical')
+    const msg = String(logSpy.mock.calls[0]?.[0])
+    expect(msg).toContain('type=slack')
+    expect(msg).toContain('endpoint=https://hooks.slack.example/mock/critical')
+  })
+
+  it('testFire log includes the exact type and endpoint for webhook-critical', () => {
+    /**
+     * Scenario: test-fire the webhook-critical channel.
+     * Rule: confirms `type=webhook` and the exact endpoint
+     * `'https://ops.example/webhook/critical'` — kills StringLiteral mutations
+     * on L44–L45 of DEFAULT_CHANNELS.
+     */
+    router.testFire('webhook-critical')
+    const msg = String(logSpy.mock.calls[0]?.[0])
+    expect(msg).toContain('type=webhook')
+    expect(msg).toContain('endpoint=https://ops.example/webhook/critical')
+  })
+
+  it('testFire log includes the exact type and endpoint for email-mock', () => {
+    /**
+     * Scenario: test-fire the email-mock channel.
+     * Rule: confirms `type=email-mock` and the exact endpoint `'ops@example.com'`
+     * — kills StringLiteral mutations on L51–L52 of DEFAULT_CHANNELS.
+     */
+    router.testFire('email-mock')
+    const msg = String(logSpy.mock.calls[0]?.[0])
+    expect(msg).toContain('type=email-mock')
+    expect(msg).toContain('endpoint=ops@example.com')
+  })
 })
 
 describe('ChannelRouterService.listChannels / addChannel', () => {
@@ -163,5 +202,29 @@ describe('ChannelRouterService.listChannels / addChannel', () => {
     expect(router.listChannels()).toHaveLength(4)
     expect(router.listChannels().some((c) => c.id === 'pager')).toBe(true)
     expect(router.testFire('pager')).toBe(true)
+  })
+
+  it('each default channel has the correct endpoint and severities values', () => {
+    /**
+     * Scenario: inspect the default channel registry directly.
+     * Rule: each channel's `endpoint` and `severities` array must match the exact
+     * default values — kills the StringLiteral mutations on the endpoint strings
+     * and ArrayDeclaration mutations on the severities arrays.
+     */
+    const router = new ChannelRouterService()
+    const channels = router.listChannels()
+
+    const slack = channels.find((c) => c.id === 'slack-critical')
+    const webhook = channels.find((c) => c.id === 'webhook-critical')
+    const email = channels.find((c) => c.id === 'email-mock')
+
+    expect(slack?.endpoint).toBe('https://hooks.slack.example/mock/critical')
+    expect(slack?.severities).toEqual(['critical', 'warning'])
+
+    expect(webhook?.endpoint).toBe('https://ops.example/webhook/critical')
+    expect(webhook?.severities).toEqual(['critical'])
+
+    expect(email?.endpoint).toBe('ops@example.com')
+    expect(email?.severities).toEqual(['critical'])
   })
 })

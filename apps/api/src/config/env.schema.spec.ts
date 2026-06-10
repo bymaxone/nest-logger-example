@@ -158,6 +158,187 @@ describe('envSchema', () => {
 
     expect(failedPaths(env)).toContain('WORKER_URL')
   })
+
+  // ─── exact constant and default values ───────────────────────────────────────
+
+  /**
+   * DEV_OTLP_TRACE_ENDPOINT must equal the exact localhost OTLP endpoint string
+   * so the production guard (identity check against the dev default) fires when the
+   * value is left unchanged in a production deploy.
+   */
+  it('DEV_OTLP_TRACE_ENDPOINT equals the localhost OTLP endpoint literal', () => {
+    expect(DEV_OTLP_TRACE_ENDPOINT).toBe('http://localhost:4318/v1/traces')
+  })
+
+  /**
+   * LOKI_QUERY_URL has its own default not covered by the shared toMatchObject
+   * snapshot — assert it directly so a mutation to that string is caught.
+   */
+  it('applies the correct LOKI_QUERY_URL default in development', () => {
+    const parsed = validateEnv({ DATABASE_URL: 'postgresql://localhost:5432/app' })
+    expect(parsed.LOKI_QUERY_URL).toBe('http://localhost:3100')
+  })
+
+  // ─── enum value coverage ──────────────────────────────────────────────────────
+
+  /**
+   * NODE_ENV must accept 'test' as a valid enum member. A mutation that blanks the
+   * 'test' string in the enum definition would make this parse fail.
+   */
+  it('accepts test as a valid NODE_ENV enum value', () => {
+    const result = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost:5432/app',
+      NODE_ENV: 'test',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  /**
+   * Every LOG_LEVEL enum member must be accepted by the schema. A mutation that
+   * blanks any of these strings makes the corresponding value invalid; this
+   * exercises each member that is not already covered by the default assertion.
+   */
+  it('accepts every declared LOG_LEVEL enum value', () => {
+    const levels = ['fatal', 'error', 'warn', 'debug', 'trace'] as const
+    for (const level of levels) {
+      const result = envSchema.safeParse({
+        DATABASE_URL: 'postgresql://localhost:5432/app',
+        LOG_LEVEL: level,
+      })
+      expect(result.success).toBe(true)
+      if (result.success) expect(result.data.LOG_LEVEL).toBe(level)
+    }
+  })
+
+  /**
+   * OTEL_FIELD_FORMAT must accept 'snake_case' as a valid enum member. A mutation
+   * that blanks 'snake_case' in the enum definition would make this parse fail.
+   */
+  it('accepts snake_case as a valid OTEL_FIELD_FORMAT enum value', () => {
+    const result = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost:5432/app',
+      OTEL_FIELD_FORMAT: 'snake_case',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.OTEL_FIELD_FORMAT).toBe('snake_case')
+  })
+
+  /**
+   * Every LOG_DB_MIN_LEVEL enum member (beyond the 'warn' default already asserted)
+   * must be accepted. A mutation blanking any member string would break this.
+   */
+  it('accepts every declared LOG_DB_MIN_LEVEL enum value', () => {
+    const levels = ['fatal', 'error', 'info', 'debug', 'trace'] as const
+    for (const level of levels) {
+      const result = envSchema.safeParse({
+        DATABASE_URL: 'postgresql://localhost:5432/app',
+        LOG_DB_MIN_LEVEL: level,
+      })
+      expect(result.success).toBe(true)
+      if (result.success) expect(result.data.LOG_DB_MIN_LEVEL).toBe(level)
+    }
+  })
+
+  // ─── isLoopbackUrl catch-path returns false ───────────────────────────────────
+
+  /**
+   * When isLoopbackUrl cannot parse a URL it must return false, not true. A
+   * false→true mutation would add a spurious custom loopback-guard issue alongside
+   * the z.url() format issue. Assert that no custom issue appears for the field.
+   */
+  it('does not raise a custom loopback issue when the guarded URL is malformed', () => {
+    const result = envSchema.safeParse({ ...validProdEnv(), WORKER_URL: 'http://[invalid' })
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    const workerIssues = result.error.issues.filter((i) => i.path[0] === 'WORKER_URL')
+    expect(workerIssues.every((i) => i.code !== 'custom')).toBe(true)
+  })
+
+  // ─── min(1) string field rejections ──────────────────────────────────────────
+
+  /**
+   * `OTEL_SERVICE_NAME` is `z.string().min(1)` — an empty string must be rejected.
+   * A min(1)→max(1) mutation would still accept empty strings and only reject longer
+   * ones; this test forces the schema to reject '' so that mutation is caught.
+   */
+  it('rejects an empty OTEL_SERVICE_NAME (min-1 constraint)', () => {
+    const result = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost:5432/app',
+      OTEL_SERVICE_NAME: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    expect(result.error.issues.some((i) => i.path[0] === 'OTEL_SERVICE_NAME')).toBe(true)
+  })
+
+  /**
+   * `RELEASE_SHA` is `z.string().min(1)` — an empty string must be rejected.
+   * Same rationale as the OTEL_SERVICE_NAME test above.
+   */
+  it('rejects an empty RELEASE_SHA (min-1 constraint)', () => {
+    const result = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost:5432/app',
+      RELEASE_SHA: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    expect(result.error.issues.some((i) => i.path[0] === 'RELEASE_SHA')).toBe(true)
+  })
+
+  // ─── IPv6 loopback detection ──────────────────────────────────────────────────
+
+  /**
+   * The WHATWG URL API serializes IPv6 loopback with brackets
+   * (`new URL('http://[::1]/').hostname === '[::1]'`), so LOOPBACK_HOSTS stores
+   * `'[::1]'`. A properly-formed IPv6 loopback URL must be rejected in production.
+   */
+  it('rejects an IPv6 loopback ([::1]) LOKI_URL in production', () => {
+    const env = { ...validProdEnv(), LOKI_URL: 'http://[::1]:3100/loki/api/v1/push' }
+    expect(failedPaths(env)).toContain('LOKI_URL')
+  })
+
+  // ─── exact superRefine error messages ────────────────────────────────────────
+
+  /**
+   * The OTLP guard adds a custom issue with a specific message. Asserting the exact
+   * text means a mutation that blanks the message string causes the assertion to fail.
+   */
+  it('OTLP dev-default rejection carries the exact guard message', () => {
+    const env = { ...validProdEnv(), OTLP_TRACE_ENDPOINT: DEV_OTLP_TRACE_ENDPOINT }
+    const result = envSchema.safeParse(env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    const issue = result.error.issues.find((i) => i.path[0] === 'OTLP_TRACE_ENDPOINT')
+    expect(issue?.message).toBe(
+      'must be set explicitly in production (not the localhost dev default)',
+    )
+  })
+
+  /**
+   * The loopback guard adds a custom issue with a specific message. Asserting the
+   * exact text kills any mutation that blanks the message string.
+   */
+  it('loopback URL rejection carries the exact guard message', () => {
+    const env = { ...validProdEnv(), LOKI_URL: 'http://localhost:3100/loki/api/v1/push' }
+    const result = envSchema.safeParse(env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    const issue = result.error.issues.find((i) => i.path[0] === 'LOKI_URL')
+    expect(issue?.message).toBe('must not point to localhost in production')
+  })
+
+  /**
+   * The https guard adds a custom issue with a specific message. Asserting the exact
+   * text kills any mutation that blanks the message string.
+   */
+  it('non-https WEB_ORIGIN rejection carries the exact guard message', () => {
+    const env = { ...validProdEnv(), WEB_ORIGIN: 'http://dashboard.internal' }
+    const result = envSchema.safeParse(env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error('expected parse failure')
+    const issue = result.error.issues.find((i) => i.path[0] === 'WEB_ORIGIN')
+    expect(issue?.message).toBe('must use https:// in production')
+  })
 })
 
 describe('validateEnv', () => {
@@ -190,5 +371,38 @@ describe('validateEnv', () => {
      * rather than an empty key.
      */
     expect(() => validateEnv(null as unknown as Record<string, unknown>)).toThrow(/\(root\)/)
+  })
+
+  // ─── error-message format ─────────────────────────────────────────────────────
+
+  /**
+   * Each failing field must be formatted as `  - KEY: message` (two-space indent, dash,
+   * space, key, colon+space, message). A mutation that removes the `  - ` prefix or the
+   * `: ` separator would drop these characters and fail this assertion.
+   */
+  it('formats each failing field as "  - KEY: message" in the thrown error', () => {
+    let message = ''
+    try {
+      validateEnv({ DATABASE_URL: 'not-a-url' })
+    } catch (err) {
+      message = (err as Error).message
+    }
+    expect(message).toMatch(/\n {2}- DATABASE_URL:/)
+  })
+
+  /**
+   * Multiple failing fields must be separated by newlines so the full error is
+   * scannable at a glance. A mutation that replaces the `'\n'` join separator with
+   * an empty string collapses all issues onto one line, breaking this assertion.
+   */
+  it('separates multiple failing fields with newlines', () => {
+    let message = ''
+    try {
+      validateEnv({ DATABASE_URL: 'not-a-url', PORT: 'abc' })
+    } catch (err) {
+      message = (err as Error).message
+    }
+    // header line + at least two issue lines
+    expect(message.split('\n').length).toBeGreaterThanOrEqual(3)
   })
 })

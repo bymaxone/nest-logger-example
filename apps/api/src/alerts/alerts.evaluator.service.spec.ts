@@ -399,6 +399,608 @@ describe('AlertsEvaluatorService.evaluate', () => {
 
     expect(svc['breachTicks'].get('rule-1')).toBe(2)
   })
+
+  // ── parseDuration: regex anchor survivors ─────────────────────────────────────
+
+  it('uses the 300_000ms fallback window when forDuration ends with a trailing non-unit character', async () => {
+    /**
+     * '5mx' does not match /^(\d+)(m|h|s)$/ because the $ end-of-string anchor
+     * requires nothing after the unit. The buildPrismaWhere `from` must therefore
+     * be ~300_000ms ago (the no-match fallback). Kills the Stryker regex mutant
+     * that removes the $ anchor from parseDuration.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '5mx' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  it('uses the 300_000ms fallback window when forDuration starts with a non-digit character', async () => {
+    /**
+     * 'x5m' does not match /^(\d+)(m|h|s)$/ because the ^ start-of-string anchor
+     * requires the string to begin with digits. The `from` window must be ~300_000ms
+     * ago. Kills the Stryker regex mutant that removes the ^ anchor.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: 'x5m' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  it('uses the 300_000ms fallback window when forDuration uses the unsupported unit d', async () => {
+    /**
+     * '5d' does not match /^(\d+)(m|h|s)$/ because 'd' is not in the (m|h|s)
+     * alternation group. Kills Stryker regex mutants that widen or omit the unit
+     * alternation, making 'd' accidentally match.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '5d' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  // ── parseDuration: arithmetic survivors (fallback + per-unit branches) ────────
+
+  it('parseDuration fallback is exactly 300_000ms (5 × 60 × 1000) from now', async () => {
+    /**
+     * When parseDuration cannot match the pattern it returns 5 * 60 * 1000 =
+     * 300_000ms. Asserting the exact window kills ArithmeticOperator mutants on
+     * the fallback return (e.g., mutating * to + or changing any factor).
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: 'invalid' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  it('parseDuration computes exactly 3_600_000ms for a 1h forDuration', async () => {
+    /**
+     * '1h' must use the `unit === h` branch: 1 × 60 × 60 × 1000 = 3_600_000ms.
+     * Kills ConditionalExpression mutants that skip the h branch and
+     * ArithmeticOperator mutants that corrupt the 60 × 60 × 1000 product.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '1h' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 3_600_000))).toBeLessThan(200)
+  })
+
+  it('parseDuration computes exactly 60_000ms for a 1m forDuration', async () => {
+    /**
+     * '1m' must use the `unit === m` branch: 1 × 60 × 1000 = 60_000ms. Kills
+     * ArithmeticOperator mutants that corrupt the 60 × 1000 product in the minutes
+     * branch.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '1m' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 60_000))).toBeLessThan(200)
+  })
+
+  it('parseDuration computes exactly 1_000ms for a 1s forDuration', async () => {
+    /**
+     * '1s' must fall through to the seconds arm: 1 × 1000 = 1_000ms. Kills
+     * ArithmeticOperator mutants that corrupt the n × 1000 product in the seconds
+     * fallthrough.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '1s' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 1_000))).toBeLessThan(200)
+  })
+
+  // ── parseExpr: regex capture-group survivors ──────────────────────────────────
+
+  it('absence rule routes logKey HTTP_REQUEST_SUCCESS through buildPrismaWhere with no level filter', async () => {
+    /**
+     * The absence regex /count\(([A-Z_]+)\).*==\s*(\d+)/ must capture group 1 as
+     * logKey. Evaluating the rule must call buildPrismaWhere with
+     * logKey: 'HTTP_REQUEST_SUCCESS' and level: undefined (absence rules carry no
+     * level filter). Kills regex mutants on L51 that corrupt the ([A-Z_]+) group
+     * or the ==\s*(\d+) suffix.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(HTTP_REQUEST_SUCCESS) over 10m == 0',
+        forDuration: '10m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(0)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.logKey).toBe('HTTP_REQUEST_SUCCESS')
+    expect(callArg.level).toBeUndefined()
+  })
+
+  it('fatal rule routes level string fatal through buildPrismaWhere, not an array or undefined', async () => {
+    /**
+     * 'count(level = fatal) over 1m >= 1' matches /level\s*=\s*fatal/ (not the
+     * absence pattern and not the error-spike pattern). evaluateRule must call
+     * buildPrismaWhere with level: 'fatal' (a string, typeof === 'string' branch)
+     * and no logKey. Kills regex mutants on L61 that widen or remove \s*=\s*.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(level = fatal) over 1m >= 1',
+        forDuration: '1m',
+        threshold: 1,
+      }),
+    ])
+    countMock.mockResolvedValue(1)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toBe('fatal')
+    expect(callArg.logKey).toBeUndefined()
+  })
+
+  it('error-spike rule passes level { gte: error } to buildPrismaWhere via the Array.isArray branch', async () => {
+    /**
+     * 'count(level ∈ {error,fatal}) by logKey over 5m > 0' matches
+     * /level.*error.*fatal|fatal.*error/ and sets parsed.level = ['error', 'fatal'].
+     * The Array.isArray(parsed.level) branch in evaluateRule maps this to
+     * { gte: 'error' } for buildPrismaWhere. Kills regex mutants on L65 and
+     * ConditionalExpression + LogicalOperator mutants on the level-mapping block.
+     */
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(level ∈ {error,fatal}) by logKey over 5m > 0',
+        forDuration: '5m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(3)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toEqual({ gte: 'error' })
+  })
+
+  // ── Status string literals: maybeFireIncident + maybeResolve ─────────────────
+
+  it('maybeFireIncident queries findFirst with exactly the three open-incident statuses', async () => {
+    /**
+     * On a breaching rule with no open incident, findFirst must be called with
+     * status.in = ['triggered', 'acknowledged', 'snoozed']. Kills StringLiteral
+     * mutants on the maybeFireIncident findFirst call that corrupt any of the three
+     * status values.
+     */
+    await svc.evaluate()
+
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: {
+        ruleId: 'rule-1',
+        status: { in: ['triggered', 'acknowledged', 'snoozed'] },
+      },
+    })
+  })
+
+  it('maybeResolve queries findFirst with exactly the three open-incident statuses', async () => {
+    /**
+     * When the rule is not breaching and an open incident exists, maybeResolve must
+     * also pass status.in = ['triggered', 'acknowledged', 'snoozed'] to findFirst.
+     * Kills StringLiteral mutants on the maybeResolve findFirst call that corrupt
+     * any of the three status values.
+     */
+    countMock.mockResolvedValue(0)
+    findFirstMock.mockResolvedValue(makeIncident({ status: 'triggered' }))
+
+    await svc.evaluate()
+
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: {
+        ruleId: 'rule-1',
+        status: { in: ['triggered', 'acknowledged', 'snoozed'] },
+      },
+    })
+  })
+
+  // ── L30: anchor/quantifier survivors (need 10m so match ≠ fallback) ──────────
+
+  it('uses the 300_000ms fallback when forDuration has a trailing char after the unit (10mx)', async () => {
+    // '10mx' must not match /^(\d+)(m|h|s)$/ because the $ anchor requires end-of-string.
+    // The no-$ mutant /(\\d+)(m|h|s)/ would match '10m' prefix (600_000ms), differing from fallback.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '10mx' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  it('uses the 300_000ms fallback when forDuration starts with a non-digit character (x10m)', async () => {
+    // 'x10m' must not match /^(\d+)(m|h|s)$/ because the ^ anchor requires start-of-string digits.
+    // The no-^ mutant /(\d+)(m|h|s)$/ would match '10m' at the end (600_000ms), differing from fallback.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: 'x10m' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 300_000))).toBeLessThan(200)
+  })
+
+  it('parseDuration computes exactly 600_000ms for a 10m forDuration', async () => {
+    // '10m' has two digits; the single-digit mutant /^(\\d)(m|h|s)$/ fails to match it
+    // (the \\d can only consume '1', leaving '0m' which has no unit match), so it
+    // falls back to 300_000ms instead of the correct 10 × 60 × 1000 = 600_000ms.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([makeRule({ forDuration: '10m' })])
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    const fromMs = new Date(callArg.from!).getTime()
+    expect(Math.abs(fromMs - (Date.now() - 600_000))).toBeLessThan(200)
+  })
+
+  // ── L51: absence regex \s vs \s* (double-space before threshold) ──────────────
+
+  it('absence rule with two spaces before the threshold still fires the incident', async () => {
+    // '==  0' (two spaces) satisfies ==\\s*(\\d+) but not ==\\s(\\d+) (one space only).
+    // When the absence branch is skipped by the mutant, the rule falls to the default
+    // '>' operator and 0 > 0 is false — no incident. The correct regex must match.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(HTTP_REQUEST_SUCCESS) over 10m ==  0',
+        forDuration: '10m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(0)
+
+    await svcLocal.evaluate()
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.logKey).toBe('HTTP_REQUEST_SUCCESS')
+  })
+
+  // ── L61: fatal regex — both \s vs \s* mutants killed with double spaces ────────
+
+  it('fatal rule with two spaces on both sides of = still routes level:fatal through buildPrismaWhere', async () => {
+    // 'level  =  fatal' (two spaces each side) matches /level\\s*=\\s*fatal/ but not
+    // /level\\s=\\s*fatal/ (single space before =) nor /level\\s*=\\sfatal/ (single space after =).
+    // With either mutant the expr falls to the default branch, level is undefined, and
+    // the rule uses operator '>' which produces a different firing decision at threshold 1.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(level  =  fatal) over 1m >= 1',
+        forDuration: '1m',
+        threshold: 1,
+      }),
+    ])
+    countMock.mockResolvedValue(1)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toBe('fatal')
+    expect(createMock).toHaveBeenCalledTimes(1)
+  })
+
+  // ── L65: error-spike regex — single-dot mutants killed with wide gaps ─────────
+
+  it('error-spike with many chars between error and fatal still maps to { gte: error }', async () => {
+    // The mutant /level.*error.fatal/ uses a single dot so it requires exactly one
+    // char between 'error' and 'fatal'. This expr has ', warning, ' between them,
+    // so only the correct /level.*error.*fatal/ matches, giving level: { gte: 'error' }.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(level in {error, warning, fatal}) over 5m > 0',
+        forDuration: '5m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(3)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toEqual({ gte: 'error' })
+  })
+
+  it('error-spike where fatal precedes error by many chars still maps to { gte: error }', async () => {
+    // The mutant /fatal.error/ uses a single dot, requiring exactly one char between
+    // 'fatal' and 'error'. This expr has ' and ' between them, so only the correct
+    // /fatal.*error/ second alternative matches, giving level: { gte: 'error' }.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(fatal and error in level) over 5m > 0',
+        forDuration: '5m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(3)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toEqual({ gte: 'error' })
+  })
+
+  // ── L69/L70: rate regex capture group and block ───────────────────────────────
+
+  it('rate rule routes multi-char logKey PAYMENT_REFUND_FAILED through buildPrismaWhere', async () => {
+    // The single-char mutant /rate\\(([A-Z_])\\)/ only captures one char, the
+    // negated-class mutant /rate\\(([^A-Z_]+)\\)/ rejects uppercase chars — both
+    // fail on PAYMENT_REFUND_FAILED. The block-removed mutant skips the return
+    // entirely. All three cause logKey to arrive as undefined at buildPrismaWhere.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'rate(PAYMENT_REFUND_FAILED) over 5m > 0',
+        forDuration: '5m',
+        threshold: 0,
+      }),
+    ])
+    countMock.mockResolvedValue(3)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.logKey).toBe('PAYMENT_REFUND_FAILED')
+  })
+
+  // ── L106: findMany where clause — ObjectLiteral and BooleanLiteral mutants ────
+
+  it('evaluate calls alertRule.findMany with exactly { where: { isEnabled: true } }', async () => {
+    // Kills the two ObjectLiteral mutants (outer {} and inner {}) and the
+    // BooleanLiteral mutant (isEnabled: false) that corrupt the findMany clause.
+    await svc.evaluate()
+
+    expect(findManyMock).toHaveBeenCalledWith({ where: { isEnabled: true } })
+  })
+
+  // ── L108: warning message content ────────────────────────────────────────────
+
+  it('evaluate logs the exact warning message when alertRule.findMany throws', async () => {
+    // Kills the StringLiteral mutant on the warn call that replaces the message with "".
+    findManyMock.mockRejectedValue(new Error('db down'))
+    const warnSpy = jest
+      .spyOn(svc['logger'] as { warn: (msg: string) => void }, 'warn')
+      .mockImplementation(() => undefined)
+
+    await svc.evaluate()
+
+    expect(warnSpy).toHaveBeenCalledWith('AlertsEvaluatorService: failed to fetch rules')
+  })
+
+  // ── L133: ConditionalExpression on the typeof level === string branch ─────────
+
+  it('default rule (no level) passes level:undefined not true to buildPrismaWhere', async () => {
+    // When the ConditionalExpression mutant replaces typeof parsed.level === 'string'
+    // with true, any non-array level is passed as the TypeScript-casted value. For an
+    // undefined level the result is still undefined at runtime, but if the mutant
+    // replaces the whole nested ternary with true then callArg.level becomes true.
+    const logs = new LogsService()
+    const svcLocal = new AlertsEvaluatorService(prisma, logs, router)
+    const buildWhereSpy = jest.spyOn(logs, 'buildPrismaWhere')
+    findManyMock.mockResolvedValue([
+      makeRule({ expr: 'count over 5m > 0', forDuration: '5m', threshold: 0 }),
+    ])
+    countMock.mockResolvedValue(3)
+
+    await svcLocal.evaluate()
+
+    expect(buildWhereSpy).toHaveBeenCalledTimes(1)
+    const [callArg] = buildWhereSpy.mock.calls[0]!
+    expect(callArg.level).toBeUndefined()
+  })
+
+  // ── L150: ConditionalExpression on >= branch — count > threshold kills false mutant
+
+  it('rule with >= operator breaches when count is strictly greater than threshold', async () => {
+    // count=2, threshold=1 satisfies count >= threshold (true) but NOT count === threshold.
+    // The false mutant replaces the >= condition with false, making the arm fall to the
+    // '==' check: 2 === 1 is false → no breach. Correct code must fire the incident.
+    findManyMock.mockResolvedValue([
+      makeRule({
+        expr: 'count(level = fatal) over 1m >= 1',
+        forDuration: '1m',
+        threshold: 1,
+      }),
+    ])
+    countMock.mockResolvedValue(2)
+    findFirstMock.mockResolvedValue(null)
+
+    await svc.evaluate()
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+  })
+
+  // ── L141: applicationLog.count called with non-empty where clause ─────────────
+
+  it('applicationLog.count is called with a where clause, not an empty object', async () => {
+    // Kills the ObjectLiteral mutant on L141 that replaces { where } with {}.
+    await svc.evaluate()
+
+    expect(countMock).toHaveBeenCalledTimes(1)
+    expect(countMock).toHaveBeenCalledWith(expect.objectContaining({ where: expect.anything() }))
+  })
+
+  // ── L183: incident.create timeline entry shape ────────────────────────────────
+
+  it('incident.create data contains a timeline entry with actor:system and action:triggered', async () => {
+    // Kills ObjectLiteral ({}) and StringLiteral ("") mutants on the timeline array
+    // literal in maybeFireIncident that corrupt the initial event entry.
+    await svc.evaluate()
+
+    const createArg = (
+      createMock.mock.calls[0] as [{ data: { timeline: Array<{ actor: string; action: string }> } }]
+    )[0]
+    expect(createArg.data.timeline).toHaveLength(1)
+    expect(createArg.data.timeline[0]!.actor).toBe('system')
+    expect(createArg.data.timeline[0]!.action).toBe('triggered')
+  })
+
+  // ── L187: logger.warn message in maybeFireIncident ───────────────────────────
+
+  it('maybeFireIncident logs a warn containing the rule name and count', async () => {
+    // Kills the StringLiteral mutant that empties the template literal on the warn call.
+    const warnSpy = jest
+      .spyOn(svc['logger'] as { warn: (msg: string) => void }, 'warn')
+      .mockImplementation(() => undefined)
+
+    await svc.evaluate()
+
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    const msg = String(warnSpy.mock.calls[0]![0])
+    expect(msg).toContain('Error spike')
+    expect(msg).toContain('5')
+  })
+
+  // ── L188: router.notify event type string ────────────────────────────────────
+
+  it('router.notify is called with triggered as the third argument', async () => {
+    // Kills the StringLiteral mutant that replaces 'triggered' with "" in the notify call.
+    await svc.evaluate()
+
+    expect(notifySpy).toHaveBeenCalledTimes(1)
+    const eventType = notifySpy.mock.calls[0]![2]
+    expect(eventType).toBe('triggered')
+  })
+
+  // ── L203: incident.update resolve timeline entry shape ────────────────────────
+
+  it('incident.update data contains an auto-resolved entry with actor:system', async () => {
+    // Kills ObjectLiteral ({}) and StringLiteral ("") mutants on the timeline.push
+    // call in maybeResolve that corrupt the auto-resolve event entry.
+    countMock.mockResolvedValue(0)
+    findFirstMock.mockResolvedValue(
+      makeIncident({ status: 'triggered', timeline: [] } as Partial<Incident>),
+    )
+
+    await svc.evaluate()
+
+    const updateArg = (
+      updateMock.mock.calls[0] as [{ data: { timeline: Array<{ actor: string; action: string }> } }]
+    )[0]
+    expect(updateArg.data.timeline).toHaveLength(1)
+    expect(updateArg.data.timeline[0]!.actor).toBe('system')
+    expect(updateArg.data.timeline[0]!.action).toBe('auto-resolved')
+  })
+
+  // ── L210: logger.log message in maybeResolve ────────────────────────────────
+
+  it('maybeResolve logs a message containing the incident id and rule name', async () => {
+    // Kills the StringLiteral mutant that empties the template literal on the log call.
+    countMock.mockResolvedValue(0)
+    const existingIncident = makeIncident({
+      status: 'triggered',
+      id: 'inc-99',
+      timeline: [],
+    } as Partial<Incident>)
+    findFirstMock.mockResolvedValue(existingIncident)
+
+    const logSpy = jest
+      .spyOn(svc['logger'] as { log: (msg: string) => void }, 'log')
+      .mockImplementation(() => undefined)
+
+    await svc.evaluate()
+
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    const msg = String(logSpy.mock.calls[0]![0])
+    expect(msg).toContain('inc-99')
+    expect(msg).toContain('Error spike')
+  })
 })
 
 describe('ChannelRouterService', () => {

@@ -5,7 +5,8 @@
  *   - the constructor wires the `PrismaPg` adapter from `DATABASE_URL` (via
  *     `ConfigService.getOrThrow`);
  *   - `onModuleInit` connects the pool;
- *   - `onApplicationShutdown` disconnects it.
+ *   - `onApplicationShutdown` disconnects it;
+ *   - `PRISMA_LOG_LEVELS` exports the non-empty log configuration array.
  *
  * `$connect` / `$disconnect` are inherited from `PrismaClient`; they are stubbed on
  * the instance so no real database connection is opened during the unit run.
@@ -13,7 +14,7 @@
 import { describe, expect, it, jest } from '@jest/globals'
 import type { ConfigService } from '@nestjs/config'
 
-import { PrismaService } from './prisma.service.js'
+import { PrismaService, PRISMA_LOG_LEVELS } from './prisma.service.js'
 
 /**
  * Build a `ConfigService` test double whose `getOrThrow` returns the supplied
@@ -68,5 +69,43 @@ describe('PrismaService', () => {
     await service.onApplicationShutdown()
 
     expect(disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls getOrThrow exactly once and only for DATABASE_URL', () => {
+    /**
+     * Scenario: constructor wires the adapter.
+     * Rule: `getOrThrow` must be called exactly once with the key `'DATABASE_URL'`
+     * — kills the StringLiteral mutation that changes the key string and confirms no
+     * extra env reads happen during construction.
+     */
+    const { config, getOrThrow } = buildConfig('postgresql://user:pass@db.internal:5432/app')
+
+    new PrismaService(config)
+
+    expect(getOrThrow).toHaveBeenCalledTimes(1)
+    expect(getOrThrow).toHaveBeenCalledWith('DATABASE_URL')
+  })
+})
+
+describe('PRISMA_LOG_LEVELS — log configuration', () => {
+  it('contains warn and error — kills ArrayDeclaration [] mutant on log option', () => {
+    /**
+     * Scenario: `super({ adapter, log: [...PRISMA_LOG_LEVELS] })` in the constructor.
+     * Rule: `PRISMA_LOG_LEVELS` must be the non-empty array `['warn', 'error']` —
+     * kills the ArrayDeclaration mutant that replaces `['warn', 'error']` with `[]`,
+     * which would silently disable all Prisma warn/error log forwarding.
+     */
+    expect(PRISMA_LOG_LEVELS).toContain('warn')
+    expect(PRISMA_LOG_LEVELS).toContain('error')
+    expect(PRISMA_LOG_LEVELS).not.toHaveLength(0)
+  })
+
+  it('equals exactly [warn, error] — confirms no extra or missing entries', () => {
+    /**
+     * Scenario: inspect the exported constant directly.
+     * Rule: the array must equal `['warn', 'error']` in exact order — confirms
+     * the array has exactly the two documented log levels, no more, no less.
+     */
+    expect(PRISMA_LOG_LEVELS).toEqual(['warn', 'error'])
   })
 })

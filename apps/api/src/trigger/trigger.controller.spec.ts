@@ -86,6 +86,39 @@ describe('TriggerController.level', () => {
     expect(() => ctx.controller.level({ level: 'fatal' })).toThrow()
     expect(ctx.service.fireLevel).not.toHaveBeenCalled()
   })
+
+  it('accepts all three valid level values: info, warn, error', () => {
+    /**
+     * Scenario: each of the three supported levels is submitted.
+     * Contract: `triggerLevelSchema` must accept `'info'`, `'warn'`, and `'error'`
+     * without throwing — kills StringLiteral mutations that change `'error'` to an
+     * unrecognised variant (the existing tests only pass `'info'` and `'warn'`).
+     */
+    for (const level of ['info', 'warn', 'error'] as const) {
+      ctx.service.fireLevel.mockReturnValue({ fired: 1 })
+      expect(() => ctx.controller.level({ level, count: 1 })).not.toThrow()
+    }
+  })
+
+  it('rejects a count below the minimum (0)', () => {
+    /**
+     * Scenario: count=0, below the `min(1)` constraint.
+     * Contract: `triggerLevelSchema.parse` must throw for count=0 — kills the
+     * NumericLiteral mutation that changes `min(1)` to `min(0)`.
+     */
+    expect(() => ctx.controller.level({ level: 'info', count: 0 })).toThrow()
+    expect(ctx.service.fireLevel).not.toHaveBeenCalled()
+  })
+
+  it('rejects a count above the maximum (101)', () => {
+    /**
+     * Scenario: count=101, above the `max(100)` constraint.
+     * Contract: `triggerLevelSchema.parse` must throw for count=101 — kills the
+     * NumericLiteral mutation that changes `max(100)` to `max(101)`.
+     */
+    expect(() => ctx.controller.level({ level: 'info', count: 101 })).toThrow()
+    expect(ctx.service.fireLevel).not.toHaveBeenCalled()
+  })
 })
 
 describe('TriggerController.status', () => {
@@ -176,6 +209,78 @@ describe('TriggerController.status', () => {
     }
   })
 
+  it('accepts code 200 — the lower boundary of the valid 2xx range', () => {
+    /**
+     * Scenario: code "200" — the exact lower boundary.
+     * Rule: the guard uses `parsed >= 200` (not `>`). With the `parsed > 200` mutant,
+     * 200 collapses to the fallback 400 and the method throws instead of returning
+     * `{ status: 200 }`. Similarly, the `httpStatus > 200` mutant on the 2xx branch
+     * check is killed: `200 > 200` is false, so the mutant would throw instead of return.
+     */
+    const { res, statusSpy } = buildRes()
+    const result = ctx.controller.status('200', res)
+    expect(result).toEqual({ status: 200 })
+    expect(statusSpy).toHaveBeenCalledWith(200)
+  })
+
+  it('accepts code 599 — the upper boundary of the valid range — as a non-2xx exception', () => {
+    /**
+     * Scenario: code "599" — the exact upper boundary.
+     * Rule: the guard uses `parsed <= 599` (not `<`). With the `parsed < 599` mutant,
+     * 599 collapses to the fallback 400 and throws 400 instead of 599. Asserting the
+     * exception status is exactly 599 kills that mutant.
+     */
+    const { res, statusSpy } = buildRes()
+    let thrown: unknown
+    try {
+      ctx.controller.status('599', res)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeInstanceOf(HttpException)
+    expect((thrown as HttpException).getStatus()).toBe(599)
+    expect(statusSpy).not.toHaveBeenCalled()
+  })
+
+  it('treats code 300 as non-2xx and throws — not a 2xx passthrough', () => {
+    /**
+     * Scenario: code "300" — one above the 2xx upper bound.
+     * Rule: the 2xx branch condition is `httpStatus < 300` (not `<=`). With the
+     * `httpStatus <= 300` mutant, 300 would enter the passthrough branch and return
+     * `{ status: 300 }` silently. Asserting it throws kills that mutant.
+     * Also kills the `ConditionalExpression: true` mutant that replaces the entire
+     * `httpStatus >= 200 && httpStatus < 300` condition with `true`.
+     */
+    const { res, statusSpy } = buildRes()
+    let thrown: unknown
+    try {
+      ctx.controller.status('300', res)
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeInstanceOf(HttpException)
+    expect((thrown as HttpException).getStatus()).toBe(300)
+    expect(statusSpy).not.toHaveBeenCalled()
+  })
+
+  it('HttpException response body contains the status field (kills ObjectLiteral {} mutant)', () => {
+    /**
+     * Scenario: any non-2xx code produces an HttpException.
+     * Rule: the constructor is called with `{ status: httpStatus }` as the first
+     * argument. The ObjectLiteral mutant replaces this with `{}`, making
+     * `exception.getResponse()` return `{}` instead of `{ status: 503 }`.
+     * Asserting the exact response body shape kills that mutant.
+     */
+    const { res } = buildRes()
+    let thrown: unknown
+    try {
+      ctx.controller.status('503', res)
+    } catch (err) {
+      thrown = err
+    }
+    expect((thrown as HttpException).getResponse()).toEqual({ status: 503 })
+  })
+
   it('collapses an out-of-range (too-high) code to 400 and throws', () => {
     /**
      * Scenario: code "600" — finite but above the 599 upper bound.
@@ -235,5 +340,30 @@ describe('TriggerController.burst', () => {
 
     expect(() => controller.burst({ count: 501 })).toThrow()
     expect(service.burst).not.toHaveBeenCalled()
+  })
+
+  it('rejects a burst count below the minimum (0)', () => {
+    /**
+     * Scenario: count=0, below `min(1)` for the burst schema.
+     * Contract: `triggerBurstSchema.parse` must reject count=0 — kills the
+     * NumericLiteral mutation that changes `min(1)` to `min(0)`.
+     */
+    const { controller, service } = buildController()
+
+    expect(() => controller.burst({ count: 0 })).toThrow()
+    expect(service.burst).not.toHaveBeenCalled()
+  })
+
+  it('accepts count=500 — the exact burst cap boundary', () => {
+    /**
+     * Scenario: count=500, the maximum allowed burst count.
+     * Contract: `triggerBurstSchema` must accept the maximum value — confirms the
+     * upper boundary is 500, not 499. Kills an off-by-one mutation on `max(500)`.
+     */
+    const { controller, service } = buildController()
+    service.burst.mockReturnValue({ fired: 500 })
+
+    expect(() => controller.burst({ count: 500 })).not.toThrow()
+    expect(service.burst).toHaveBeenCalledWith(500)
   })
 })

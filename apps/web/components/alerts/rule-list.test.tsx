@@ -168,6 +168,58 @@ describe('RuleList', () => {
     )
   })
 
+  /**
+   * The severity badge for a `critical` rule must carry the `destructive` variant
+   * class (`bg-destructive`). Asserting this kills ConditionalExpression→true/false,
+   * EqualityOperator, and the StringLiteral→"" mutations on the variant ternary
+   * that chooses between `'destructive'` and `'secondary'` (L90).
+   */
+  it('renders a destructive variant badge for a critical-severity rule', async () => {
+    listRulesMock.mockResolvedValue([makeRule({ severity: 'critical' })])
+    renderWithClient(<RuleList />)
+    const badge = await screen.findByText('critical')
+    expect(badge.className).toContain('bg-destructive')
+  })
+
+  /**
+   * The severity badge for a non-critical rule must carry the `secondary` variant
+   * class. Asserting absence of `bg-destructive` kills ConditionalExpression→true
+   * and asserting presence of `bg-secondary` kills the StringLiteral→"" mutation
+   * on the secondary string (L90:64).
+   */
+  it('renders a secondary variant badge for a warning-severity rule', async () => {
+    listRulesMock.mockResolvedValue([makeRule({ severity: 'warning' })])
+    renderWithClient(<RuleList />)
+    const badge = await screen.findByText('warning')
+    expect(badge.className).toContain('bg-secondary')
+    expect(badge.className).not.toContain('bg-destructive')
+  })
+
+  /**
+   * The status badge for an enabled rule uses the `default` variant (`bg-brand-500`).
+   * Kills the ConditionalExpression→false and StringLiteral→"" mutations on the
+   * isEnabled ternary (L95).
+   */
+  it('renders a default variant status badge for an enabled rule', async () => {
+    listRulesMock.mockResolvedValue([makeRule({ isEnabled: true })])
+    renderWithClient(<RuleList />)
+    const badge = await screen.findByText('enabled')
+    expect(badge.className).toContain('bg-brand-500')
+  })
+
+  /**
+   * The status badge for a disabled rule uses the `outline` variant (`text-foreground`).
+   * Asserting both sides kills ConditionalExpression→true and the StringLiteral→""
+   * mutation on `'outline'` (L95:62).
+   */
+  it('renders an outline variant status badge for a disabled rule', async () => {
+    listRulesMock.mockResolvedValue([makeRule({ isEnabled: false })])
+    renderWithClient(<RuleList />)
+    const badge = await screen.findByText('disabled')
+    expect(badge.className).toContain('text-foreground')
+    expect(badge.className).not.toContain('bg-brand-500')
+  })
+
   /** Only the in-flight row goes busy (aria-busy), proving the per-row pending guard. */
   it('marks only the toggled row busy while its mutation is in flight', async () => {
     listRulesMock.mockResolvedValue([

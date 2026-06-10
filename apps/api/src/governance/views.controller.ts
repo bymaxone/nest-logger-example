@@ -15,7 +15,7 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js'
 import { buildRbacContext, NO_TENANT_SENTINEL } from './rbac.context.js'
 import { logQuerySchema } from '../logs/dto/log-query.dto.js'
 
-const createViewSchema = z.object({
+export const createViewSchema = z.object({
   name: z.string().min(1).max(100),
   query: logQuerySchema,
 })

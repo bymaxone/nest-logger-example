@@ -9,7 +9,7 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals'
 import { ForbiddenException } from '@nestjs/common'
 
-import { MaintenanceController } from './maintenance.controller.js'
+import { MaintenanceController, updateRetentionSchema } from './maintenance.controller.js'
 import type { AuditService } from './audit.service.js'
 import type { RetentionStatus, RetentionSweepService } from './retention.sweep.service.js'
 
@@ -120,5 +120,81 @@ describe('MaintenanceController', () => {
       })
       expect(recordMock.mock.calls[0]?.[0]).not.toHaveProperty('tenantId')
     })
+
+    it('throws ForbiddenException with the exact non-admin message on updateRetention', async () => {
+      /**
+       * Scenario: operator tries to change the retention window.
+       * Rule: the ForbiddenException message must be exactly `'Only admins can
+       * update the retention window'` — kills the StringLiteral mutation.
+       */
+      let thrown: unknown
+      try {
+        await controller.updateRetention({ 'x-role': 'operator' }, { retentionDays: 7 })
+      } catch (e) {
+        thrown = e
+      }
+      expect(thrown).toBeInstanceOf(ForbiddenException)
+      expect((thrown as ForbiddenException).message).toBe(
+        'Only admins can update the retention window',
+      )
+    })
+  })
+
+  describe('getStatus — forbidden message', () => {
+    it('throws ForbiddenException with the exact viewer-denied message', async () => {
+      /**
+       * Scenario: viewer reads retention status.
+       * Rule: the ForbiddenException message must be exactly
+       * `'Viewers cannot access maintenance settings'` — kills the StringLiteral mutation.
+       */
+      let thrown: unknown
+      try {
+        await controller.getStatus({ 'x-role': 'viewer' })
+      } catch (e) {
+        thrown = e
+      }
+      expect(thrown).toBeInstanceOf(ForbiddenException)
+      expect((thrown as ForbiddenException).message).toBe(
+        'Viewers cannot access maintenance settings',
+      )
+    })
+  })
+})
+
+describe('updateRetentionSchema — retentionDays boundary validation', () => {
+  it('rejects retentionDays 0 — kills z.number().int().max(1) mutant', () => {
+    /**
+     * Scenario: retentionDays below the minimum.
+     * Rule: `z.number().int().min(1)` must reject 0 — kills the MethodExpression
+     * mutant that replaces `.min(1)` with `.max(1)`.
+     */
+    expect(updateRetentionSchema.safeParse({ retentionDays: 0 }).success).toBe(false)
+  })
+
+  it('accepts retentionDays 1 — kills z.number().int().min(1).min(365) mutant', () => {
+    /**
+     * Scenario: retentionDays at the minimum boundary.
+     * Rule: `.min(1)` must accept 1 — kills the MethodExpression mutant that
+     * replaces `.max(365)` with `.min(365)`, which would reject values below 365.
+     */
+    expect(updateRetentionSchema.safeParse({ retentionDays: 1 }).success).toBe(true)
+  })
+
+  it('accepts retentionDays 365 — confirms upper boundary', () => {
+    /**
+     * Scenario: retentionDays at the maximum boundary.
+     * Rule: `.max(365)` must accept 365 — paired with the 366 test, this proves
+     * the boundary is exactly at 365.
+     */
+    expect(updateRetentionSchema.safeParse({ retentionDays: 365 }).success).toBe(true)
+  })
+
+  it('rejects retentionDays 366 — kills z.number().int().min(1).min(365) mutant', () => {
+    /**
+     * Scenario: retentionDays above the maximum.
+     * Rule: `.max(365)` must reject 366 — kills the MethodExpression mutant that
+     * changes `.max(365)` to `.min(365)`, which would accept any value ≥ 365.
+     */
+    expect(updateRetentionSchema.safeParse({ retentionDays: 366 }).success).toBe(false)
   })
 })

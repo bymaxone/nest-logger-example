@@ -96,9 +96,11 @@ function messageFromParsed(parsed: Record<string, unknown>): string {
   const raw = parsed.message ?? parsed.msg
   if (typeof raw === 'string') return raw
   if (raw == null) return ''
+  // Stryker disable ConditionalExpression,LogicalOperator,BlockStatement -- String() and JSON.stringify() produce identical output for number and boolean; bigint is unreachable from JSON.parse
   if (typeof raw === 'number' || typeof raw === 'boolean' || typeof raw === 'bigint') {
     return String(raw)
   }
+  // Stryker restore ConditionalExpression,LogicalOperator,BlockStatement
   try {
     return JSON.stringify(raw)
   } catch {
@@ -214,6 +216,7 @@ export class LogEventBus {
     filter: LogQueryDto,
     restriction?: QueryRestriction,
   ): Observable<SseMessageEvent> {
+    // Stryker disable next-line ConditionalExpression,StringLiteral -- both the undefined and empty-string paths return EMPTY; the mutant value produces the same control flow via the error recovery path
     if (lastId === undefined || lastId === '') return EMPTY
 
     let from: { time: Date; id: string }

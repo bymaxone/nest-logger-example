@@ -105,6 +105,19 @@ describe('RuleForm', () => {
     await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled())
   })
 
+  /**
+   * On success the toast must show the exact "Alert rule created" message.
+   * Asserting the exact call argument kills the StringLiteral→"" mutation
+   * that changes the message to an empty string.
+   */
+  it('shows the exact "Alert rule created" success toast message', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Alert rule created'))
+  })
+
   /** A failed create surfaces the error toast (the onError path). */
   it('shows an error toast when createRule rejects', async () => {
     createRuleMock.mockRejectedValue(new Error('boom'))
@@ -349,5 +362,289 @@ describe('RuleForm', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create rule' })).toBeDisabled())
     expect(listChannelsMock).not.toHaveBeenCalled()
     expect(screen.queryByRole('group', { name: 'Notify channels' })).not.toBeInTheDocument()
+  })
+
+  /** All four level toggle buttons render in the form (fatal, error, warn, info). */
+  it('renders level toggle buttons for all four log levels', () => {
+    renderWithClient(<RuleForm />)
+    const levelGroup = screen.getByRole('group', { name: 'Levels' })
+    expect(within(levelGroup).getByRole('button', { name: 'fatal' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'error' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'warn' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'info' })).toBeInTheDocument()
+  })
+
+  /** All four comparator options render in the comparator select. */
+  it('renders all four comparator options in the select', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('combobox', { name: 'Comparator' }))
+    const options = await screen.findAllByRole('option')
+    const optionNames = options.map((o) => o.textContent)
+    expect(optionNames).toContain('>')
+    expect(optionNames).toContain('>=')
+    expect(optionNames).toContain('==')
+    expect(optionNames).toContain('<')
+  })
+
+  /** The initial draft uses the error-spike preset — name and expr fields reflect it. */
+  it('seeds the form with the error-spike preset defaults', () => {
+    renderWithClient(<RuleForm />)
+    expect(screen.getByLabelText('Name')).toHaveValue('Error spike by logKey')
+    expect(screen.getByLabelText('Window')).toHaveValue('5m')
+    expect(screen.getByLabelText('For')).toHaveValue('2m')
+    expect(screen.getByLabelText('Threshold')).toHaveValue(10)
+  })
+
+  /** All four preset buttons render: error-spike, any-fatal, specific-failure, heartbeat. */
+  it('renders all four preset buttons', () => {
+    renderWithClient(<RuleForm />)
+    expect(screen.getByRole('button', { name: 'Error spike' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Any FATAL' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Specific failure' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Heartbeat / absence' })).toBeInTheDocument()
+  })
+
+  /** Both metric options (count, rate) are available in the Metric select. */
+  it('offers count and rate as metric options', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('combobox', { name: 'Metric' }))
+    const options = await screen.findAllByRole('option')
+    const names = options.map((o) => o.textContent)
+    expect(names).toContain('count')
+    expect(names).toContain('rate')
+  })
+
+  /** Both severity options (critical, warning) are available in the Severity select. */
+  it('offers critical and warning as severity options', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('combobox', { name: 'Severity' }))
+    const options = await screen.findAllByRole('option')
+    const names = options.map((o) => o.textContent)
+    expect(names).toContain('critical')
+    expect(names).toContain('warning')
+  })
+
+  /** An invalid logKey surfaces the inline validation message (aria-invalid and copy). */
+  it('shows the invalid-logKey message and marks the field invalid', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.type(screen.getByLabelText('logKey (optional)'), 'not_a_valid_key')
+    expect(screen.getByLabelText('logKey (optional)')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(/Invalid logKey/)).toBeInTheDocument()
+  })
+
+  /** The Specific-failure preset fills its own unique name field value. */
+  it('applies the Specific-failure preset', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('button', { name: 'Specific failure' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('Payment charge failures')
+  })
+
+  /**
+   * A name that is entirely whitespace must block submission.
+   * Asserting this kills the MethodExpression mutation that replaces
+   * `draft.name.trim()` with `draft.name` — without `.trim()`, a whitespace-only
+   * name `'   '` would not equal `''` and the guard would not fire.
+   */
+  it('blocks createRule when the name is whitespace-only', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    const nameField = screen.getByLabelText('Name')
+    await user.clear(nameField)
+    await user.type(nameField, '   ')
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    expect(createRuleMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The payload name must be trimmed — leading/trailing spaces must not appear.
+   * Asserting this kills the MethodExpression mutation that replaces
+   * `draft.name.trim()` in `mutation.mutate(...)` with `draft.name`.
+   */
+  it('trims leading and trailing whitespace from the name in the payload', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    const nameField = screen.getByLabelText('Name')
+    await user.clear(nameField)
+    await user.type(nameField, '  My Alert  ')
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(createRuleMock).toHaveBeenCalledTimes(1))
+    expect(createRuleMock.mock.calls[0]?.[0]).toMatchObject({ name: 'My Alert' })
+  })
+
+  /**
+   * When the channels query resolves with an empty list, the Notify channels
+   * group must not render. Asserting this kills the `length > 0` → `>= 0`
+   * and ConditionalExpression→true mutations that would render the group
+   * even when there are no channels to display.
+   */
+  it('does not render the channel toggles when the channels list is empty', async () => {
+    listChannelsMock.mockResolvedValue([])
+    renderWithClient(<RuleForm />)
+    // Wait for the channels query to settle (listChannels is called and resolves).
+    await waitFor(() => expect(listChannelsMock).toHaveBeenCalled())
+    // No channel group should render for an empty list.
+    expect(screen.queryByRole('group', { name: 'Notify channels' })).not.toBeInTheDocument()
+  })
+
+  /** The Heartbeat-absence preset fills its own unique name. */
+  it('applies the Heartbeat-absence preset', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('button', { name: 'Heartbeat / absence' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('Success heartbeat absence')
+  })
+
+  /**
+   * The level toggle button class string includes `font-mono`.
+   * Asserting this kills the StringLiteral→"" mutation on the base class
+   * that would silently strip the monospace font from every toggle.
+   */
+  it('applies font-mono to level toggle buttons', () => {
+    renderWithClient(<RuleForm />)
+    const levelGroup = screen.getByRole('group', { name: 'Levels' })
+    const fatalBtn = within(levelGroup).getByRole('button', { name: 'fatal' })
+    expect(fatalBtn.className).toContain('font-mono')
+  })
+
+  /**
+   * Active level toggle buttons carry `border-brand-500`.
+   * Asserting this kills the StringLiteral→"" mutation on the active branch
+   * class that would strip the brand border from pressed buttons.
+   */
+  it('applies border-brand-500 to the active level toggle button', () => {
+    renderWithClient(<RuleForm />)
+    const levelGroup = screen.getByRole('group', { name: 'Levels' })
+    // error is active by default (included in the error-spike preset levels).
+    const errorBtn = within(levelGroup).getByRole('button', { name: 'error' })
+    expect(errorBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(errorBtn.className).toContain('border-brand-500')
+  })
+
+  /**
+   * Inactive level toggle buttons carry `text-white/55`.
+   * Asserting this kills the StringLiteral→"" mutation on the inactive branch
+   * class that would strip the muted colour from unpressed buttons.
+   */
+  it('applies text-white/55 to inactive level toggle buttons', () => {
+    renderWithClient(<RuleForm />)
+    const levelGroup = screen.getByRole('group', { name: 'Levels' })
+    const warnBtn = within(levelGroup).getByRole('button', { name: 'warn' })
+    expect(warnBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(warnBtn.className).toContain('text-white/55')
+  })
+
+  /**
+   * A typed non-zero threshold must appear in the create payload unchanged.
+   * Asserting this kills the `|| 0` → `&& 0` LogicalOperator mutation on the
+   * threshold onChange handler, which would coerce every value to zero.
+   */
+  it('sends the typed threshold value in the create payload', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    const thresholdInput = screen.getByLabelText('Threshold')
+    await user.clear(thresholdInput)
+    await user.type(thresholdInput, '5')
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(createRuleMock).toHaveBeenCalledTimes(1))
+    expect(createRuleMock.mock.calls[0]?.[0]).toMatchObject({ threshold: 5 })
+  })
+
+  /**
+   * When the rule name is cleared the submit handler must bail out early —
+   * `createRule` must not be called.
+   *
+   * Kills all four L159 mutations:
+   *   - ConditionalExpression→false (guard removed entirely)
+   *   - LogicalOperator mutations that drop the `name.trim() === ''` branch
+   */
+  it('does not call createRule when the name field is cleared', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    const nameInput = screen.getByLabelText('Name')
+    await user.clear(nameInput)
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    expect(createRuleMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Clearing the optional logKey field back to an empty string must NOT block
+   * submission. The second guard `draft.logKey !== ''` ensures that an empty
+   * value is treated as "not provided", not as an invalid key.
+   *
+   * Asserting that createRule IS called kills the ConditionalExpression→true
+   * mutation (`draft.logKey !== ''` → `true`) and the StringLiteral→"Stryker"
+   * mutation, both of which would cause `isLogKeyInvalid = true` for logKey=''
+   * and incorrectly block the submit.
+   */
+  it('calls createRule when logKey is typed then cleared back to empty', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    const logKeyInput = screen.getByLabelText('logKey (optional)')
+    await user.type(logKeyInput, 'PAYMENT_CHARGE_FAILED')
+    await user.clear(logKeyInput)
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(createRuleMock).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('RuleForm — LEVEL_OPTIONS and COMPARATORS module-level re-import', () => {
+  /**
+   * Re-importing the module inside the test body forces LEVEL_OPTIONS and
+   * COMPARATORS to be evaluated with Stryker's active mutation injected.
+   *
+   * A StringLiteral → "" mutation on a LEVEL_OPTIONS entry (e.g. 'fatal' → '')
+   * removes that level toggle button. Asserting all four buttons are present kills
+   * all four mutations on LEVEL_OPTIONS.
+   *
+   * A StringLiteral → "" mutation on a COMPARATORS entry removes that option from
+   * the select. Asserting all four options are present kills all four mutations
+   * on COMPARATORS.
+   */
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+  })
+
+  it('re-imports and verifies all four level toggle buttons render', async () => {
+    vi.resetModules()
+    const { RuleForm: FreshForm } = await import('./rule-form')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FreshForm />
+      </QueryClientProvider>,
+    )
+    const levelGroup = screen.getByRole('group', { name: 'Levels' })
+    expect(within(levelGroup).getByRole('button', { name: 'fatal' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'error' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'warn' })).toBeInTheDocument()
+    expect(within(levelGroup).getByRole('button', { name: 'info' })).toBeInTheDocument()
+  })
+
+  it('re-imports and verifies all four comparator options render in the select', async () => {
+    vi.resetModules()
+    const { RuleForm: FreshForm } = await import('./rule-form')
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FreshForm />
+      </QueryClientProvider>,
+    )
+    await user.click(screen.getByRole('combobox', { name: 'Comparator' }))
+    const options = await screen.findAllByRole('option')
+    const names = options.map((o) => o.textContent)
+    expect(names).toContain('>')
+    expect(names).toContain('>=')
+    expect(names).toContain('==')
+    expect(names).toContain('<')
   })
 })

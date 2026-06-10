@@ -350,3 +350,140 @@ describe('LogsController.exportLogs', () => {
     expect(exporter.stream).not.toHaveBeenCalled()
   })
 })
+
+// ─── Additional mutation-killing tests ────────────────────────────────────────
+
+describe('LogsController.list — exact GoneException message', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('GoneException carries the exact stale-cursor message string', async () => {
+    /**
+     * The GoneException is constructed with a hard-coded string literal. If Stryker
+     * mutates that string to '' or another value, the message assertion below fails.
+     * Using `.toBeInstanceOf` alone does not kill the string literal mutation.
+     */
+    const { controller } = buildController()
+
+    let caught: Error | undefined
+    await controller
+      .list({}, { source: 'postgres', limit: 100, cursor: '!!!not-base64!!!' })
+      .catch((e: Error) => {
+        caught = e
+      })
+
+    expect(caught).toBeInstanceOf(GoneException)
+    expect((caught as GoneException).message).toContain('cursor is stale')
+  })
+})
+
+describe('LogsController.list — exact cursor clause shape', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('injects both arms of the keyset OR clause with exact object shapes', async () => {
+    /**
+     * The two elements of `cursorClause.OR` must be exactly
+     * `{ time: { lt: cursorTime } }` and `{ time: cursorTime, id: { lt: cursorId } }`.
+     * Using `.toHaveLength(2)` alone does not kill mutations to the inner object
+     * literals (e.g. changing `lt` to `gt`, or omitting the `id` field).
+     */
+    const { controller, findMany, logsService } = buildController()
+    const cursorTime = new Date('2024-06-01T10:00:00Z')
+    const cursorId = 'cur-id-exact'
+    const cursor = logsService.encodeCursor({ time: cursorTime, id: cursorId })
+
+    await controller.list({}, { source: 'postgres', limit: 100, cursor })
+
+    const passedArgs = findMany.mock.calls[0]?.[0] as {
+      where: { AND?: Array<{ OR: Array<Record<string, unknown>> }> }
+    }
+    const clause = passedArgs.where.AND?.[0]
+    expect(clause?.OR[0]).toEqual({ time: { lt: cursorTime } })
+    expect(clause?.OR[1]).toEqual({ time: cursorTime, id: { lt: cursorId } })
+  })
+})
+
+describe('LogsController.list — exact findMany arguments', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('passes orderBy=[{time:desc},{id:desc}] and the limit as take to findMany', async () => {
+    /**
+     * The `findMany` call must have `orderBy: [{ time: 'desc' }, { id: 'desc' }]` and
+     * `take: q.limit`. Stryker can mutate the array declaration or either object
+     * literal (e.g. empty the array, swap 'desc' to '', remove the id sort). The
+     * `toEqual` assertion on both fields kills all those variants.
+     */
+    const { controller, findMany } = buildController()
+
+    await controller.list({}, { source: 'postgres', limit: 50 })
+
+    const passedArgs = findMany.mock.calls[0]?.[0] as {
+      orderBy?: unknown
+      take?: unknown
+    }
+    expect(passedArgs.orderBy).toEqual([{ time: 'desc' }, { id: 'desc' }])
+    expect(passedArgs.take).toBe(50)
+  })
+})
+
+describe('LogsController.list — nextCursor encodes the last row, not the second row', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('nextCursor is encoded from rows.at(-1), not rows.at(1), in a 3-row result', async () => {
+    /**
+     * `const last = rows.at(-1)` — a `+1` UnaryOperator mutation would make this
+     * `rows.at(1)`. With exactly 2 rows, `at(-1)` and `at(1)` both resolve to the same
+     * element, so a 2-row fixture cannot distinguish them. This test uses 3 rows so that
+     * `at(-1)` (row 3) and `at(1)` (row 2) are different objects, and asserts that the
+     * cursor encodes row 3 (the actual last element).
+     */
+    const { controller, findMany, logsService } = buildController()
+    const row1 = makeRow({ id: 'r1', time: new Date('2024-06-01T12:00:00Z') })
+    const row2 = makeRow({ id: 'r2', time: new Date('2024-06-01T11:00:00Z') })
+    const row3 = makeRow({ id: 'r3', time: new Date('2024-06-01T10:00:00Z') })
+    findMany.mockResolvedValue([row1, row2, row3])
+
+    const result = await controller.list({}, { source: 'postgres', limit: 3 })
+
+    // at(-1) → row3; at(1) → row2: the two diverge only with ≥3 rows.
+    expect(result.nextCursor).toBe(logsService.encodeCursor({ time: row3.time, id: row3.id }))
+    expect(result.nextCursor).not.toBe(logsService.encodeCursor({ time: row2.time, id: row2.id }))
+  })
+})
+
+describe('LogsController.exportLogs — exact ForbiddenException message', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('ForbiddenException carries the exact viewers-denied message string', async () => {
+    /**
+     * The ForbiddenException is constructed with a hard-coded string. A StringLiteral
+     * mutation to `''` would produce a message that does not contain the viewers text.
+     * Using `.toBeInstanceOf` alone does not kill the string literal mutation.
+     */
+    const { controller } = buildController()
+    const res = {} as import('express').Response
+
+    let caught: Error | undefined
+    await controller
+      .exportLogs(
+        { 'x-role': 'viewer', 'x-tenant-id': 'acme' },
+        { source: 'postgres', limit: 100, format: 'json' },
+        res,
+      )
+      .catch((e: Error) => {
+        caught = e
+      })
+
+    expect(caught).toBeInstanceOf(ForbiddenException)
+    expect((caught as ForbiddenException).message).toContain('Viewers cannot export')
+  })
+})

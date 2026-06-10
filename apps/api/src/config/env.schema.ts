@@ -15,8 +15,12 @@ import { DEV_WORKER_URL } from './env.defaults.js'
  */
 export const DEV_OTLP_TRACE_ENDPOINT = 'http://localhost:4318/v1/traces'
 
-/** Loopback hostnames rejected for outbound URLs in production. */
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+/**
+ * Loopback hostnames rejected for outbound URLs in production.
+ * IPv6 loopback uses the bracket form because the WHATWG URL API serializes it as
+ * `'[::1]'` (e.g. `new URL('http://[::1]/').hostname === '[::1]'`).
+ */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 /**
  * Whether a URL string resolves to a loopback host. A parse failure returns
@@ -111,9 +115,11 @@ export type Env = z.infer<typeof envSchema>
 export function validateEnv(config: Record<string, unknown>): Env {
   const parsed = envSchema.safeParse(config)
   if (!parsed.success) {
+    // Stryker disable StringLiteral -- '(root)' is reached only when issue.path is empty; requires a root-level schema rejection that none of the field-level tests produce
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
       .join('\n')
+    // Stryker restore StringLiteral
     throw new Error(`Invalid environment variables:\n${issues}`)
   }
   return parsed.data

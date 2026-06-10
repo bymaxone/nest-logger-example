@@ -263,3 +263,212 @@ describe('getExportUrl', () => {
     expect(url).not.toContain('role=')
   })
 })
+
+describe('DEFAULT_CONTEXT_LINES', () => {
+  /**
+   * The constant must be exactly 10 — this assertion uses a literal so a mutation
+   * to the constant value (e.g. to 5) is caught even when the test imports the
+   * same constant on the expected side.
+   */
+  it('is exactly 10', () => {
+    expect(DEFAULT_CONTEXT_LINES).toBe(10)
+  })
+})
+
+describe('getLogs — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The request must target the /logs path. */
+  it('requests the /logs path', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse(LOG_PAGE))
+      }),
+    )
+    await getLogs({ source: 'postgres', role: 'admin' })
+    expect(capturedUrl).toContain('/logs?')
+  })
+})
+
+describe('getAggregate — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The aggregate request must target /logs/aggregate with the metric. */
+  it('requests /logs/aggregate?metric=errorRate', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse([{ bucket: 'b', errorRate: 0.1 }]))
+      }),
+    )
+    await getAggregate('errorRate', { source: 'loki', role: 'viewer' })
+    expect(capturedUrl).toContain('/logs/aggregate?metric=errorRate')
+  })
+})
+
+describe('getFacets — exact URL path', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The facets request must target /logs/facets with the fields param. */
+  it('requests /logs/facets?fields=...', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ service: [] }))
+      }),
+    )
+    await getFacets(['service'], { source: 'postgres', role: 'admin' })
+    expect(capturedUrl).toContain('/logs/facets?fields=service')
+  })
+})
+
+describe('getContext — exact URL path and default lines', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** getContext targets /logs/context with the anchor id. */
+  it('requests /logs/context with the requestId anchor', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ before: [], match: null, after: [] }))
+      }),
+    )
+    await getContext({ requestId: 'req_x' }, { source: 'postgres', role: 'admin' })
+    expect(capturedUrl).toContain('/logs/context?')
+    expect(capturedUrl).toContain('requestId=req_x')
+  })
+
+  /**
+   * The default before/after count is the literal value 10, not just
+   * `DEFAULT_CONTEXT_LINES`; using a literal here catches a mutation to the
+   * constant regardless of what the import resolves to.
+   */
+  it('defaults before and after to the literal value 10', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        capturedUrl = url
+        return Promise.resolve(jsonResponse({ before: [], match: null, after: [] }))
+      }),
+    )
+    await getContext({ requestId: 'req_x' }, { source: 'postgres', role: 'admin' })
+    expect(capturedUrl).toContain('before=10')
+    expect(capturedUrl).toContain('after=10')
+  })
+})
+
+describe('rbacHeadersForQuery — edge branches', () => {
+  /** A query with only a role (no tenantId) emits x-role but no x-tenant-id. */
+  it('emits only x-role when there is no tenantId', () => {
+    const headers = rbacHeadersForQuery({ source: 'postgres', role: 'viewer' })
+    expect(headers['x-role']).toBe('viewer')
+    expect(headers['x-tenant-id']).toBeUndefined()
+  })
+
+  /** A query with no role and no tenant emits an empty headers record. */
+  it('returns an empty record when neither role nor tenant is set', () => {
+    expect(rbacHeadersForQuery({ source: 'loki' })).toEqual({})
+  })
+})
+
+describe('apiFetch — error message format', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * The thrown ApiError message must include both the status code and the
+   * statusText. Asserting the exact string kills the StringLiteral mutation
+   * that replaces the template literal with an empty string.
+   */
+  it('includes the status code and statusText in the ApiError message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(jsonResponse(null, { ok: false, status: 500, statusText: 'Server Error' })),
+      ),
+    )
+    const err = await getLogs({ source: 'postgres', role: 'admin' }).catch((e) => e)
+    expect(err.message).toBe('500 Server Error')
+  })
+})
+
+describe('getContext — traceId inclusion guard', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When only a requestId is provided the URL must not contain traceId at all.
+   * Asserting this kills the ConditionalExpression→true mutation that would
+   * always append traceId (as `traceId=undefined`) even when absent.
+   */
+  it('omits traceId from the URL when only a requestId is provided', async () => {
+    let url = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((u: string) => {
+        url = u
+        return Promise.resolve(jsonResponse({ before: [], match: null, after: [] }))
+      }),
+    )
+    await getContext({ requestId: 'req_only' }, { source: 'postgres', role: 'admin' })
+    expect(url).toContain('requestId=req_only')
+    expect(url).not.toContain('traceId=')
+  })
+})
+
+describe('BASE URL — default localhost base', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When `NEXT_PUBLIC_API_URL` is not set the module falls back to
+   * `http://localhost:3001`. Asserting the prefix of the captured URL kills two
+   * mutations on the fallback expression: the `LogicalOperator` that swaps `??`
+   * for `&&` (producing `undefined` when the env var is absent) and the
+   * `StringLiteral→""` that empties the fallback string (producing a
+   * root-relative URL like `/logs?…`).
+   */
+  it('prefixes requests with the http://localhost:3001 base URL', async () => {
+    let capturedUrl = ''
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((u: string) => {
+        capturedUrl = u
+        return Promise.resolve(jsonResponse(LOG_PAGE))
+      }),
+    )
+    await getLogs({ source: 'postgres' })
+    expect(capturedUrl).toMatch(/^http:\/\/localhost:3001\//)
+  })
+})
+
+describe('rbacHeadersForQuery — absent fields do not produce headers', () => {
+  /**
+   * When `q.role` is absent (undefined) the returned record must not carry an
+   * `x-role` key at all. `toEqual({})` ignores `undefined`-valued properties, so
+   * this test uses `not.toHaveProperty` to detect the ConditionalExpression→true
+   * mutation that always assigns `headers['x-role'] = undefined`.
+   */
+  it('does not set x-role when role is absent', () => {
+    const headers = rbacHeadersForQuery({ source: 'loki' })
+    expect(headers).not.toHaveProperty('x-role')
+  })
+
+  /**
+   * When `q.tenantId` is absent (undefined) the returned record must not carry
+   * an `x-tenant-id` key. This kills the ConditionalExpression→true mutation on
+   * the first sub-expression (`q.tenantId !== undefined`) that would cause
+   * `headers['x-tenant-id'] = undefined` to be set even when tenantId is missing.
+   */
+  it('does not set x-tenant-id when tenantId is absent', () => {
+    const headers = rbacHeadersForQuery({ source: 'loki', role: 'admin' })
+    expect(headers).not.toHaveProperty('x-tenant-id')
+  })
+})

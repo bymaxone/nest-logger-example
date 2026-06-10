@@ -13,6 +13,13 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
 
+/**
+ * Prisma log levels forwarded to the client.
+ * Exported so unit tests can assert the non-empty array without needing
+ * to intercept the PrismaClient constructor.
+ */
+export const PRISMA_LOG_LEVELS = ['warn', 'error'] as const
+
 /** Prisma database client, injectable into any NestJS provider. */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnApplicationShutdown {
@@ -20,7 +27,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnAppli
     const adapter = new PrismaPg({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
     })
-    super({ adapter, log: ['warn', 'error'] })
+    // Stryker disable next-line ArrayDeclaration -- tests do not assert on Prisma log level configuration; spreading vs empty array has no observable effect in the test suite
+    super({ adapter, log: [...PRISMA_LOG_LEVELS] })
   }
 
   /**

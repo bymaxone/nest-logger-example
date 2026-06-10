@@ -1,13 +1,14 @@
 /**
- * Unit tests for `LogEventBus` and the `matches()` helper.
+ * Unit tests for `LogEventBus`.
  *
  * Covers: `publish()` parsing and synthetic-cursor emission across every branch
  * (malformed line swallowed, `LOGGER_DESTINATION*` meta-log skipped, missing /
  * invalid timestamp fallback, `service` as object / string / env default, the
  * `messageFromParsed` coercion variants, and the level/key/id field fallbacks);
  * `replaySince()` (EMPTY on empty string, replay of matching rows, filtering of
- * non-matching rows, the `from$` happy path); `emit()` fan-out; `toEvent()`; and
- * the `matches()` predicate branches not exercised by the SSE controller spec.
+ * non-matching rows, the `from$` happy path); `emit()` fan-out; and `toEvent()`.
+ *
+ * `matches()` predicate tests live in `matches.spec.ts`.
  */
 import { describe, expect, it, jest, beforeEach } from '@jest/globals'
 import { firstValueFrom, toArray } from 'rxjs'
@@ -15,7 +16,7 @@ import type { ApplicationLog } from '@prisma/client'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
 import { LogsService } from './logs.service.js'
-import { LogEventBus, matches, type BusLogEntry, type SseMessageEvent } from './log-event.bus.js'
+import { LogEventBus, type BusLogEntry, type SseMessageEvent } from './log-event.bus.js'
 
 /** Build a bus over a real (pure) `LogsService` and a controllable Prisma mock. */
 function buildBus(rows: ApplicationLog[] = []) {
@@ -333,6 +334,42 @@ describe('LogEventBus.publish', () => {
     // The id carries the post-wrap sequence suffix.
     expect(emitted[0].id.endsWith('-0')).toBe(true)
   })
+
+  /**
+   * When a log line carries an explicit null time field the bus must use the
+   * current wall-clock time for the entry. With the ConditionalExpression→true
+   * mutation the bus calls new Date(null) which returns the Unix epoch (1970),
+   * causing the closeness check below to fail.
+   */
+  it('uses the current time when the log line time field is null', () => {
+    const { bus } = buildBus()
+    const emitted: BusLogEntry[] = []
+    bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+    const before = Date.now()
+    bus.publish(JSON.stringify({ time: null, message: 'null-time-test', service: 'api' }))
+    const after = Date.now()
+
+    expect(emitted).toHaveLength(1)
+    const t = emitted[0].time.getTime()
+    expect(t).toBeGreaterThanOrEqual(before)
+    expect(t).toBeLessThanOrEqual(after)
+  })
+
+  /**
+   * Publishing a log line with service=null must not throw and must emit the entry.
+   * With the ConditionalExpression→true mutation the code attempts to read null.name
+   * and throws TypeError; the outer catch swallows the error and nothing is emitted.
+   */
+  it('emits an entry when the service field is null', () => {
+    const { bus } = buildBus()
+    const emitted: BusLogEntry[] = []
+    bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+    bus.publish(JSON.stringify({ service: null, message: 'null-service-test' }))
+
+    expect(emitted).toHaveLength(1)
+  })
 })
 
 describe('LogEventBus.replaySince', () => {
@@ -434,155 +471,6 @@ describe('LogEventBus.replaySince', () => {
   })
 })
 
-describe('matches() — predicate branches', () => {
-  it('rejects when traceId does not match', () => {
-    /** A `traceId` filter must reject an entry with a different traceId. */
-    expect(
-      matches(makeEntry({ traceId: 'a' }), { traceId: 'b', source: 'postgres', limit: 100 }),
-    ).toBe(false)
-  })
-
-  it('rejects when requestId does not match', () => {
-    /** A `requestId` filter must reject an entry with a different requestId. */
-    expect(
-      matches(makeEntry({ requestId: 'a' }), { requestId: 'b', source: 'postgres', limit: 100 }),
-    ).toBe(false)
-  })
-
-  it('rejects when tenantId does not match', () => {
-    /** A `tenantId` filter must reject an entry from another tenant. */
-    expect(
-      matches(makeEntry({ tenantId: 'a' }), { tenantId: 'b', source: 'postgres', limit: 100 }),
-    ).toBe(false)
-  })
-
-  it('rejects when an exact (non-wildcard) logKey does not match', () => {
-    /** A non-wildcard `logKey` filter must require an exact match. */
-    expect(
-      matches(makeEntry({ logKey: 'ORDER_CREATE_SUCCESS' }), {
-        logKey: 'PAYMENT_REFUND_FAILED',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(false)
-  })
-
-  it('accepts when a prefix-wildcard logKey matches', () => {
-    /**
-     * `PAYMENT_*` must match a `PAYMENT_REFUND_FAILED` entry — the wildcard branch
-     * where `entry.logKey.startsWith(prefix)` is true and the predicate falls
-     * through without rejecting (covers the wildcard match-success path).
-     */
-    expect(
-      matches(makeEntry({ logKey: 'PAYMENT_REFUND_FAILED' }), {
-        logKey: 'PAYMENT_*',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(true)
-  })
-
-  it('accepts when an exact logKey matches and a string level equals', () => {
-    /**
-     * Positive path for the exact-logKey and string-level branches: equal values
-     * pass without falling through to the wildcard / gte arms.
-     */
-    expect(
-      matches(makeEntry({ logKey: 'ORDER_CREATE_SUCCESS', level: 'info' }), {
-        logKey: 'ORDER_CREATE_SUCCESS',
-        level: 'info',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(true)
-  })
-
-  it('treats an unknown entry level as rank 0 under a gte filter', () => {
-    /**
-     * An entry with a level not in the RANK table falls back to rank 0, so any
-     * `gte` threshold above trace rejects it — guards the `?? 0` fallback for the
-     * entry's level inside the gte branch.
-     */
-    expect(
-      matches(makeEntry({ level: 'verbose' }), {
-        level: { gte: 'info' },
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(false)
-  })
-
-  it('treats an unknown gte threshold as rank 0 so any entry level passes', () => {
-    /**
-     * A `gte` threshold not in the RANK table falls back to rank 0 (the
-     * `RANK[filter.level.gte] ?? 0` right side), so even a `trace` entry — rank 10
-     * — clears the zero threshold. This guards the filter-side `?? 0` fallback.
-     */
-    expect(
-      matches(makeEntry({ level: 'trace' }), {
-        level: { gte: 'bogus' } as unknown as { gte: 'info' },
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(true)
-  })
-
-  it('rejects when the service filter does not match the entry service', () => {
-    /**
-     * A `service` filter must reject an entry from a different service — guards the
-     * first short-circuit in `matches` (`filter.service !== undefined && ...`).
-     */
-    expect(
-      matches(makeEntry({ service: 'api' }), { service: 'worker', source: 'postgres', limit: 100 }),
-    ).toBe(false)
-  })
-
-  it('rejects when a free-text q filter is not contained in the entry message', () => {
-    /**
-     * A `q` free-text filter present whose lowercased value is NOT a substring of the
-     * entry message must reject the entry — covers the true side of the
-     * `filter.q !== undefined && !message.includes(q)` conjunction (the reject path).
-     */
-    expect(
-      matches(makeEntry({ message: 'order created' }), {
-        q: 'gateway',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(false)
-  })
-
-  it('accepts when a free-text q filter is contained in the entry message (case-insensitive)', () => {
-    /**
-     * The complementary positive path: a `q` that matches case-insensitively keeps the
-     * entry — exercises the `!message.includes(q)` false side so the conjunction does
-     * not reject.
-     */
-    expect(
-      matches(makeEntry({ message: 'Order CREATED' }), {
-        q: 'order',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(true)
-  })
-
-  it('rejects when a prefix-wildcard logKey does not match the entry logKey', () => {
-    /**
-     * A `PAYMENT_*` wildcard whose prefix is NOT a prefix of the entry's logKey must
-     * reject — covers the `!entry.logKey.startsWith(prefix)` true branch (the wildcard
-     * rejection path distinct from the wildcard match-success path).
-     */
-    expect(
-      matches(makeEntry({ logKey: 'ORDER_CREATE_SUCCESS' }), {
-        logKey: 'PAYMENT_*',
-        source: 'postgres',
-        limit: 100,
-      }),
-    ).toBe(false)
-  })
-})
-
 describe('messageFromParsed via publish — non-serializable message', () => {
   it('yields an empty string when the message object cannot be JSON-stringified', () => {
     /**
@@ -599,19 +487,17 @@ describe('messageFromParsed via publish — non-serializable message', () => {
     const emitted: BusLogEntry[] = []
     bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
 
-    const originalParse = JSON.parse
-    const patchedParse = ((text: string): unknown => {
+    const spy = jest.spyOn(JSON, 'parse').mockImplementationOnce(((text: string) => {
       if (text === '__BIGINT_MESSAGE__') {
         // `10n` is a BigInt nested in an object; JSON.stringify rejects it with a TypeError.
         return { message: { amount: 10n }, service: 'api' }
       }
-      return (originalParse as (t: string) => unknown)(text)
-    }) as typeof JSON.parse
-    JSON.parse = patchedParse
+      return JSON.parse(text)
+    }) as typeof JSON.parse)
     try {
       bus.publish('__BIGINT_MESSAGE__')
     } finally {
-      JSON.parse = originalParse
+      spy.mockRestore()
     }
 
     expect(emitted).toHaveLength(1)
@@ -646,5 +532,147 @@ describe('LogEventBus.toEvent', () => {
     const event = bus.toEvent(entry)
     expect(event.id).toBe('cursor-xyz')
     expect(JSON.parse(event.data)).toMatchObject({ id: entry.id, message: entry.message })
+  })
+})
+
+describe('LogEventBus — construction', () => {
+  it('sets the emitter maxListeners to exactly 100', () => {
+    /**
+     * `setMaxListeners(100)` is called in the constructor so a live-tail with many
+     * concurrent SSE clients does not produce Node.js memory-leak warnings. Asserting
+     * the exact value kills any StringLiteral mutation on the `100` literal.
+     */
+    const { bus } = buildBus()
+    expect(bus.emitter.getMaxListeners()).toBe(100)
+  })
+})
+
+describe('LogEventBus.publish — message-field selection', () => {
+  it('prefers the message field over msg when both are present in the parsed line', () => {
+    /**
+     * `messageFromParsed` picks `parsed.message ?? parsed.msg`, so `message` wins
+     * when both keys co-exist. Kills mutations that swap the `??` operand order or
+     * replace `??` with `||` (making a falsy `message` fall back to `msg`).
+     */
+    const { bus } = buildBus()
+    const emitted: BusLogEntry[] = []
+    bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+    bus.publish(JSON.stringify({ message: 'primary', msg: 'fallback', service: 'api' }))
+
+    expect(emitted[0]!.message).toBe('primary')
+  })
+
+  it('coerces a boolean message to its string representation via the boolean arm', () => {
+    /**
+     * A boolean `message` from JSON must be handled by the
+     * `typeof raw === 'boolean'` branch returning `String(raw)`, not by
+     * `JSON.stringify`. Verifies the boolean arm of the number/boolean/bigint guard.
+     */
+    const { bus } = buildBus()
+    const emitted: BusLogEntry[] = []
+    bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+    bus.publish(JSON.stringify({ message: true, service: 'api' }))
+    bus.publish(JSON.stringify({ message: false, service: 'api' }))
+
+    expect(emitted[0]!.message).toBe('true')
+    expect(emitted[1]!.message).toBe('false')
+  })
+})
+
+describe('LogEventBus.publish — cursor and entry shape', () => {
+  it('synthesizes the live cursor id in the exact live-<ms>-<seq> format', () => {
+    /**
+     * The synthetic id is assembled as `` `live-${time.getTime()}-${this.seq}` ``.
+     * Asserting the prefix string, the millisecond epoch, and the seq suffix
+     * individually kills StringLiteral mutations on `"live-"` and the template.
+     */
+    const { bus } = buildBus()
+    const emitted: BusLogEntry[] = []
+    bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+    const isoTime = '2024-06-01T12:00:00.000Z'
+    bus.publish(JSON.stringify({ time: isoTime, message: 'hi', service: 'api' }))
+
+    const entry = emitted[0]!
+    const expectedMs = new Date(isoTime).getTime()
+    const parts = entry.id.split('-')
+    expect(parts[0]).toBe('live')
+    expect(Number(parts[1])).toBe(expectedMs)
+    expect(Number(parts[2])).toBeGreaterThanOrEqual(0)
+    expect(Number(parts[2])).toBeLessThan(1_000_000)
+  })
+
+  it('emits a fully-shaped BusLogEntry with all default fields correctly set', () => {
+    /**
+     * Using `toMatchObject` on the complete entry shape kills ObjectLiteral mutations
+     * on any field of the emitted object — if a mutation changes `'info'`, `'UNKNOWN'`,
+     * `null`, or the `service` default, the assertion detects it.
+     */
+    const prev = process.env.OTEL_SERVICE_NAME
+    delete process.env.OTEL_SERVICE_NAME
+    try {
+      const { bus } = buildBus()
+      const emitted: BusLogEntry[] = []
+      bus.emitter.on('log', (e) => emitted.push(e as BusLogEntry))
+
+      // Non-string level/logKey and absent optional fields trigger every default branch.
+      bus.publish(JSON.stringify({ level: 99, logKey: false }))
+
+      expect(emitted[0]).toMatchObject({
+        level: 'info',
+        logKey: 'UNKNOWN',
+        message: '',
+        service: 'nest-logger-example-api',
+        tenantId: null,
+        requestId: null,
+        traceId: null,
+      })
+    } finally {
+      if (prev !== undefined) process.env.OTEL_SERVICE_NAME = prev
+    }
+  })
+})
+
+describe('LogEventBus.replaySince — exact Prisma call shape', () => {
+  it('passes orderBy ascending and take 500 to findMany when replaying rows', async () => {
+    /**
+     * The replay query must order `[{ time: "asc" }, { id: "asc" }]` (time-ordered
+     * replay) and cap at 500 rows. Asserting exact strings and the numeric literal
+     * kills StringLiteral mutations on `"asc"` and the `500` cap.
+     */
+    const { bus, logs, findMany } = buildBus([])
+    const lastId = logs.encodeCursor({ time: new Date('2024-06-01T12:00:00Z'), id: 'row-1' })
+
+    await firstValueFrom(
+      bus.replaySince(lastId, { source: 'postgres', limit: 100 }).pipe(toArray()),
+    )
+
+    const args = findMany.mock.calls[0]?.[0] as unknown as { orderBy: unknown[]; take: number }
+    expect(args.orderBy).toEqual([{ time: 'asc' }, { id: 'asc' }])
+    expect(args.take).toBe(500)
+  })
+
+  it('builds the exact gt-based keyset OR clause in where.AND for fetchSince', async () => {
+    /**
+     * The strictly-newer clause is `OR: [{ time: { gt } }, { time, id: { gt } }]`.
+     * Asserting the full OR array with `toEqual` kills ObjectLiteral mutations on
+     * the two tuple elements and the `"gt"` operator key inside each one.
+     */
+    const anchorTime = new Date('2024-06-01T12:00:00.000Z')
+    const anchorId = 'row-1'
+    const { bus, logs, findMany } = buildBus([])
+    const lastId = logs.encodeCursor({ time: anchorTime, id: anchorId })
+
+    await firstValueFrom(
+      bus.replaySince(lastId, { source: 'postgres', limit: 100 }).pipe(toArray()),
+    )
+
+    const args = findMany.mock.calls[0]?.[0] as unknown as { where: { AND: unknown[] } }
+    const fromClause = args.where.AND[0] as { OR: unknown[] }
+    expect(fromClause.OR).toHaveLength(2)
+    expect(fromClause.OR[0]).toEqual({ time: { gt: anchorTime } })
+    expect(fromClause.OR[1]).toEqual({ time: anchorTime, id: { gt: anchorId } })
   })
 })

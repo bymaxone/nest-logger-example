@@ -354,4 +354,270 @@ describe('ChannelRegistry', () => {
       expect(toastErrorMock).toHaveBeenCalledWith('Test-fire failed', { description: undefined }),
     )
   })
+
+  /** The channel-type select contains all three selectable types: slack, webhook, email-mock. */
+  it('offers slack, webhook, and email-mock as channel type options', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    const trigger = screen.getByRole('combobox', { name: 'Channel type' })
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    const options = await screen.findAllByRole('option')
+    const names = options.map((o) => o.textContent)
+    expect(names).toContain('slack')
+    expect(names).toContain('webhook')
+    expect(names).toContain('email-mock')
+  })
+
+  /** A channel's type badge renders in uppercase to match the Badge's uppercase class. */
+  it('renders the channel type in the list badge', async () => {
+    listChannelsMock.mockResolvedValue([
+      makeChannel({ type: 'webhook', id: 'hook-1', name: 'Hook' }),
+    ])
+    renderWithClient(<ChannelRegistry />)
+    expect(await screen.findByText('webhook')).toBeInTheDocument()
+  })
+
+  /** A critical severity badge renders and a warning badge renders within the channel list. */
+  it('renders critical and warning severity badges in the channel list', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel()])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    expect(within(list).getByText('critical')).toBeInTheDocument()
+    expect(within(list).getByText('warning')).toBeInTheDocument()
+  })
+
+  /** After a successful create, the Id input reverts to empty (EMPTY_DRAFT type stays slack). */
+  it('resets the type back to slack after a successful create', async () => {
+    listChannelsMock.mockResolvedValue([])
+    createChannelMock.mockResolvedValue({ ok: true, channel: makeChannel() })
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Channel registered'))
+    // The Id input is empty again — the EMPTY_DRAFT reset fired.
+    expect(screen.getByLabelText('Id')).toHaveValue('')
+  })
+
+  /** Both severity checkboxes start checked (EMPTY_DRAFT seeds both). */
+  it('checks both severity boxes by default from the EMPTY_DRAFT', async () => {
+    listChannelsMock.mockResolvedValue([])
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    expect(screen.getByLabelText('critical')).toBeChecked()
+    expect(screen.getByLabelText('warning')).toBeChecked()
+  })
+
+  /** The viewer blocked note is shown and the form is never rendered. */
+  it('shows the viewer blocked note and not the create form', () => {
+    currentRole = 'viewer'
+    listChannelsMock.mockResolvedValue([])
+    renderWithClient(<ChannelRegistry />)
+    expect(screen.getByText('Viewers cannot see notification channels.')).toBeInTheDocument()
+    expect(screen.queryByText('Register a channel')).not.toBeInTheDocument()
+  })
+
+  /**
+   * The guard uses `||`: only ALL fields filled allows submit. Leaving the id
+   * blank must block even when name and endpoint are present. Asserting this
+   * kills the `||` → `&&` LogicalOperator mutation (which would only block when
+   * all three are blank simultaneously) and the `''` → string StringLiteral
+   * mutation on the id check.
+   */
+  it('blocks create when id is blank but name and endpoint are filled', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Leaving the name blank must block even when id and endpoint are present.
+   * Asserting this kills the `''` StringLiteral mutation on the name check and
+   * the `draft.name.trim() === ''` → `false` ConditionalExpression mutation.
+   */
+  it('blocks create when name is blank but id and endpoint are filled', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Leaving the endpoint blank must block even when id and name are present.
+   * Asserting this kills the `''` StringLiteral mutation on the endpoint check
+   * and the `draft.endpoint.trim() === ''` → `false` ConditionalExpression mutation.
+   */
+  it('blocks create when endpoint is blank but id and name are filled', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A whitespace-only id must be treated as blank (the `.trim()` guard).
+   * Asserting this kills the MethodExpression mutation that removes `.trim()`
+   * from `draft.id.trim() === ''`.
+   */
+  it('blocks create when the id field contains only whitespace', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), '   ')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A whitespace-only name must be treated as blank (the `.trim()` guard).
+   * Asserting this kills the MethodExpression mutation that removes `.trim()`
+   * from `draft.name.trim() === ''`.
+   */
+  it('blocks create when the name field contains only whitespace', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Name'), '   ')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A whitespace-only endpoint must be treated as blank (the `.trim()` guard).
+   * Asserting this kills the MethodExpression mutation that removes `.trim()`
+   * from `draft.endpoint.trim() === ''`.
+   */
+  it('blocks create when the endpoint field contains only whitespace', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.type(screen.getByLabelText('Webhook URL'), '   ')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    expect(createChannelMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The error note (`isError && <p>Failed</p>`) must NOT render when channels load
+   * successfully. Asserting this kills the `isError && ...` → `isError || ...`
+   * LogicalOperator mutation, which would show the note on every successful load.
+   */
+  it('does not show the error note when channels load successfully', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel()])
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Slack #alerts')
+    expect(screen.queryByText('Failed to load channels.')).not.toBeInTheDocument()
+  })
+
+  /**
+   * The severity badge for a `critical` channel must carry the `destructive` variant
+   * class (`bg-destructive`). The search is scoped to within the channel list because
+   * the admin create form also renders a `<label>critical</label>` with a different
+   * class name — plain `findByText` would pick that label instead of the badge.
+   * Asserting `bg-destructive` kills ConditionalExpression→true/false, EqualityOperator,
+   * and the StringLiteral→"" mutation on `'destructive'` (L138).
+   */
+  it('renders the destructive variant class on the critical severity badge', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel({ severities: ['critical'] })])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    const badge = within(list).getByText('critical')
+    expect(badge.className).toContain('bg-destructive')
+  })
+
+  /**
+   * The severity badge for a `warning` channel must carry the `secondary` variant
+   * class (`bg-secondary`) and must NOT carry `bg-destructive`. Scoped to the channel
+   * list for the same reason as the critical test above.
+   * Asserting both sides kills ConditionalExpression→true and the StringLiteral→""
+   * mutation on `'secondary'` (L138:62).
+   */
+  it('renders the secondary variant class on the warning severity badge', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel({ severities: ['warning'] })])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    const badge = within(list).getByText('warning')
+    expect(badge.className).toContain('bg-secondary')
+    expect(badge.className).not.toContain('bg-destructive')
+  })
+
+  /**
+   * The endpoint placeholder switches between the webhook URL hint and the email
+   * address hint depending on the selected channel type. Asserting the exact
+   * placeholder strings kills StringLiteral mutations on those constants and the
+   * `draft.type === 'email-mock'` ConditionalExpression / EqualityOperator.
+   */
+  it('shows the correct endpoint placeholder for each channel type', async () => {
+    listChannelsMock.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderWithClient(<ChannelRegistry />)
+    await screen.findByText('Register a channel')
+    // Default type is slack — webhook URL placeholder.
+    expect(screen.getByPlaceholderText('https://hooks.slack.com/services/…')).toBeInTheDocument()
+    // Switch to email-mock — address placeholder.
+    const trigger = screen.getByRole('combobox', { name: 'Channel type' })
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    await user.click(await screen.findByRole('option', { name: 'email-mock' }))
+    expect(await screen.findByPlaceholderText('ops@example.com')).toBeInTheDocument()
+    expect(
+      screen.queryByPlaceholderText('https://hooks.slack.com/services/…'),
+    ).not.toBeInTheDocument()
+  })
+
+  /**
+   * Scoped version: query `within(list)` to ensure we find the severity badge
+   * inside the channel list — not the severity checkbox in the create form.
+   * Asserting `bg-destructive` kills ConditionalExpression→true/false,
+   * EqualityOperator, and StringLiteral→"" mutations on L138.
+   */
+  it('renders bg-destructive on the critical severity badge in the channel list', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel({ severities: ['critical'] })])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    const badge = within(list).getByText('critical')
+    expect(badge.className).toContain('bg-destructive')
+    expect(badge.className).not.toContain('bg-secondary')
+  })
+
+  /**
+   * Scoped version for warning severity. Asserting both `bg-secondary` presence
+   * and `bg-destructive` absence kills the full set of L138 mutations, including
+   * the StringLiteral→"" mutations on `'secondary'` and `'destructive'`.
+   */
+  it('renders bg-secondary on the warning severity badge in the channel list', async () => {
+    listChannelsMock.mockResolvedValue([makeChannel({ severities: ['warning'] })])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    const badge = within(list).getByText('warning')
+    expect(badge.className).toContain('bg-secondary')
+    expect(badge.className).not.toContain('bg-destructive')
+  })
 })

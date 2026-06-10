@@ -33,6 +33,7 @@ export class RetentionSweepService {
   private lastSweepAt: Date | null = null
 
   constructor(private readonly prisma: PrismaService) {
+    // Stryker disable next-line StringLiteral -- both the original empty string and the mutant string produce NaN from parseInt, so retentionDays always falls to the default
     const parsed = parseInt(process.env['RETENTION_DAYS'] ?? '', 10)
     this.retentionDays = Number.isFinite(parsed) && parsed > 0 ? parsed : 30
   }

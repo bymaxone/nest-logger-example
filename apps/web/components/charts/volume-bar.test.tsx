@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import type { LogQuery, VolumeRow } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
@@ -122,5 +122,62 @@ describe('VolumeBar', () => {
     // The lifted range maps back to real buckets from the brushed indices.
     expect(volumeRows.some((r) => r.bucket === from)).toBe(true)
     expect(volumeRows.some((r) => r.bucket === to)).toBe(true)
+  })
+})
+
+describe('VolumeBar — Brush onChange index fallbacks (stubbed recharts)', () => {
+  /**
+   * A real traveller drag always supplies both indices, so the `?? 0` /
+   * `?? points.length - 1` fallbacks and the missing-point guard are reachable
+   * only by invoking the `onChange` prop directly. The stub captures it; the
+   * surrounding chart primitives render pass-through containers.
+   */
+  let brushOnChange: ((range: { startIndex?: number; endIndex?: number }) => void) | undefined
+
+  /** Re-import the component with the stubbed recharts bound for this block only. */
+  async function importWithStubbedRecharts(): Promise<typeof import('./volume-bar')> {
+    vi.resetModules()
+    vi.doMock('recharts', () => ({
+      ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+      BarChart: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+      Bar: () => null,
+      Brush: (props: { onChange?: (r: { startIndex?: number; endIndex?: number }) => void }) => {
+        brushOnChange = props.onChange
+        return null
+      },
+      CartesianGrid: () => null,
+      Tooltip: () => null,
+      XAxis: () => null,
+      YAxis: () => null,
+    }))
+    return import('./volume-bar')
+  }
+
+  afterEach(() => {
+    brushOnChange = undefined
+    vi.doUnmock('recharts')
+    vi.resetModules()
+  })
+
+  /** Without indices the brushed range falls back to the full series window. */
+  it('lifts the full bucket range when the change event carries no indices', async () => {
+    aggregateState = { data: volumeRows, isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    const onBrush = vi.fn<(from: string, to: string) => void>()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={onBrush} />)
+    expect(brushOnChange).toBeDefined()
+    brushOnChange!({})
+    expect(onBrush).toHaveBeenCalledWith('2026-06-05T10:00:00.000Z', '2026-06-05T10:10:00.000Z')
+  })
+
+  /** With an empty series the fallback indices resolve no points, so nothing is lifted. */
+  it('does not lift a range when there are no points', async () => {
+    aggregateState = { data: [], isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    const onBrush = vi.fn<(from: string, to: string) => void>()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={onBrush} />)
+    expect(brushOnChange).toBeDefined()
+    brushOnChange!({})
+    expect(onBrush).not.toHaveBeenCalled()
   })
 })

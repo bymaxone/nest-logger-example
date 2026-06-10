@@ -253,6 +253,83 @@ describe('IncidentList', () => {
     )
   })
 
+  /**
+   * The status badge for a triggered incident must carry the `destructive` variant
+   * class (`bg-destructive`). Killing this mutation also kills ConditionalExpression
+   * and EqualityOperator mutations on STATUS_VARIANT['triggered'].
+   */
+  it('renders the destructive variant badge for a triggered incident', async () => {
+    listIncidentsMock.mockResolvedValue([makeIncident({ status: 'triggered' })])
+    renderWithClient(<IncidentList />)
+    const badge = await screen.findByText('triggered')
+    expect(badge.className).toContain('bg-destructive')
+  })
+
+  /**
+   * The status badge for an acknowledged incident must carry the `secondary` variant
+   * class (`bg-secondary`). Killing this mutation kills STATUS_VARIANT['acknowledged'].
+   */
+  it('renders the secondary variant badge for an acknowledged incident', async () => {
+    listIncidentsMock.mockResolvedValue([makeIncident({ status: 'acknowledged' })])
+    renderWithClient(<IncidentList />)
+    const badge = await screen.findByText('acknowledged')
+    expect(badge.className).toContain('bg-secondary')
+    expect(badge.className).not.toContain('bg-destructive')
+  })
+
+  /**
+   * The status badge for a resolved incident must carry the `default` variant
+   * class (`bg-brand-500`). Killing this mutation kills STATUS_VARIANT['resolved'].
+   */
+  it('renders the default variant badge for a resolved incident', async () => {
+    listIncidentsMock.mockResolvedValue([
+      makeIncident({ status: 'resolved', resolvedAt: '2026-01-01T12:00:00.000Z' }),
+    ])
+    renderWithClient(<IncidentList />)
+    const badge = await screen.findByText('resolved')
+    expect(badge.className).toContain('bg-brand-500')
+  })
+
+  /**
+   * The status badge for a snoozed incident must carry the `outline` variant
+   * class (`text-foreground`). Killing this mutation kills STATUS_VARIANT['snoozed'].
+   */
+  it('renders the outline variant badge for a snoozed incident', async () => {
+    listIncidentsMock.mockResolvedValue([
+      makeIncident({ status: 'snoozed', resolvedAt: '2026-01-01T14:00:00.000Z' }),
+    ])
+    renderWithClient(<IncidentList />)
+    const badge = await screen.findByText('snoozed')
+    expect(badge.className).toContain('text-foreground')
+    expect(badge.className).not.toContain('bg-brand-500')
+  })
+
+  /**
+   * A triggered incident must NOT show the "snoozed until …" span.
+   * A ConditionalExpression→true mutation would always render that span; asserting
+   * its absence for a triggered incident kills both ConditionalExpression mutations.
+   */
+  it('does not show the snoozed-until hint for a triggered incident', async () => {
+    listIncidentsMock.mockResolvedValue([makeIncident({ status: 'triggered' })])
+    renderWithClient(<IncidentList />)
+    await screen.findByText('triggered')
+    expect(screen.queryByText(/snoozed until/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * A resolved incident with `resolvedAt` set must NOT show the "snoozed until …"
+   * span. A LogicalOperator mutation that turns `&&` into `||` would render the span
+   * for any incident with a non-null `resolvedAt`, including resolved ones.
+   */
+  it('does not show the snoozed-until hint for a resolved incident with resolvedAt set', async () => {
+    listIncidentsMock.mockResolvedValue([
+      makeIncident({ status: 'resolved', resolvedAt: '2026-01-01T12:00:00.000Z' }),
+    ])
+    renderWithClient(<IncidentList />)
+    await screen.findByText('resolved')
+    expect(screen.queryByText(/snoozed until/)).not.toBeInTheDocument()
+  })
+
   /** Only the in-flight row blocks its actions, proving the per-row pending guard. */
   it('blocks only the in-flight row while its transition is pending', async () => {
     listIncidentsMock.mockResolvedValue([
@@ -286,5 +363,69 @@ describe('IncidentList', () => {
 
     resolveTransition(makeIncident({ id: 'i1', status: 'acknowledged' }))
     await waitFor(() => expect(transitionIncidentMock).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('IncidentList — SNOOZE_DURATIONS and STATUS_VARIANT module-level re-import', () => {
+  /**
+   * Re-importing the module inside the test body forces SNOOZE_DURATIONS and
+   * STATUS_VARIANT to be evaluated with Stryker's active mutation injected.
+   *
+   * A StringLiteral → "" mutation on a SNOOZE_DURATIONS entry makes the menu item
+   * text '' instead of e.g. '1h' → the text matcher fails → mutation killed.
+   * An ObjectLiteral / StringLiteral mutation on a STATUS_VARIANT entry changes
+   * the variant class rendered on the badge → the CSS class assertion fails →
+   * mutation killed.
+   */
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+  })
+
+  it('re-imports and verifies all four snooze duration menu items render', async () => {
+    vi.resetModules()
+    const { IncidentList: FreshList } = await import('./incident-list')
+    listIncidentsMock.mockResolvedValue([makeIncident({ status: 'triggered' })])
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FreshList />
+      </QueryClientProvider>,
+    )
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /Snooze/ }))
+    expect(await screen.findByRole('menuitem', { name: '1h' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '4h' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '8h' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '24h' })).toBeInTheDocument()
+  })
+
+  it('re-imports and verifies STATUS_VARIANT badge classes for all four statuses', async () => {
+    const cases: [Incident['status'], string][] = [
+      ['triggered', 'bg-destructive'],
+      ['acknowledged', 'bg-secondary'],
+      ['resolved', 'bg-brand-500'],
+      ['snoozed', 'text-foreground'],
+    ]
+    for (const [status, cssClass] of cases) {
+      vi.resetModules()
+      const { IncidentList: FreshList } = await import('./incident-list')
+      listIncidentsMock.mockResolvedValue([
+        makeIncident({
+          status,
+          resolvedAt:
+            status === 'snoozed' || status === 'resolved' ? '2026-01-01T12:00:00.000Z' : null,
+        }),
+      ])
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <FreshList />
+        </QueryClientProvider>,
+      )
+      const badge = await screen.findByText(status)
+      expect(badge.className, `${status} badge missing ${cssClass}`).toContain(cssClass)
+      cleanup()
+    }
   })
 })

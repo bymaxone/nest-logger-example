@@ -136,6 +136,17 @@ describe('logColumns', () => {
   })
 
   /**
+   * An id of exactly 9 chars falls past the `<= 8` boundary and is shortened.
+   * Asserting this kills the `<= 8` → `<= 9` mutation.
+   */
+  it('shortens a 9-character id with an ellipsis + last-8-chars suffix', () => {
+    render(<RowCells row={makeRow({ requestId: '123456789', traceId: '987654321' })} />)
+    // 9 chars: `…23456789` and `…87654321` (last 8 chars with leading ellipsis).
+    expect(screen.getByText('…23456789')).toBeInTheDocument()
+    expect(screen.getByText('…87654321')).toBeInTheDocument()
+  })
+
+  /**
    * A null id and an absent (undefined) id both render the em-dash placeholder —
    * covering the `=== null` and `=== undefined` operands of the shortId guard.
    */

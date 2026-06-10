@@ -137,6 +137,7 @@ export class LogsAggregateService {
       parts.push(Prisma.sql`AND "level" = ${level}`)
     } else if (
       level &&
+      // Stryker disable next-line ConditionalExpression -- typeof check is redundant when the surrounding && guards already imply an object type
       typeof level === 'object' &&
       Array.isArray((level as { in?: unknown }).in)
     ) {

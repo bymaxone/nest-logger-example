@@ -82,4 +82,38 @@ describe('PipelineHealth', () => {
     render(<PipelineHealth query={BASE_QUERY} />)
     expect(screen.getAllByText('0')).toHaveLength(3)
   })
+
+  /**
+   * A non-zero count renders the destructive colour class (`count > 0` true branch).
+   * Asserting the class kills mutations to the comparison operator.
+   */
+  it('renders the count with the destructive colour class when count > 0', () => {
+    facets = {
+      isLoading: false,
+      data: {
+        logKey: [{ value: 'LOGGER_DESTINATION_WRITE_FAILED', count: 3 }],
+      },
+    }
+    render(<PipelineHealth query={BASE_QUERY} />)
+    const countEl = screen.getByText('3')
+    expect(countEl.className).toContain('text-destructive')
+    expect(countEl.className).not.toContain('color-success')
+  })
+
+  /**
+   * Zero counts render the success colour class (`count > 0` false branch).
+   * Using the missing-data case (all keys absent → all 0) checks every counter class.
+   * This kills the `count > 0` → `count >= 0` mutation.
+   */
+  it('renders all zero counts with the success colour class', () => {
+    facets = { isLoading: false, data: {} }
+    render(<PipelineHealth query={BASE_QUERY} />)
+    // All 3 pipeline keys are missing → all resolved to 0 via `?? 0`.
+    const countEls = screen.getAllByText('0')
+    expect(countEls).toHaveLength(3)
+    for (const el of countEls) {
+      expect(el.className).not.toContain('text-destructive')
+      expect(el.className).toContain('color-success')
+    }
+  })
 })

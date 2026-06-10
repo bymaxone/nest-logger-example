@@ -217,4 +217,46 @@ describe('CorrelationHeadersInterceptor', () => {
 
     expect(res.setHeader).not.toHaveBeenCalledWith('X-Trace-Id', expect.anything())
   })
+
+  it('sets X-Trace-Id for a trace id ending in zeros (not all-zeros) — kills /0+$/ regex mutant', () => {
+    /**
+     * Scenario: trace id ends with zeros but contains non-zero digits.
+     * Rule: `/^0+$/` must NOT match `'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c500'` (ends
+     * with `00` but is not all-zeros), so X-Trace-Id must be written.
+     * Under the regex mutant `/0+$/` (no `^` anchor), this value WOULD match
+     * (because it ends with zeros) and the header would be suppressed — killing
+     * the mutant requires the header to be SET.
+     */
+    const trailingZeroId = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c500'
+    stubActiveSpan(undefined)
+    const res = makeResponse()
+    const interceptor = new CorrelationHeadersInterceptor(
+      makeLogContext({ requestId: 'req-tz', traceId: trailingZeroId }),
+    )
+
+    interceptor.intercept(makeContext(res), makeHandler().handler)
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Trace-Id', trailingZeroId)
+  })
+
+  it('sets X-Trace-Id for a trace id starting with zeros (not all-zeros) — kills /^0+/ regex mutant', () => {
+    /**
+     * Scenario: trace id starts with zeros but contains non-zero digits.
+     * Rule: `/^0+$/` must NOT match `'00a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5'` (starts
+     * with `00` but is not all-zeros), so X-Trace-Id must be written.
+     * Under the regex mutant `/^0+/` (no `$` anchor), this value WOULD match
+     * (because it starts with zeros) and the header would be suppressed — killing
+     * the mutant requires the header to be SET.
+     */
+    const leadingZeroId = '00a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5'
+    stubActiveSpan(undefined)
+    const res = makeResponse()
+    const interceptor = new CorrelationHeadersInterceptor(
+      makeLogContext({ requestId: 'req-lz', traceId: leadingZeroId }),
+    )
+
+    interceptor.intercept(makeContext(res), makeHandler().handler)
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Trace-Id', leadingZeroId)
+  })
 })

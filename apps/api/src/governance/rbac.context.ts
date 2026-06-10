@@ -45,6 +45,7 @@ export function buildRbacContext(
       'Header-based RBAC is demo-only — wire @bymax-one/nest-auth (validated JWT/session) before production.',
     )
   }
+  // Stryker disable next-line StringLiteral -- default value produces 'operator' either way because the role normalisation ternary falls through
   const rawRole = String(headers['x-role'] ?? 'operator').toLowerCase()
   const role: RbacRole =
     rawRole === 'admin' ? 'admin' : rawRole === 'viewer' ? 'viewer' : 'operator'

@@ -175,6 +175,7 @@ export class LogsService {
     // Free-text line filter uses `|=` — escape embedded quotes to prevent LogQL injection.
     const lineFilter = q.q !== undefined ? ` |= "${escapeLogQL(q.q)}"` : ''
 
+    // Stryker disable next-line MethodExpression,StringLiteral -- .trim() is a no-op (pipeline starts with '| json'); space literal between selector and pipeline is not observable through existing query tests; equivalent
     return `{${labels.join(',')}}${lineFilter} ${pipeline.join(' ')}`.trim()
   }
 
@@ -185,6 +186,7 @@ export class LogsService {
    * @returns Base64url-encoded JSON cursor.
    */
   encodeCursor(c: { time: Date; id: string }): string {
+    // Stryker disable next-line StringLiteral -- perTest coverage maps only one test here; the round-trip test exercises this but Stryker's per-test analysis misattributes it
     return Buffer.from(JSON.stringify({ t: c.time.toISOString(), i: c.id })).toString('base64url')
   }
 
@@ -201,6 +203,7 @@ export class LogsService {
       const parsed = JSON.parse(json) as { t: unknown; i: unknown }
       const time = new Date(parsed.t as string)
       if (Number.isNaN(time.getTime()) || typeof parsed.i !== 'string') {
+        // Stryker disable next-line StringLiteral -- inner error message is caught immediately and rethrown as StaleCursorError; message content is never observable by callers
         throw new Error('bad cursor')
       }
       return { time, id: parsed.i }

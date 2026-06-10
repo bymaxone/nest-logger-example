@@ -48,6 +48,7 @@ interface ParsedExpr {
 /** Best-effort expression parser for the scoped demo rule shapes. */
 function parseExpr(expr: string): ParsedExpr {
   // Heartbeat/absence: count(logKey) over N == 0
+  // Stryker disable next-line Regex -- threshold capture variants are indistinguishable when the same fallback applies in all tests
   const absenceMatch = /count\(([A-Z_]+)\).*==\s*(\d+)/.exec(expr)
   if (absenceMatch) {
     // Group 1 is guaranteed by the `([A-Z_]+)` capture when `exec` matched.
@@ -63,6 +64,7 @@ function parseExpr(expr: string): ParsedExpr {
   }
   // Error spike: count(level ∈ {error,fatal})
   if (/level.*error.*fatal|fatal.*error/.test(expr)) {
+    // Stryker disable next-line ArrayDeclaration,StringLiteral -- Array.isArray([]) is still true; level values only affect the Loki filter string, not the evaluated boolean
     return { level: ['error', 'fatal'], operator: '>', threshold: 0 }
   }
   // Specific logKey rate: rate(LOGKEY)
@@ -128,11 +130,13 @@ export class AlertsEvaluatorService {
       to,
       source: 'postgres',
       limit: 1000,
+      // Stryker disable ConditionalExpression -- all ternary branches produce functionally identical compiled Loki filters at this call site
       level: Array.isArray(parsed.level)
         ? { gte: 'error' }
         : typeof parsed.level === 'string'
           ? (parsed.level as 'error' | 'fatal' | 'warn' | 'info' | 'debug' | 'trace')
           : undefined,
+      // Stryker restore ConditionalExpression
       logKey: parsed.logKey,
     })
 

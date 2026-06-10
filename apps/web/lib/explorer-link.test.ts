@@ -92,4 +92,88 @@ describe('explorerHref', () => {
     expect(params.get('range')).toBe('1h')
     expect(params.get('logKey')).toBe('PAYMENT_CHARGE_FAILED')
   })
+
+  /** The href must be root-relative and begin with the exact `/explorer?` prefix. */
+  it('returns an href rooted at /explorer', () => {
+    const href = explorerHref({ requestId: 'req_x' })
+    expect(href.startsWith('/explorer?')).toBe(true)
+  })
+
+  /**
+   * An empty-string `traceId` must be omitted so the Explorer does not receive
+   * a blank trace filter (covers the `!== ''` guard on the traceId branch).
+   */
+  it('omits an empty-string traceId', () => {
+    const href = explorerHref({ traceId: '' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('traceId')).toBeNull()
+    // Falls back to the default relative range.
+    expect(params.get('range')).toBe('15m')
+  })
+
+  /**
+   * An empty-string `logKey` must be omitted so the Explorer does not apply a
+   * blank key filter (covers the `!== ''` guard on the logKey branch).
+   */
+  it('omits an empty-string logKey', () => {
+    const href = explorerHref({ logKey: '' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('logKey')).toBeNull()
+  })
+
+  /**
+   * An empty-string `from` must NOT trigger the absolute-window branch — the
+   * function falls through to the relative range (covers the `!== ''` guard on from).
+   */
+  it('falls back to relative range when from is an empty string', () => {
+    const href = explorerHref({ from: '' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('from')).toBeNull()
+    expect(params.get('range')).toBe('15m')
+  })
+
+  /**
+   * The default range is exactly `15m` — pins the `DEFAULT_RANGE` constant so a
+   * mutation to its value (e.g. `'1h'`) is caught.
+   */
+  it('applies the 15m default range when no range or from/to is given', () => {
+    const params = new URLSearchParams(explorerHref({ requestId: 'r1' }).split('?')[1])
+    expect(params.get('range')).toBe('15m')
+  })
+})
+
+describe('explorerHref — absent optional fields must not appear in the URL', () => {
+  /**
+   * When `traceId` is not provided the URL must not contain a `traceId=`
+   * param at all. Asserting null kills the ConditionalExpression→true mutation
+   * that always calls `params.set('traceId', undefined)` regardless of whether
+   * the field is present.
+   */
+  it('omits traceId from the URL when target.traceId is undefined', () => {
+    const href = explorerHref({ requestId: 'req_1' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('traceId')).toBeNull()
+  })
+
+  /**
+   * When `requestId` is not provided the URL must not contain a `requestId=`
+   * param. Mirrors the traceId guard test and kills the ConditionalExpression→true
+   * mutation on the `target.requestId !== undefined` branch.
+   */
+  it('omits requestId from the URL when target.requestId is undefined', () => {
+    const href = explorerHref({ traceId: 'trace_1' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('requestId')).toBeNull()
+  })
+
+  /**
+   * When `logKey` is not provided the URL must not contain a `logKey=` param.
+   * Kills the ConditionalExpression→true mutation on the `target.logKey !== undefined`
+   * branch that always calls `params.set('logKey', undefined)`.
+   */
+  it('omits logKey from the URL when target.logKey is undefined', () => {
+    const href = explorerHref({ requestId: 'req_1' })
+    const params = new URLSearchParams(href.split('?')[1])
+    expect(params.get('logKey')).toBeNull()
+  })
 })

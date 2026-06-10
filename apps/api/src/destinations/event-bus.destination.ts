@@ -38,7 +38,7 @@ export class EventBusLogDestination implements ILogDestination {
 
   constructor(
     private readonly bus: LogEventBus,
-    opts: EventBusLogDestinationOptions = {},
+    private readonly opts: EventBusLogDestinationOptions = {},
   ) {
     this.minLevel = opts.minLevel ?? 'info'
   }

@@ -281,6 +281,96 @@ describe('TriggerCard', () => {
     )
   })
 
+  /** All three level options are present in the level select. */
+  it('shows the info, warn and error options in the level select', async () => {
+    const { descriptor } = descriptorResolving(okResult(), { input: 'level' })
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await pointerUser.click(screen.getByRole('combobox', { name: 'Level' }))
+    const listbox = await screen.findByRole('listbox')
+    expect(within(listbox).getByRole('option', { name: 'info' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: 'warn' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: 'error' })).toBeInTheDocument()
+  })
+
+  /** All four status-code options are present in the status select. */
+  it('shows all four status code options in the status select', async () => {
+    const { descriptor } = descriptorResolving(okResult(), {
+      input: 'status',
+      isExpectedError: true,
+    })
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await pointerUser.click(screen.getByRole('combobox', { name: 'Status code' }))
+    const listbox = await screen.findByRole('listbox')
+    expect(within(listbox).getByRole('option', { name: '400' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: '404' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: '500' })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: '503' })).toBeInTheDocument()
+  })
+
+  /** The burst input starts at the default count of 50 (kills DEFAULT_BURST_COUNT mutations). */
+  it('shows the default burst count of 50 in the count input', () => {
+    const { descriptor } = descriptorResolving(okResult(), { input: 'burst' })
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    const input = screen.getByLabelText('Burst count') as HTMLInputElement
+    expect(input.value).toBe('50')
+  })
+
+  /**
+   * Request and trace ids are sliced to exactly 12 characters in the result strip.
+   * Using a 13-char id where the 13th char is distinct asserts that the 13th char
+   * is absent — killing the `ID_PREVIEW_LEN = 12` → `13` mutation.
+   */
+  it('slices request and trace ids to exactly 12 characters', async () => {
+    const { descriptor } = descriptorResolving(
+      okResult({ requestId: 'ABCDEF123456X', traceId: 'ZYXWVU654321A' }),
+    )
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    const strip = await screen.findByText(/HTTP 200/)
+    // slice(0, 12) = 'ABCDEF123456'; the 13th char 'X' must not be shown.
+    expect(strip.textContent).toContain('req ABCDEF123456')
+    expect(strip.textContent).not.toContain('req ABCDEF123456X')
+    expect(strip.textContent).toContain('trace ZYXWVU654321')
+    expect(strip.textContent).not.toContain('trace ZYXWVU654321A')
+  })
+
+  /**
+   * Status 400 is the boundary for destructive styling (`status >= 400`).
+   * Verifying the destructive class at exactly 400 kills the `>= 400` → `> 400`
+   * mutation on the result strip's class expression.
+   */
+  it('styles the HTTP 400 result strip as destructive', async () => {
+    const { descriptor } = descriptorResolving(
+      okResult({ status: 400, requestId: null, traceId: null }),
+      { isExpectedError: true },
+    )
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled())
+    const strip = screen.getByText(/HTTP 400/)
+    expect(strip.className).toContain('text-destructive')
+    expect(strip.className).not.toContain('text-white')
+  })
+
+  /**
+   * Status 399 is below the 400 boundary, so the result strip uses the non-destructive
+   * class. This kills the `>= 400` → `>= 399` mutation.
+   */
+  it('does not style the HTTP 399 result strip as destructive', async () => {
+    const { descriptor } = descriptorResolving(
+      okResult({ status: 399, requestId: null, traceId: null }),
+    )
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled())
+    const strip = screen.getByText(/HTTP 399/)
+    expect(strip.className).not.toContain('text-destructive')
+    expect(strip.className).toContain('text-white')
+  })
+
   /** While a fire is in flight the button shows "Firing…" and is disabled (the loading branch). */
   it('disables the button and shows the firing label while in flight', async () => {
     let resolveFire: (value: TriggerResult) => void = () => {}
@@ -302,5 +392,60 @@ describe('TriggerCard', () => {
     // Resolve so the finally clause clears the loading state and the button returns.
     resolveFire(okResult())
     await waitFor(() => expect(screen.getByRole('button', { name: 'Fire' })).toBeEnabled())
+  })
+
+  /**
+   * A level card fired without changing the select must pass `level: 'info'` to
+   * the fire context (the `useState('info')` initial value).
+   * Asserting the exact value kills the StringLiteral→"" mutation that sets the
+   * initial level to `''` instead of `'info'`.
+   */
+  it('passes the default level info to the fire context when no selection is made', async () => {
+    const { descriptor, seen } = descriptorResolving(okResult(), { input: 'level' })
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    await waitFor(() => expect(seen.ctx).not.toBeNull())
+    expect(seen.ctx?.level).toBe('info')
+  })
+
+  /**
+   * A fire returning status 400 on a non-isExpectedError card must show an error
+   * toast. Asserting this kills the EqualityOperator mutation on `value.status >= 400`
+   * that changes it to `> 400`, making status=400 fall through to the success toast.
+   */
+  it('toasts an error for an unexpected status-400 response', async () => {
+    const { descriptor } = descriptorResolving(okResult({ status: 400 }))
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Demo card returned 400'))
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The result strip element must carry `font-mono` as a class.
+   * Asserting this kills the StringLiteral→"" mutation that strips `font-mono`
+   * from the className, making the status text render in a proportional font.
+   */
+  it('applies font-mono class to the result strip span', async () => {
+    const { descriptor } = descriptorResolving(okResult())
+    const user = userEvent.setup()
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    await user.click(screen.getByRole('button', { name: 'Fire' }))
+    const strip = await screen.findByText(/HTTP 200/)
+    expect(strip.className).toContain('font-mono')
+  })
+
+  /**
+   * The card root must carry the correct `data-testid` attribute including the
+   * descriptor id. Asserting this kills the StringLiteral→"" mutation that
+   * replaces the template literal `` `trigger-${descriptor.id}` `` with `''`,
+   * removing the testid entirely.
+   */
+  it('sets the correct data-testid on the card root element', () => {
+    const { descriptor } = descriptorResolving(okResult(), { id: 'order' })
+    render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
+    expect(document.querySelector('[data-testid="trigger-order"]')).not.toBeNull()
   })
 })

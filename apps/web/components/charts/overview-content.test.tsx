@@ -228,4 +228,110 @@ describe('OverviewContent', () => {
     expect(screen.getByRole('button', { name: 'Top tenants:t1' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Top tenants:other' })).not.toBeInTheDocument()
   })
+
+  /**
+   * Exactly TOP_N (5) tenant rows must pass through without rolling up into "other"
+   * (the `rows.length <= n` boundary). Asserting this kills the `<= n` → `< n` mutation.
+   */
+  it('does not roll up when the tenant count is exactly the top-N limit', () => {
+    facetResults = {
+      breakdown: {
+        tenantId: [
+          { value: 't1', count: 50 },
+          { value: 't2', count: 40 },
+          { value: 't3', count: 30 },
+          { value: 't4', count: 20 },
+          { value: 't5', count: 10 },
+        ],
+      },
+      error: {},
+    }
+    render(<OverviewContent />)
+    // Exactly 5 rows = TOP_N (5) so no "other" bucket and all 5 rows are visible.
+    expect(screen.queryByRole('button', { name: 'Top tenants:other' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Top tenants:t1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Top tenants:t5' })).toBeInTheDocument()
+  })
+
+  /**
+   * Six tenants exceed TOP_N (5), so the sixth rolls into "other".
+   * Asserting "other" is present kills the `TOP_N = 5` → `TOP_N = 6` mutation:
+   * with TOP_N=6, all six rows pass through unchanged and "other" never appears.
+   */
+  it('rolls the sixth tenant into "other" when there are exactly six tenants', () => {
+    facetResults = {
+      breakdown: {
+        tenantId: [
+          { value: 't1', count: 60 },
+          { value: 't2', count: 50 },
+          { value: 't3', count: 40 },
+          { value: 't4', count: 30 },
+          { value: 't5', count: 20 },
+          { value: 't6', count: 10 },
+        ],
+      },
+      error: {},
+    }
+    render(<OverviewContent />)
+    // With TOP_N=5: t6 is collapsed into "other" (count 10 > 0).
+    expect(screen.getByRole('button', { name: 'Top tenants:other' })).toBeInTheDocument()
+    // t1 remains as a named row; t6 is gone (subsumed by "other").
+    expect(screen.getByRole('button', { name: 'Top tenants:t1' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Top tenants:t6' })).not.toBeInTheDocument()
+  })
+
+  /**
+   * `useFacets` must be called with the exact field arrays defined by the
+   * `BREAKDOWN_FACETS` and `ERROR_FACETS` constants. Asserting the exact values
+   * kills StringLiteral mutations to those constants (e.g. 'logKey' → '' or
+   * 'tenantId' → '').
+   */
+  it('passes the correct facet fields for breakdown and error queries', () => {
+    render(<OverviewContent />)
+    const breakdownCall = facetCalls.find((c) => c.fields.length === 2)
+    const errorCall = facetCalls.find((c) => c.fields.length === 1)
+    expect(breakdownCall?.fields).toEqual(['logKey', 'tenantId'])
+    expect(errorCall?.fields).toEqual(['logKey'])
+  })
+})
+
+/**
+ * Re-import tests for the module-level BREAKDOWN_FACETS and ERROR_FACETS constants.
+ *
+ * Those arrays are initialised at module load time so Stryker's perTest coverage
+ * analysis reports `coveredBy: []` for their string-literal mutations (e.g.
+ * 'logKey' → '' or 'tenantId' → ''). Calling vi.resetModules() and re-importing
+ * inside the test body forces module re-evaluation with the active mutation,
+ * attributing coverage to this specific test so Stryker can detect the kill.
+ */
+describe('OverviewContent — BREAKDOWN_FACETS and ERROR_FACETS module-level re-import', () => {
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+    vi.clearAllMocks()
+  })
+
+  it('re-imports and verifies BREAKDOWN_FACETS passes logKey and tenantId to useFacets', async () => {
+    facetCalls.length = 0
+    facetResults = { breakdown: {}, error: {} }
+    facetLoading = false
+    query = { source: 'loki' }
+    vi.resetModules()
+    const { OverviewContent: FreshContent } = await import('./overview-content')
+    render(<FreshContent />)
+    const breakdownCall = facetCalls.find((c) => c.fields.length === 2)
+    expect(breakdownCall?.fields).toEqual(['logKey', 'tenantId'])
+  })
+
+  it('re-imports and verifies ERROR_FACETS passes only logKey to useFacets', async () => {
+    facetCalls.length = 0
+    facetResults = { breakdown: {}, error: {} }
+    facetLoading = false
+    query = { source: 'loki' }
+    vi.resetModules()
+    const { OverviewContent: FreshContent } = await import('./overview-content')
+    render(<FreshContent />)
+    const errorCall = facetCalls.find((c) => c.fields.length === 1)
+    expect(errorCall?.fields).toEqual(['logKey'])
+  })
 })

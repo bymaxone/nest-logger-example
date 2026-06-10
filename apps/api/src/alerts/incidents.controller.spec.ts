@@ -14,7 +14,7 @@ import type { Incident } from '@prisma/client'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
 import type { AuditService } from '../governance/audit.service.js'
-import { IncidentsController } from './incidents.controller.js'
+import { IncidentsController, SNOOZE_MS, transitionSchema } from './incidents.controller.js'
 
 /** Typed alias for the mocked Prisma / audit surfaces. */
 type MockFn = ReturnType<typeof jest.fn>
@@ -106,6 +106,25 @@ describe('IncidentsController.transition', () => {
     } as unknown as PrismaService
     audit = { record: recordMock } as unknown as AuditService
     controller = new IncidentsController(prisma, audit)
+  })
+
+  it('allows a non-admin operator WITH a tenantId to transition an incident (kills L111 mutant)', async () => {
+    /**
+     * Scenario: operator role + x-tenant-id present.
+     * Rule: the condition `ctx.role !== 'admin' && ctx.tenantId === undefined` must be
+     * false when tenantId IS supplied — the transition must proceed. A mutant that
+     * replaces `ctx.tenantId === undefined` with `true` makes the condition always throw
+     * for non-admins regardless of tenantId, failing this test.
+     */
+    await expect(
+      controller.transition(
+        'inc-1',
+        { 'x-role': 'operator', 'x-tenant-id': 'acme', 'x-actor': 'alice' },
+        { action: 'acknowledge' },
+      ),
+    ).resolves.toBeDefined()
+    expect(findUniqueMock).toHaveBeenCalled()
+    expect(updateMock).toHaveBeenCalled()
   })
 
   it('forbids a non-admin without a tenantId from mutating an incident', async () => {
@@ -284,5 +303,164 @@ describe('IncidentsController.transition', () => {
     )) as { deepLink: string }
 
     expect(result.deepLink).toBe('/explorer?logKey=&from=2026-01-01T00:00:00.000Z')
+  })
+
+  it('throws ForbiddenException with the exact tenant-required message for a non-admin without tenantId', async () => {
+    /**
+     * Scenario: non-admin caller omits x-tenant-id.
+     * Rule: the exact message `'x-tenant-id header is required to modify incidents'`
+     * must be on the thrown ForbiddenException — kills the StringLiteral mutation.
+     */
+    let thrown: unknown
+    try {
+      await controller.transition('inc-1', { 'x-role': 'operator' }, { action: 'acknowledge' })
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(ForbiddenException)
+    expect((thrown as ForbiddenException).message).toBe(
+      'x-tenant-id header is required to modify incidents',
+    )
+  })
+
+  it('throws NotFoundException whose message includes the incident id', async () => {
+    /**
+     * Scenario: incident not found.
+     * Rule: the NotFoundException message must contain the missing id so it is
+     * observable in logs — kills the StringLiteral mutation on the template literal
+     * `Incident ${id} not found`.
+     */
+    findUniqueMock.mockResolvedValue(null)
+    let thrown: unknown
+    try {
+      await controller.transition('ghost-id', { 'x-role': 'admin' }, { action: 'resolve' })
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(NotFoundException)
+    expect((thrown as NotFoundException).message).toContain('ghost-id')
+  })
+
+  it('audit record carries no tenantId key at all when the caller is admin with no tenantId (strict equality)', async () => {
+    /**
+     * Scenario: admin acknowledges without x-tenant-id.
+     * Rule: the conditional spread `ctx.tenantId !== undefined ? { tenantId } : {}`
+     * must produce an object with NO tenantId key. A mutant that replaces the condition
+     * with `true` spreads `{ tenantId: undefined }`, which toStrictEqual distinguishes
+     * from `{}`, killing the mutant.
+     */
+    await controller.transition(
+      'inc-1',
+      { 'x-role': 'admin', 'x-actor': 'root' },
+      { action: 'acknowledge' },
+    )
+    const callArg = recordMock.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(callArg).toStrictEqual({
+      actor: 'root',
+      action: 'incident.acknowledge',
+      target: 'Incident:inc-1',
+    })
+  })
+
+  it('snoozes with the 8h duration, producing the correct resolvedAt', async () => {
+    /**
+     * Scenario: snoozeDuration='8h'.
+     * Rule: `SNOOZE_MS['8h']` must equal exactly 8 × 60 × 60 × 1000 ms — kills
+     * the ArithmeticOperator mutation on the 8h entry of the SNOOZE_MS map.
+     */
+    const before = Date.now()
+    await controller.transition(
+      'inc-1',
+      { 'x-role': 'admin', 'x-tenant-id': 'acme' },
+      { action: 'snooze', snoozeDuration: '8h' },
+    )
+    const after = Date.now()
+
+    const updateArg = updateMock.mock.calls[0]?.[0] as { data: { resolvedAt: Date } }
+    const eightHoursMs = 8 * 60 * 60 * 1000
+    expect(updateArg.data.resolvedAt.getTime()).toBeGreaterThanOrEqual(before + eightHoursMs)
+    expect(updateArg.data.resolvedAt.getTime()).toBeLessThanOrEqual(after + eightHoursMs)
+  })
+
+  it('snoozes with the 24h duration, producing the correct resolvedAt', async () => {
+    /**
+     * Scenario: snoozeDuration='24h'.
+     * Rule: `SNOOZE_MS['24h']` must equal exactly 24 × 60 × 60 × 1000 ms — kills
+     * the ArithmeticOperator mutation on the 24h entry of the SNOOZE_MS map.
+     */
+    const before = Date.now()
+    await controller.transition(
+      'inc-1',
+      { 'x-role': 'admin', 'x-tenant-id': 'acme' },
+      { action: 'snooze', snoozeDuration: '24h' },
+    )
+    const after = Date.now()
+
+    const updateArg = updateMock.mock.calls[0]?.[0] as { data: { resolvedAt: Date } }
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000
+    expect(updateArg.data.resolvedAt.getTime()).toBeGreaterThanOrEqual(before + twentyFourHoursMs)
+    expect(updateArg.data.resolvedAt.getTime()).toBeLessThanOrEqual(after + twentyFourHoursMs)
+  })
+})
+
+describe('transitionSchema — validation', () => {
+  it('accepts all four valid snoozeDuration values (kills ArrayDeclaration [] and StringLiteral "" mutants)', () => {
+    /**
+     * Scenario: each allowed snooze duration is submitted.
+     * Rule: the ArrayDeclaration mutant replaces `['1h','4h','8h','24h']` with `[]`,
+     * rejecting every value. The StringLiteral mutants replace individual values with
+     * ''. Both are killed by asserting that each of the four strings parses successfully.
+     */
+    for (const dur of ['1h', '4h', '8h', '24h'] as const) {
+      const result = transitionSchema.safeParse({ action: 'snooze', snoozeDuration: dur })
+      expect(result.success).toBe(true)
+    }
+  })
+
+  it('rejects an empty snoozeDuration and a value not in the enum', () => {
+    /**
+     * Scenario: invalid snoozeDuration values.
+     * Rule: '' and '2h' are not in the enum — both must fail validation.
+     * This confirms the enum is non-empty and exact (not replaced by an open string type).
+     */
+    expect(transitionSchema.safeParse({ action: 'snooze', snoozeDuration: '' }).success).toBe(false)
+    expect(transitionSchema.safeParse({ action: 'snooze', snoozeDuration: '2h' }).success).toBe(
+      false,
+    )
+  })
+
+  it('accepts all three valid action values', () => {
+    /**
+     * Scenario: each allowed action string is submitted.
+     * Rule: 'acknowledge', 'snooze', 'resolve' are the only valid actions.
+     * Confirms the enum is not empty and each string is intact.
+     */
+    for (const action of ['acknowledge', 'snooze', 'resolve'] as const) {
+      const result = transitionSchema.safeParse({ action })
+      expect(result.success).toBe(true)
+    }
+  })
+
+  it('rejects an empty or invalid action', () => {
+    /**
+     * Scenario: action that is not in the enum.
+     * Rule: '' and 'cancel' are not valid actions and must be rejected.
+     */
+    expect(transitionSchema.safeParse({ action: '' }).success).toBe(false)
+    expect(transitionSchema.safeParse({ action: 'cancel' }).success).toBe(false)
+  })
+})
+
+describe('SNOOZE_MS — exact arithmetic values', () => {
+  it('has the correct millisecond values for all four snooze durations', () => {
+    /**
+     * Scenario: inspect the exported SNOOZE_MS map directly.
+     * Rule: each value must equal the exact arithmetic constant — kills any
+     * ArithmeticOperator mutation that changes a multiplier (×→÷, 60→61, etc.).
+     */
+    expect(SNOOZE_MS['1h']).toBe(3_600_000)
+    expect(SNOOZE_MS['4h']).toBe(14_400_000)
+    expect(SNOOZE_MS['8h']).toBe(28_800_000)
+    expect(SNOOZE_MS['24h']).toBe(86_400_000)
   })
 })

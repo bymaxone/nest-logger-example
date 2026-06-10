@@ -218,4 +218,166 @@ describe('triggerApi', () => {
     expect(result.requestId).toBeNull()
     expect(result.traceId).toBeNull()
   })
+
+  /** order fires POST /orders with the exact documented body (amount, tenantId, userId). */
+  it('fires order with the exact body including the fixed amount and userId', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.order('tenant-xyz')
+    expect(calls[0]?.body).toEqual({ amount: 4200, tenantId: 'tenant-xyz', userId: 'u_demo' })
+  })
+
+  /** piiSignup fires POST /pii-demo/signup with the full exact PII payload. */
+  it('fires piiSignup with the exact PII body', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.piiSignup()
+    expect(calls[0]?.body).toEqual({
+      nome: 'Demo User',
+      email: 'demo@bymax.one',
+      password: 's3cret',
+      cpf: '111.222.333-44',
+      cardNumber: '4111111111111111',
+      cardCvv: '123',
+      payment: { cardNumber: '4111111111111111' },
+    })
+  })
+
+  /** level with no explicit count defaults to 1 (the `count = 1` default param). */
+  it('fires level with count=1 when no count is supplied', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.level('info')
+    expect(calls[0]?.body).toEqual({ level: 'info', count: 1 })
+  })
+
+  /** dispatch fires POST /downstream/dispatch. */
+  it('fires dispatch to the correct /downstream/dispatch path', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.dispatch()
+    expect(calls[0]?.method).toBe('POST')
+    expect(calls[0]?.url).toContain('/downstream/dispatch')
+  })
+
+  /** echoHeaders fires GET /pii-demo/echo-headers with the exact sensitive headers. */
+  it('fires echoHeaders with the exact authorization and x-api-key headers', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve({
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'r', 'x-trace-id': 't' }),
+          json: () => Promise.resolve({}),
+        } as Response)
+      }),
+    )
+    await triggerApi.echoHeaders()
+    expect(capturedHeaders['authorization']).toBe('Bearer demo-token')
+    expect(capturedHeaders['x-api-key']).toBe('demo-api-key')
+  })
+
+  /** burst at the server max (500) is forwarded unchanged (no clamping needed). */
+  it('forwards a burst count exactly at the server max (500) unchanged', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.burst(500)
+    expect(calls[0]?.body).toEqual({ count: 500 })
+  })
+
+  /** burst at the server min (1) is forwarded unchanged. */
+  it('forwards a burst count exactly at the server min (1) unchanged', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.burst(1)
+    expect(calls[0]?.body).toEqual({ count: 1 })
+  })
+
+  /** The request URL must begin with http://localhost:3001/ — kills both the ?? → && and the empty-string fallback mutations. */
+  it('sends every request to the http://localhost:3001 base URL', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.dispatch()
+    expect(calls[0]?.url).toMatch(/^http:\/\/localhost:3001\//)
+  })
+
+  /** burst truncates a float to its integer part before clamping. */
+  it('truncates a float count to its integer part before sending', async () => {
+    const { calls } = mockFetch()
+    await triggerApi.burst(9.9)
+    // trunc(9.9) = 9, which is in [1, 500] → sent as 9
+    expect(calls[0]?.body).toEqual({ count: 9 })
+  })
+
+  /** All four documented status codes are individually accepted. */
+  it('accepts every documented status code without throwing', async () => {
+    for (const code of [400, 404, 500, 503]) {
+      const { calls } = mockFetch()
+      await triggerApi.status(code)
+      expect(calls[0]?.url).toContain(`/trigger/status/${code}`)
+    }
+  })
+
+  /**
+   * A POST request with a body must carry `content-type: application/json`.
+   * Asserting the exact value kills: ConditionalExpression→false (never adds it),
+   * EqualityOperator (adds it for undefined body), ObjectLiteral→{} (no header),
+   * and StringLiteral→"" (empty content-type).
+   */
+  it('sends content-type: application/json for a POST request with body', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve({
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'r', 'x-trace-id': 't' }),
+          json: () => Promise.resolve({}),
+        } as Response)
+      }),
+    )
+    await triggerApi.order('acme')
+    expect(capturedHeaders['content-type']).toBe('application/json')
+  })
+
+  /**
+   * A GET request without a body must NOT carry a `content-type` header.
+   * Asserting absence kills the ConditionalExpression→true mutation that always
+   * adds `content-type` regardless of whether a body is present.
+   */
+  it('does not send content-type for a GET request without body', async () => {
+    let capturedHeaders: Record<string, string> = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedHeaders = (init?.headers ?? {}) as Record<string, string>
+        return Promise.resolve({
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'r', 'x-trace-id': 't' }),
+          json: () => Promise.resolve({}),
+        } as Response)
+      }),
+    )
+    await triggerApi.status(400)
+    expect(capturedHeaders['content-type']).toBeUndefined()
+  })
+
+  /**
+   * A GET request without a body must NOT have a `body` property in the fetch
+   * init object. Asserting absence kills the ConditionalExpression→true mutation
+   * on `body !== undefined` that would always spread `{ body: JSON.stringify(body) }`,
+   * adding `body: undefined` to the init even for bodyless requests.
+   */
+  it('omits the body property from the fetch init for a GET request', async () => {
+    let capturedInit: RequestInit | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        capturedInit = init
+        return Promise.resolve({
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'r', 'x-trace-id': 't' }),
+          json: () => Promise.resolve({}),
+        } as Response)
+      }),
+    )
+    await triggerApi.status(400)
+    expect(capturedInit).not.toHaveProperty('body')
+  })
 })
