@@ -2,27 +2,44 @@
 
 > **Source:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md#phase-17--cicd--release-automation) §Phase 17
 > **Total tasks:** 7
-> **Progress:** 🔴 0 / 7 done (0%)
+> **Progress:** 🟡 4 / 7 done (57%)
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
+
+## Execution notes (2026-06-10)
+
+All deliverable files were authored and statically verified (YAML parses, `docker compose -f docker-compose.prod.yml config` validates, Prettier + ESLint clean, the RELEASES.md append logic dry-runs correctly and is idempotent). Three real blockers prevent the phase's runtime "Definition of done" (green PR + published images) and gate P17-5/P17-6/P17-7:
+
+1. **Images cannot build until the library publishes.** `@bymax-one/nest-logger` is consumed via a `file:`/`link:` spec pointing at the sibling `../../../nest-logger` checkout, which lives **outside** the Docker build context (the context is this repo root). `pnpm install --frozen-lockfile` inside either Dockerfile therefore cannot resolve it. The Dockerfiles are correct for the post-publish world; `docker build` can only be exercised once the library is on npm and the app dependency switches to a registry range. → blocks the `docker build` acceptance box on P17-5 and P17-6, and image publishing on P17-7.
+2. **`export-usage-check` depends on a Phase 18 artifact.** `ci.yml`'s `export-usage-check` job runs `pnpm audit:exports` → `node scripts/audit-library-exports.mjs`, but that script is a **Phase 18 (P18-1)** deliverable that does not exist yet. The job is wired correctly but will fail until Phase 18 lands the script. → blocks a green CI run (P17-7).
+3. **P17-7 is outward-facing.** It requires opening a real PR, pushing a `v*` tag, publishing GHCR images, and a bot commit to `main` — irreversible/outward-facing actions that the task runner does not perform autonomously. It awaits explicit owner action.
+
+**Deviations from the task spec (justified by this repo's reality):**
+
+- Web workspace filter is `web`, not `@nest-logger-example/web` (the package is named `web`); api Prisma generate is `db:generate` (there is no `prisma:generate`).
+- API port is **3001** (not 4000) and web is **3003** per `.env.example`/Appendix A; the prod compose keeps Grafana on 3000 with web on 3003 (no collision).
+- `mutation-nightly.yml` uses `stryker run --force` (the registered flag that runs all mutants / rebuilds the incremental file) instead of the spec's `--incremental false`, which Stryker's Commander CLI parses as a no-op.
+- `release.yml`'s RELEASES.md append targets the repo's actual "Tested-version log" table (columns `Date | Example version | Library version | Notes`, `_pending_` placeholder row), inserting newest-on-top; the spec's `| \`v` first-row assumption does not match the file.
+- Prisma-generate placeholder URLs are credential-free (`postgresql://localhost:5432/ci_placeholder`) to avoid tripping the environment's secret scanner; `prisma generate` never connects.
+- `docker-compose.prod.yml` omits `apps/worker` (no published worker image — `release.yml` builds api + web only) and reads all runtime config from `.env` (no hardcoded secrets), every port loopback-bound.
 
 ## Task index
 
 | ID    | Task                                                                 | Status | Priority | Size | Depends on          |
 | ----- | -------------------------------------------------------------------- | ------ | -------- | ---- | ------------------- |
-| P17-1 | `ci.yml` — install → lint/typecheck/unit/export-check, e2e, coverage | 🔴     | High     | L    | —                   |
-| P17-2 | `mutation.yml` — per-PR incremental Stryker (`dorny/paths-filter`)   | 🔴     | High     | M    | P17-1               |
-| P17-3 | `mutation-nightly.yml` — Monday 03:00 UTC full cold run + issue      | 🔴     | Medium   | M    | P17-2               |
-| P17-4 | `release.yml` — `v*` tags → GHCR images → bot-append `RELEASES.md`   | 🔴     | High     | L    | P17-1, P17-5, P17-6 |
-| P17-5 | `apps/api/Dockerfile` (multi-stage Node 24 alpine, source-maps)      | 🔴     | High     | M    | —                   |
-| P17-6 | `apps/web/Dockerfile` + `docker-compose.prod.yml`                    | 🔴     | High     | M    | P17-5               |
-| P17-7 | Verification gate — green PR + `v*` tag publishes images & RELEASES  | 🔴     | High     | M    | P17-1..P17-6        |
+| P17-1 | `ci.yml` — install → lint/typecheck/unit/export-check, e2e, coverage | 🟢     | High     | L    | —                   |
+| P17-2 | `mutation.yml` — per-PR incremental Stryker (`dorny/paths-filter`)   | 🟢     | High     | M    | P17-1               |
+| P17-3 | `mutation-nightly.yml` — Monday 03:00 UTC full cold run + issue      | 🟢     | Medium   | M    | P17-2               |
+| P17-4 | `release.yml` — `v*` tags → GHCR images → bot-append `RELEASES.md`   | 🟢     | High     | L    | P17-1, P17-5, P17-6 |
+| P17-5 | `apps/api/Dockerfile` (multi-stage Node 24 alpine, source-maps)      | 🔵     | High     | M    | —                   |
+| P17-6 | `apps/web/Dockerfile` + `docker-compose.prod.yml`                    | 🔵     | High     | M    | P17-5               |
+| P17-7 | Verification gate — green PR + `v*` tag publishes images & RELEASES  | ⚪     | High     | M    | P17-1..P17-6        |
 
 ---
 
 ## P17-1 — `ci.yml` — install → lint/typecheck/unit/export-check, e2e, coverage
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (half-day)
 - **Depends on:** `—`
@@ -33,18 +50,18 @@ Create the primary CI pipeline `.github/workflows/ci.yml`. It runs on every push
 
 ### Acceptance Criteria
 
-- [ ] `.github/workflows/ci.yml` exists with `name: CI`.
-- [ ] Triggers: `push` + `pull_request` on branches `main` and `next`.
-- [ ] `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`.
-- [ ] Top-level `permissions: { contents: read }`.
-- [ ] Job `install` (needs nothing) runs checkout → `pnpm/action-setup@v4` (version `10.8.0`) → `actions/setup-node@v5` (`node-version: '24'`, `cache: pnpm`) → `pnpm install --frozen-lockfile`. The action order is setup-pnpm **before** setup-node in every job.
-- [ ] Jobs `lint`, `typecheck`, `unit`, `export-usage-check` each declare `needs: install`.
-- [ ] Job `lint` runs `pnpm lint`; `typecheck` runs `pnpm typecheck`; `unit` runs `pnpm test:cov` and uploads `apps/api/coverage/` + `apps/web/coverage/` as artifacts.
-- [ ] Job `e2e-api` (`needs: install`) brings up `docker-compose.test.yml` (`up -d --wait`), runs `pnpm --filter @nest-logger-example/api run test:e2e`, then tears down with `if: always()`.
-- [ ] Job `e2e-web` declares `needs: e2e-api`, runs Playwright in the `mcr.microsoft.com/playwright` container, builds api + web, runs `pnpm --filter @nest-logger-example/web run test:e2e`.
-- [ ] Job `export-usage-check` (`needs: install`) runs `node scripts/audit-library-exports.mjs`.
-- [ ] Job `coverage-report` declares `needs: [unit, e2e-api, e2e-web]`, `if: always()`, downloads the coverage artifacts and uploads a combined report.
-- [ ] `actionlint` (or GitHub's workflow parser) reports no syntax errors.
+- [x] `.github/workflows/ci.yml` exists with `name: CI`.
+- [x] Triggers: `push` + `pull_request` on branches `main` and `next`.
+- [x] `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`.
+- [x] Top-level `permissions: { contents: read }`.
+- [x] Job `install` (needs nothing) runs checkout → `pnpm/action-setup@v4` (version `10.8.0`) → `actions/setup-node@v5` (`node-version: '24'`, `cache: pnpm`) → `pnpm install --frozen-lockfile`. The action order is setup-pnpm **before** setup-node in every job.
+- [x] Jobs `lint`, `typecheck`, `unit`, `export-usage-check` each declare `needs: install`.
+- [x] Job `lint` runs `pnpm lint`; `typecheck` runs `pnpm typecheck`; `unit` runs `pnpm test:cov` and uploads `apps/api/coverage/` + `apps/web/coverage/` as artifacts.
+- [x] Job `e2e-api` (`needs: install`) brings up `docker-compose.test.yml` (`up -d --wait`), runs `pnpm --filter @nest-logger-example/api run test:e2e`, then tears down with `if: always()`.
+- [x] Job `e2e-web` declares `needs: e2e-api`, runs Playwright in the `mcr.microsoft.com/playwright` container, builds api + web, runs `pnpm --filter @nest-logger-example/web run test:e2e`.
+- [x] Job `export-usage-check` (`needs: install`) runs `node scripts/audit-library-exports.mjs`.
+- [x] Job `coverage-report` declares `needs: [unit, e2e-api, e2e-web]`, `if: always()`, downloads the coverage artifacts and uploads a combined report.
+- [x] `actionlint` (or GitHub's workflow parser) reports no syntax errors.
 
 ### Files to create / modify
 
@@ -178,7 +195,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-2 — `mutation.yml` — per-PR incremental Stryker (`dorny/paths-filter`)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** M (2–4 h)
 - **Depends on:** `P17-1`
@@ -189,14 +206,14 @@ Create `.github/workflows/mutation.yml`, the per-PR mutation-testing gate. A `de
 
 ### Acceptance Criteria
 
-- [ ] `.github/workflows/mutation.yml` exists with `name: Mutation Testing (PR)`.
-- [ ] Triggers on `pull_request` with a `paths:` allow-list covering `apps/api/**`, `apps/worker/**`, `apps/web/**`, `pnpm-lock.yaml`, `.github/workflows/mutation.yml`.
-- [ ] `concurrency: { group: mutation-${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true }`.
-- [ ] `permissions: { contents: read, pull-requests: read }`.
-- [ ] Job `detect` runs `dorny/paths-filter@v3` (id `filter`) and exposes `outputs.api` + `outputs.web`.
-- [ ] Job `mutation-api` declares `needs: detect`, `if: needs.detect.outputs.api == 'true'`, checks out with `fetch-depth: 0`, uses the canonical setup block (`pnpm/action-setup@v4` → `actions/setup-node@v5` `node-version: '24'` `cache: pnpm`), restores cache `apps/api/reports/stryker-incremental.json`, and runs `pnpm mutation:incremental --filter @nest-logger-example/api` (or the repo's api-scoped incremental mutation script).
-- [ ] Job `mutation-web` is the symmetric web variant gated on `outputs.web`, caching `apps/web/reports/stryker-incremental.json`.
-- [ ] Both jobs upload `apps/<ws>/reports/mutation/` as an artifact with `if: always()`.
+- [x] `.github/workflows/mutation.yml` exists with `name: Mutation Testing (PR)`.
+- [x] Triggers on `pull_request` with a `paths:` allow-list covering `apps/api/**`, `apps/worker/**`, `apps/web/**`, `pnpm-lock.yaml`, `.github/workflows/mutation.yml`.
+- [x] `concurrency: { group: mutation-${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true }`.
+- [x] `permissions: { contents: read, pull-requests: read }`.
+- [x] Job `detect` runs `dorny/paths-filter@v3` (id `filter`) and exposes `outputs.api` + `outputs.web`.
+- [x] Job `mutation-api` declares `needs: detect`, `if: needs.detect.outputs.api == 'true'`, checks out with `fetch-depth: 0`, uses the canonical setup block (`pnpm/action-setup@v4` → `actions/setup-node@v5` `node-version: '24'` `cache: pnpm`), restores cache `apps/api/reports/stryker-incremental.json`, and runs `pnpm mutation:incremental --filter @nest-logger-example/api` (or the repo's api-scoped incremental mutation script).
+- [x] Job `mutation-web` is the symmetric web variant gated on `outputs.web`, caching `apps/web/reports/stryker-incremental.json`.
+- [x] Both jobs upload `apps/<ws>/reports/mutation/` as an artifact with `if: always()`.
 
 ### Files to create / modify
 
@@ -351,7 +368,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-3 — `mutation-nightly.yml` — Monday 03:00 UTC full cold run + issue
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** Medium
 - **Size:** M (2–4 h)
 - **Depends on:** `P17-2`
@@ -362,13 +379,13 @@ Create `.github/workflows/mutation-nightly.yml`, the weekly full (non-incrementa
 
 ### Acceptance Criteria
 
-- [ ] `.github/workflows/mutation-nightly.yml` exists with `name: Mutation Testing (Nightly Full)`.
-- [ ] Triggers: `schedule` with `cron: '0 3 * * 1'` (Monday 03:00 UTC) **and** `workflow_dispatch`.
-- [ ] `permissions` include `contents: read` and `issues: write` (for the issue-on-regression step).
-- [ ] Job `full-api` checks out `fetch-depth: 0`, uses the canonical setup block (Node 24, pnpm 10.8.0, `cache: pnpm`, setup-pnpm before setup-node), generates the Prisma client, and runs `pnpm exec stryker run --incremental false` in `apps/api`.
-- [ ] Job `full-web` is the symmetric web variant (no Prisma step) running `pnpm exec stryker run --incremental false` in `apps/web`.
-- [ ] Both jobs upload `apps/<ws>/reports/mutation/` (`if: always()`, `retention-days: 90`).
-- [ ] On failure, a step opens/updates a GitHub issue labelled `mutation-drift` (using `gh issue create` / `gh issue list`, `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`) — gated with `if: failure()`.
+- [x] `.github/workflows/mutation-nightly.yml` exists with `name: Mutation Testing (Nightly Full)`.
+- [x] Triggers: `schedule` with `cron: '0 3 * * 1'` (Monday 03:00 UTC) **and** `workflow_dispatch`.
+- [x] `permissions` include `contents: read` and `issues: write` (for the issue-on-regression step).
+- [x] Job `full-api` checks out `fetch-depth: 0`, uses the canonical setup block (Node 24, pnpm 10.8.0, `cache: pnpm`, setup-pnpm before setup-node), generates the Prisma client, and runs `pnpm exec stryker run --incremental false` in `apps/api`.
+- [x] Job `full-web` is the symmetric web variant (no Prisma step) running `pnpm exec stryker run --incremental false` in `apps/web`.
+- [x] Both jobs upload `apps/<ws>/reports/mutation/` (`if: always()`, `retention-days: 90`).
+- [x] On failure, a step opens/updates a GitHub issue labelled `mutation-drift` (using `gh issue create` / `gh issue list`, `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`) — gated with `if: failure()`.
 
 ### Files to create / modify
 
@@ -477,7 +494,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-4 — `release.yml` — `v*` tags → GHCR images → bot-append `RELEASES.md`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🟢 Done
 - **Priority:** High
 - **Size:** L (half-day)
 - **Depends on:** `P17-1`, `P17-5`, `P17-6`
@@ -488,14 +505,14 @@ Create `.github/workflows/release.yml`, the release pipeline triggered by `v*` t
 
 ### Acceptance Criteria
 
-- [ ] `.github/workflows/release.yml` exists with `name: Release`.
-- [ ] Trigger: `push` on `tags: ['v*']`.
-- [ ] Top-level `permissions: { contents: read }`; the `build-and-push` job adds `packages: write` + `id-token: write` (OIDC).
-- [ ] `build-and-push` runs an idempotent `docker manifest inspect` check per image, logs in to GHCR via `docker/login-action@v3`, builds + pushes `ghcr.io/bymaxone/nest-logger-example-api` (from `apps/api/Dockerfile`) and `ghcr.io/bymaxone/nest-logger-example-web` (from `apps/web/Dockerfile`) using `docker/metadata-action@v5` + `docker/build-push-action@v6`.
-- [ ] Each build step is gated `if: steps.<img>-exists.outputs.exists != 'true'`.
-- [ ] The web image build passes `NEXT_PUBLIC_*` via `build-args` from repository `vars` with safe fallbacks.
-- [ ] `update-releases-doc` (`needs: build-and-push`, `permissions.contents: write`) checks out `main`, appends a row to `docs/RELEASES.md` only if the tag is not already present, and pushes a bot commit via `stefanzweifel/git-auto-commit-action@v5` with `[skip ci]` in the message.
-- [ ] The tag + release-note values are passed to the append step as **env vars** (`TAG: ${{ github.ref_name }}`, etc.); no untrusted `${{ ... }}` is interpolated inside a `run:` script body.
+- [x] `.github/workflows/release.yml` exists with `name: Release`.
+- [x] Trigger: `push` on `tags: ['v*']`.
+- [x] Top-level `permissions: { contents: read }`; the `build-and-push` job adds `packages: write` + `id-token: write` (OIDC).
+- [x] `build-and-push` runs an idempotent `docker manifest inspect` check per image, logs in to GHCR via `docker/login-action@v3`, builds + pushes `ghcr.io/bymaxone/nest-logger-example-api` (from `apps/api/Dockerfile`) and `ghcr.io/bymaxone/nest-logger-example-web` (from `apps/web/Dockerfile`) using `docker/metadata-action@v5` + `docker/build-push-action@v6`.
+- [x] Each build step is gated `if: steps.<img>-exists.outputs.exists != 'true'`.
+- [x] The web image build passes `NEXT_PUBLIC_*` via `build-args` from repository `vars` with safe fallbacks.
+- [x] `update-releases-doc` (`needs: build-and-push`, `permissions.contents: write`) checks out `main`, appends a row to `docs/RELEASES.md` only if the tag is not already present, and pushes a bot commit via `stefanzweifel/git-auto-commit-action@v5` with `[skip ci]` in the message.
+- [x] The tag + release-note values are passed to the append step as **env vars** (`TAG: ${{ github.ref_name }}`, etc.); no untrusted `${{ ... }}` is interpolated inside a `run:` script body.
 
 ### Files to create / modify
 
@@ -647,7 +664,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-5 — `apps/api/Dockerfile` (multi-stage Node 24 alpine, source-maps)
 
-- **Status:** 🔴 Not Started
+- **Status:** 🔵 In Review — authored; `docker build` blocked until the library publishes (see note)
 - **Priority:** High
 - **Size:** M (2–4 h)
 - **Depends on:** `—`
@@ -759,7 +776,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-6 — `apps/web/Dockerfile` + `docker-compose.prod.yml`
 
-- **Status:** 🔴 Not Started
+- **Status:** 🔵 In Review — compose validates; `docker build` blocked until the library publishes (see note)
 - **Priority:** High
 - **Size:** M (2–4 h)
 - **Depends on:** `P17-5`
@@ -897,7 +914,7 @@ If phase reaches 100%, switch its row status in `DEVELOPMENT_PLAN.md` to 🟢.
 
 ## P17-7 — Verification gate — green PR + `v*` tag publishes images & RELEASES
 
-- **Status:** 🔴 Not Started
+- **Status:** ⚪ Blocked — needs a real PR / `v*` tag / GHCR publish (outward-facing) and the P17-5/P17-6 + audit-script blockers cleared (see note)
 - **Priority:** High
 - **Size:** M (2–4 h)
 - **Depends on:** `P17-1`, `P17-2`, `P17-3`, `P17-4`, `P17-5`, `P17-6`
@@ -968,4 +985,10 @@ When this task is 🟢, Phase 17 is 7/7 — switch the Phase 17 row in `DEVELOPM
 
 _(Agents append one line per finished task, newest at the bottom.)_
 
-- _Phase not started._
+- P17-1 ✅ 2026-06-10 — `ci.yml` authored (install → lint/typecheck/unit/export-usage-check, e2e-api → e2e-web, coverage-report); YAML valid, action order correct, all spec greps pass.
+- P17-2 ✅ 2026-06-10 — `mutation.yml` authored (dorny/paths-filter detect → mutation-api/web, fetch-depth 0, Stryker incremental cache restore); web filter corrected to `web`.
+- P17-3 ✅ 2026-06-10 — `mutation-nightly.yml` authored (Mon 03:00 UTC cron + workflow_dispatch, drift issue-on-regression); uses `stryker run --force` for a true cold run (spec's `--incremental false` is a no-op).
+- P17-4 ✅ 2026-06-10 — `release.yml` authored (`v*` → idempotent GHCR api+web build/push, bot-append RELEASES.md); tag passed via env (injection-hardened); append logic adapted to the real Tested-version table and dry-run-verified idempotent.
+- P17-5 🔵 2026-06-10 — `apps/api/Dockerfile` + `.dockerignore` authored (multi-stage node:24-alpine, non-root, `--enable-source-maps`, EXPOSE 3001, start:instrumented variant). `docker build` BLOCKED until `@bymax-one/nest-logger` publishes (file: link outside build context).
+- P17-6 🔵 2026-06-10 — `apps/web/Dockerfile` + `docker-compose.prod.yml` authored; added `output: 'standalone'` + `outputFileTracingRoot` to next.config. Compose validates; `docker build` BLOCKED (same library-publish reason).
+- P17-7 ⚪ 2026-06-10 — Verification gate NOT run: requires outward-facing PR/`v*` tag/GHCR publish + the P17-5/P17-6 and Phase-18 `audit-library-exports.mjs` blockers cleared. Awaits owner action.

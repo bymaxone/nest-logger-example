@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 120 / 133 tasks done (90%)**
+> **Overall progress: 128 / 133 tasks done (96%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -50,8 +50,8 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 10 / 10      | 100% | 🟢     |
 | 15  | Mutation Testing (**Stryker 100%**)       | `phase-15-mutation.md`            | 6 / 6        | 100% | 🟢     |
 | 16  | Documentation                             | `phase-16-documentation.md`       | 8 / 8        | 100% | 🟢     |
-| 17  | CI/CD & Release Automation                | `phase-17-cicd.md`                | 0 / 7        | 0%   | 🔴     |
-| 18  | Audit & Hardening + v1.0.0                | `phase-18-audit-hardening.md`     | 0 / 6        | 0%   | 🔴     |
+| 17  | CI/CD & Release Automation                | `phase-17-cicd.md`                | 4 / 7        | 57%  | 🟡     |
+| 18  | Audit & Hardening + v1.0.0                | `phase-18-audit-hardening.md`     | 4 / 6        | 67%  | 🟡     |
 
 ### How to update this dashboard
 

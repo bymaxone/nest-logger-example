@@ -1,0 +1,139 @@
+name: Mutation Testing (PR)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/**'
+      - 'apps/api/test/**'
+      - 'apps/api/stryker.config.json'
+      - 'apps/api/jest.stryker.config.cjs'
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig*.json'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/worker/src/**'
+      - 'apps/worker/test/**'
+      - 'apps/web/app/**'
+      - 'apps/web/lib/**'
+      - 'apps/web/components/**'
+      - 'apps/web/stryker.config.json'
+      - 'apps/web/package.json'
+      - 'apps/web/tsconfig*.json'
+      - 'apps/web/vitest.config.ts'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/mutation.yml'
+
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect:
+    name: Detect changed workspaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/src/**'
+              - 'apps/api/test/**'
+              - 'apps/api/stryker.config.json'
+              - 'apps/worker/src/**'
+              - 'apps/worker/test/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/mutation.yml'
+            web:
+              - 'apps/web/app/**'
+              - 'apps/web/lib/**'
+              - 'apps/web/components/**'
+              - 'apps/web/stryker.config.json'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/mutation.yml'
+
+  mutation-api:
+    name: Mutation — apps/api
+    needs: detect
+    if: needs.detect.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @nest-logger-example/api run db:generate
+        env:
+          # generate never opens a connection — a credential-free placeholder URL
+          # only needs to satisfy the schema's env("DATABASE_URL") reference.
+          DATABASE_URL: postgresql://localhost:5432/ci_placeholder
+      - name: Restore Stryker incremental cache (api)
+        uses: actions/cache@v4
+        with:
+          path: apps/api/reports/stryker-incremental.json
+          key: stryker-incremental-api-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-api-${{ github.ref }}-
+            stryker-incremental-api-refs/heads/main-
+      - name: Run mutation testing (api)
+        run: pnpm --filter @nest-logger-example/api run mutation:incremental
+      - name: Upload mutation HTML report (api)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-api
+          path: apps/api/reports/mutation/
+          retention-days: 30
+
+  mutation-web:
+    name: Mutation — apps/web
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore Stryker incremental cache (web)
+        uses: actions/cache@v4
+        with:
+          path: apps/web/reports/stryker-incremental.json
+          key: stryker-incremental-web-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-web-${{ github.ref }}-
+            stryker-incremental-web-refs/heads/main-
+      - name: Run mutation testing (web)
+        run: pnpm --filter web run mutation:incremental
+      - name: Upload mutation HTML report (web)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-web
+          path: apps/web/reports/mutation/
+          retention-days: 30

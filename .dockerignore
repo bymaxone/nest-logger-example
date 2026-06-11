@@ -1,0 +1,21 @@
+# Build-context excludes for the api/web production images. Keeps the context
+# small and prevents host build artifacts from leaking into the image.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/reports
+**/.stryker-tmp
+**/test-results
+**/playwright-report
+# Never ship runtime secrets into the build context (the build stages run
+# `COPY . .`). The committed template is kept.
+.env
+.env.*
+!.env.example
+.git
+.github
+.husky
+.vscode
+.cursor
+**/*.log

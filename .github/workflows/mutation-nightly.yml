@@ -1,0 +1,107 @@
+name: Mutation Testing (Nightly Full)
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  full-api:
+    name: Mutation full — apps/api
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @nest-logger-example/api run db:generate
+        env:
+          # generate never opens a connection — a credential-free placeholder URL
+          # only needs to satisfy the schema's env("DATABASE_URL") reference.
+          DATABASE_URL: postgresql://localhost:5432/ci_placeholder
+      - name: Run full mutation testing (api)
+        working-directory: apps/api
+        # --force runs all mutants and rebuilds the incremental file, giving a
+        # true cold baseline regardless of any cached incremental state.
+        run: pnpm exec stryker run --force
+      - name: Upload full mutation HTML report (api)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-api-full
+          path: apps/api/reports/mutation/
+          retention-days: 90
+      - name: Open drift issue on regression (api)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Mutation drift detected (api) — $(date -u +%Y-%m-%d)"
+          if gh issue list --label mutation-drift --state open \
+               --search "in:title (api)" | grep -q .; then
+            echo "Open mutation-drift issue already exists — skipping."
+            exit 0
+          fi
+          gh issue create \
+            --title "${TITLE}" \
+            --label mutation-drift \
+            --body "The weekly full Stryker run on \`apps/api\` regressed below its \`break\` threshold. Run \`pnpm --filter @nest-logger-example/api run mutation:incremental\` locally to investigate. Run: ${RUN_URL}"
+
+  full-web:
+    name: Mutation full — apps/web
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run full mutation testing (web)
+        working-directory: apps/web
+        # --force runs all mutants and rebuilds the incremental file, giving a
+        # true cold baseline regardless of any cached incremental state.
+        run: pnpm exec stryker run --force
+      - name: Upload full mutation HTML report (web)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-web-full
+          path: apps/web/reports/mutation/
+          retention-days: 90
+      - name: Open drift issue on regression (web)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Mutation drift detected (web) — $(date -u +%Y-%m-%d)"
+          if gh issue list --label mutation-drift --state open \
+               --search "in:title (web)" | grep -q .; then
+            echo "Open mutation-drift issue already exists — skipping."
+            exit 0
+          fi
+          gh issue create \
+            --title "${TITLE}" \
+            --label mutation-drift \
+            --body "The weekly full Stryker run on \`apps/web\` regressed below its \`break\` threshold. Run \`pnpm --filter web run mutation:incremental\` locally to investigate. Run: ${RUN_URL}"

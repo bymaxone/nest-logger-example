@@ -9,6 +9,7 @@
  * @module next.config
  */
 
+import path from 'node:path'
 import process from 'node:process'
 
 const isProduction = process.env['NODE_ENV'] === 'production'
@@ -28,6 +29,12 @@ const connectSrc = ["'self'", apiOrigin].filter(Boolean).join(' ')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a self-contained server bundle (`.next/standalone/apps/web/server.js`)
+  // so the production image ships only the traced runtime, not the full
+  // workspace. `outputFileTracingRoot` points at the monorepo root so pnpm's
+  // workspace dependencies are traced correctly into the standalone output.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(import.meta.dirname, '../../'),
   async headers() {
     return [
       {

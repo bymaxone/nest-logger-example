@@ -3,7 +3,8 @@
  *
  * Layer: app/logger. Single source of truth for `BymaxLoggerModuleOptions`.
  * `buildLoggerOptions` maps Zod-validated environment variables into the library
- * options consumed by `BymaxLoggerModule.forRootAsync` in `app.module.ts`.
+ * options consumed by `BymaxLoggerModule.forRootAsync` in `app.module.ts`, delegating
+ * the larger sub-configs to `buildHttpOptions` / `buildOtelOptions` / `buildDestinations`.
  *
  * Three destinations are registered:
  *   - `LokiDestination`          — batched HTTP push for the `info`+ aggregation tier.
@@ -13,7 +14,13 @@
  * @module
  */
 import type { ConfigService } from '@nestjs/config'
-import type { BymaxLoggerModuleOptions, LogLevel } from '@bymax-one/nest-logger'
+import type {
+  BymaxLoggerModuleOptions,
+  HttpOptions,
+  ILogDestination,
+  LogLevel,
+  OtelOptions,
+} from '@bymax-one/nest-logger'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
 import type { LogEventBus } from '../logs/log-event.bus.js'
@@ -21,6 +28,77 @@ import { EventBusLogDestination } from '../destinations/event-bus.destination.js
 import { LokiDestination } from '../destinations/loki.destination.js'
 import { PrismaLogDestination } from '../destinations/prisma-log.destination.js'
 import { RollingFileDestination } from '../destinations/rolling-file.destination.js'
+
+/**
+ * Build the HTTP access-logging options, typed against the library's `HttpOptions` contract.
+ *
+ * @returns The HTTP request/response logging options for the access-log interceptor.
+ */
+function buildHttpOptions(): HttpOptions {
+  return {
+    isEnabled: true,
+    // RegExp[] — anchored, ReDoS-safe (the lib .test()s each pattern per request).
+    // `/logs/stream` is the SSE live-tail: the access-log interceptor's per-emit `tap` would
+    // log once per streamed event, and because each entry is fanned back into the live tail
+    // (EventBusLogDestination) that self-amplifies into a feedback loop. Long-lived streams
+    // must not be per-event access-logged — exclude it.
+    excludePaths: [/^\/health$/, /^\/metrics$/, /^\/logs\/stream$/],
+    shouldCaptureExceptions: true,
+    // false: RequestIdMiddleware is wired explicitly in app.module.ts configure().
+    shouldGenerateRequestId: false,
+    tenantIdHeader: 'x-tenant-id',
+  }
+}
+
+/**
+ * Build the OTel correlation options, typed against the library's `OtelOptions` contract.
+ *
+ * @param config - NestJS config service backed by the Zod-validated env schema.
+ * @returns The OTel trace-context field-injection options.
+ */
+function buildOtelOptions(config: ConfigService): OtelOptions {
+  return {
+    // Detect @opentelemetry/api → inject traceId/spanId/traceFlags (default true; explicit here).
+    shouldAutoInjectTraceContext: true,
+    fieldFormat: config.get('OTEL_FIELD_FORMAT') === 'snake_case' ? 'snake_case' : 'camelCase',
+  }
+}
+
+/**
+ * Build the ordered destination pipeline, typed against the library's `ILogDestination`
+ * contract. The dev-only rolling-file destination is omitted in production.
+ *
+ * @param config - NestJS config service backed by the Zod-validated env schema.
+ * @param prisma - Prisma service backing `PrismaLogDestination` (durable `warn`+ tier).
+ * @param bus - Live-tail event bus backing `EventBusLogDestination` (SSE fan-out).
+ * @param isProd - Whether the runtime is production (drops the rolling-file destination).
+ * @returns The destinations array consumed by the logger module.
+ */
+function buildDestinations(
+  config: ConfigService,
+  prisma: PrismaService,
+  bus: LogEventBus,
+  isProd: boolean,
+): ILogDestination[] {
+  return [
+    new LokiDestination({
+      url: config.getOrThrow<string>('LOKI_URL'),
+      batchSize: 50,
+      flushIntervalMs: 3_000,
+    }),
+    new PrismaLogDestination(prisma, {
+      minLevel: config.get<LogLevel>('LOG_DB_MIN_LEVEL') ?? 'warn',
+      batchSize: 50,
+      flushIntervalMs: 2_000,
+    }),
+    // Fan out every info+ entry to the SSE live-tail bus (full-fidelity tier, matching Loki).
+    new EventBusLogDestination(bus, { minLevel: 'info' }),
+    // RollingFileDestination is dev-only (pino-roll, async onInit) — omitted in production.
+    ...(isProd
+      ? []
+      : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
+  ]
+}
 
 /**
  * Build the `BymaxLoggerModuleOptions` object from validated environment variables.
@@ -66,41 +144,8 @@ export function buildLoggerOptions(
     // line fragment itself. Returning a full `,"time":"..."` fragment here double-wraps it
     // into invalid JSON, which breaks every JSON.parse-based destination (e.g. Postgres).
     timestamp: () => new Date().toISOString(),
-    http: {
-      isEnabled: true,
-      // RegExp[] — anchored, ReDoS-safe (the lib .test()s each pattern per request).
-      // `/logs/stream` is the SSE live-tail: the access-log interceptor's per-emit `tap` would
-      // log once per streamed event, and because each entry is fanned back into the live tail
-      // (EventBusLogDestination) that self-amplifies into a feedback loop. Long-lived streams
-      // must not be per-event access-logged — exclude it.
-      excludePaths: [/^\/health$/, /^\/metrics$/, /^\/logs\/stream$/],
-      shouldCaptureExceptions: true,
-      // false: RequestIdMiddleware is wired explicitly in app.module.ts configure().
-      shouldGenerateRequestId: false,
-      tenantIdHeader: 'x-tenant-id',
-    },
-    otel: {
-      // Detect @opentelemetry/api → inject traceId/spanId/traceFlags (default true; explicit here).
-      shouldAutoInjectTraceContext: true,
-      fieldFormat: config.get('OTEL_FIELD_FORMAT') === 'snake_case' ? 'snake_case' : 'camelCase',
-    },
-    destinations: [
-      new LokiDestination({
-        url: config.getOrThrow<string>('LOKI_URL'),
-        batchSize: 50,
-        flushIntervalMs: 3_000,
-      }),
-      new PrismaLogDestination(prisma, {
-        minLevel: config.get<LogLevel>('LOG_DB_MIN_LEVEL') ?? 'warn',
-        batchSize: 50,
-        flushIntervalMs: 2_000,
-      }),
-      // Fan out every info+ entry to the SSE live-tail bus (full-fidelity tier, matching Loki).
-      new EventBusLogDestination(bus, { minLevel: 'info' }),
-      // RollingFileDestination is dev-only (pino-roll, async onInit) — omitted in production.
-      ...(isProd
-        ? []
-        : [new RollingFileDestination({ file: 'logs/app.log', frequency: 'daily', size: '50m' })]),
-    ],
+    http: buildHttpOptions(),
+    otel: buildOtelOptions(config),
+    destinations: buildDestinations(config, prisma, bus, isProd),
   }
 }

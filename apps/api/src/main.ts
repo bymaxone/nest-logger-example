@@ -14,6 +14,7 @@ import { PinoLoggerService } from '@bymax-one/nest-logger'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import type { NestExpressApplication } from '@nestjs/platform-express'
+import helmet from 'helmet'
 
 import { AppModule } from './app.module.js'
 import type { Env } from './config/env.schema.js'
@@ -73,6 +74,12 @@ async function bootstrap(): Promise<void> {
   // Read the validated, coerced PORT from ConfigService (a number) rather than the raw
   // `process.env.PORT` string — the Zod schema is the single source of truth for config.
   const configService = app.get<ConfigService<Env, true>>(ConfigService)
+
+  // Secure default response headers (nosniff, frameguard, referrer-policy no-referrer etc.).
+  // Registered before CORS so every response — including the JSON read-API — carries
+  // the baseline headers. CSP defaults are kept: the API serves JSON only (no HTML),
+  // and the dashboard reaches it via CORS fetch, which CSP/CORP do not gate.
+  app.use(helmet())
 
   // Use the qs "extended" query parser so nested params like `level[gte]=warn`
   // deserialize to `{ level: { gte: 'warn' } }` — the dashboard's level>= filter
