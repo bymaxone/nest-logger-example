@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Check if API image already exists
+        id: api-exists
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if docker manifest inspect "ghcr.io/bymaxone/nest-logger-example-api:${TAG}" > /dev/null 2>&1; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Check if web image already exists
+        id: web-exists
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if docker manifest inspect "ghcr.io/bymaxone/nest-logger-example-web:${TAG}" > /dev/null 2>&1; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Log in to GHCR
+        if: >-
+          steps.api-exists.outputs.exists != 'true' ||
+          steps.web-exists.outputs.exists != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: API image metadata
+        if: steps.api-exists.outputs.exists != 'true'
+        id: api-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/bymaxone/nest-logger-example-api
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+      - name: Build and push API image
+        if: steps.api-exists.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.api-meta.outputs.tags }}
+          labels: ${{ steps.api-meta.outputs.labels }}
+
+      - name: Web image metadata
+        if: steps.web-exists.outputs.exists != 'true'
+        id: web-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/bymaxone/nest-logger-example-web
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+      - name: Build and push web image
+        if: steps.web-exists.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.web-meta.outputs.tags }}
+          labels: ${{ steps.web-meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://example.com/api' }}
+            NEXT_PUBLIC_GRAFANA_URL=${{ vars.NEXT_PUBLIC_GRAFANA_URL || 'https://example.com/grafana' }}
+
+  update-releases-doc:
+    name: Update RELEASES.md
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Append row to RELEASES.md
+        env:
+          # Pass untrusted ref data through the environment — never interpolate
+          # ${{ github.* }} directly into the script body (script-injection class).
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Idempotency: skip if this tag is already recorded.
+          if grep -qF "\`${TAG}\`" docs/RELEASES.md; then
+            echo "Tag ${TAG} already present — skipping."
+            exit 0
+          fi
+          LIB_SPEC=$(jq -r '.dependencies["@bymax-one/nest-logger"] // ""' apps/api/package.json)
+          DATE=$(date -u +%Y-%m-%d)
+          python3 - "$TAG" "$LIB_SPEC" "$DATE" << 'PYEOF'
+          import sys, re, pathlib
+
+          tag, lib_spec, date = sys.argv[1], sys.argv[2], sys.argv[3]
+
+          # A published dependency is a semver range (e.g. "^0.1.0"); a pre-publish
+          # checkout is a "file:"/"link:" spec with no version. Record whichever applies.
+          semver = re.search(r'\d+\.\d+\.\d+[^\s"]*', lib_spec)
+          lib_version = f'`{semver.group(0)}`' if semver else '`local link`'
+
+          path = pathlib.Path('docs/RELEASES.md')
+          content = path.read_text()
+          new_row = f'| {date} | `{tag}` | {lib_version} | Released images `{tag}` |\n'
+
+          # Insert above the first data row of the "Tested-version log" table so the
+          # newest release is on top. The data rows start with `| _pending_` (initial
+          # state) or `| <date> | `v...` (after the first real release).
+          content, count = re.subn(
+              r'(?m)^(\| (?:_pending_|\d{4}-\d{2}-\d{2} \| `v))',
+              new_row + r'\1',
+              content,
+              count=1,
+          )
+          if count == 0:
+              raise SystemExit('Could not locate the Tested-version log table in RELEASES.md')
+          path.write_text(content)
+          PYEOF
+      - name: Push bot commit
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore(release): record ${{ github.ref_name }} in RELEASES.md [skip ci]'
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com
+          file_pattern: docs/RELEASES.md

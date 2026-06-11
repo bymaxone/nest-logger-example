@@ -1,0 +1,4 @@
+{
+  "$comment": "Public exports intentionally NOT demonstrated in apps/. Each entry needs a reason + issue link. Keep empty unless a genuinely-internal symbol leaks into the published .d.ts — never use this to make CI green for a real, demonstrable export.",
+  "ignored": []
+}
