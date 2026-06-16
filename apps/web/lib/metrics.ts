@@ -77,6 +77,31 @@ export function statusTotals(rows: StatusMixRow[]): StatusTotals[] {
 }
 
 /**
+ * Total HTTP error responses (4xx + 5xx) across status-mix buckets — the numerator of the
+ * RED "Errors" rate.
+ *
+ * @param rows - Status-mix buckets.
+ * @returns The combined 4xx + 5xx count.
+ */
+export function sumStatusErrors(rows: StatusMixRow[]): number {
+  return rows.reduce((acc, r) => acc + r.s4xx + r.s5xx, 0)
+}
+
+/**
+ * Per-bucket HTTP error rate (%) — `(4xx + 5xx) ÷ total responses`, or `0` for an empty
+ * bucket. Drives the Errors-tile sparkline so it matches the on-page Error-rate chart.
+ *
+ * @param rows - Status-mix buckets.
+ * @returns The per-bucket error-rate percentages, in order.
+ */
+export function statusErrorRatePctSeries(rows: StatusMixRow[]): number[] {
+  return rows.map((r) => {
+    const total = r.s2xx + r.s3xx + r.s4xx + r.s5xx
+    return total > 0 ? ((r.s4xx + r.s5xx) / total) * 100 : 0
+  })
+}
+
+/**
  * Mean of the non-null error-rate buckets, as a fraction in `[0, 1]`.
  *
  * @param rows - Error-rate buckets.

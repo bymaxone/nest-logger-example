@@ -22,22 +22,42 @@ export class TriggerService {
   /**
    * Fire `dto.count` log lines at the requested level.
    *
-   * @param dto - Validated trigger request (`level` ∈ {info, warn, error}; `count` ∈ [1,100]).
+   * Dispatches across the logger's TWO public surfaces so the Playground exercises both:
+   *   - structured key-first (`info` / `warnStructured` / `errorStructured`) — carry a
+   *     `TRIGGER_LEVEL_FIRED` logKey and the running index;
+   *   - NestJS-style variadic (`fatal` / `verbose` / `debug`) — the ONLY API for these
+   *     levels (`fatal` is level 60, the library's required-not-optional differentiator;
+   *     `verbose` maps to Pino `trace`). They have no key-first variant.
+   *
+   * @param dto - Validated trigger request (`level` ∈ {info,warn,error,fatal,verbose,debug};
+   *   `count` ∈ [1,100]).
    * @returns Number of lines fired.
    */
   fireLevel(dto: TriggerLevelDto): { fired: number } {
     for (let i = 0; i < dto.count; i += 1) {
-      if (dto.level === 'info') {
-        this.logger.info('TRIGGER_LEVEL_FIRED', 'Triggered info log', undefined, { i })
-      } else if (dto.level === 'warn') {
-        this.logger.warnStructured('TRIGGER_LEVEL_FIRED', 'Triggered warn log', undefined, { i })
-      } else {
-        this.logger.errorStructured(
-          'TRIGGER_LEVEL_FIRED',
-          new Error('Triggered error log'),
-          undefined,
-          { i },
-        )
+      switch (dto.level) {
+        case 'info':
+          this.logger.info('TRIGGER_LEVEL_FIRED', 'Triggered info log', undefined, { i })
+          break
+        case 'warn':
+          this.logger.warnStructured('TRIGGER_LEVEL_FIRED', 'Triggered warn log', undefined, { i })
+          break
+        case 'error':
+          this.logger.errorStructured(
+            'TRIGGER_LEVEL_FIRED',
+            new Error('Triggered error log'),
+            undefined,
+            { i },
+          )
+          break
+        case 'fatal':
+          this.logger.fatal('Triggered fatal log')
+          break
+        case 'verbose':
+          this.logger.verbose('Triggered verbose log')
+          break
+        default:
+          this.logger.debug('Triggered debug log')
       }
     }
     return { fired: dto.count }

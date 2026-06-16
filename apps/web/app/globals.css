@@ -134,6 +134,18 @@
   html {
     scroll-behavior: smooth;
   }
+  /* Recharts marks each chart <svg> (.recharts-surface) focusable for keyboard
+     a11y, so a plain mouse click lands the browser's default focus ring on it —
+     reading as an unwanted box around the chart. Suppress it for pointer focus,
+     keep a tidy ring for keyboard navigation. */
+  .recharts-surface:focus {
+    outline: none;
+  }
+  .recharts-surface:focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));

@@ -19,8 +19,10 @@ import {
   meanErrorRate,
   meanOf,
   pivotVolume,
+  statusErrorRatePctSeries,
   statusTotals,
   sumLevels,
+  sumStatusErrors,
   trendPct,
 } from './metrics'
 
@@ -362,5 +364,37 @@ describe('pivotVolume — all six known levels counted', () => {
   it('assigns the count for the trace level', () => {
     const [pt] = pivotVolume([{ bucket: 'b', level: 'trace', n: 7 }])
     expect(pt!.trace).toBe(7)
+  })
+})
+
+describe('sumStatusErrors', () => {
+  /** Sums 4xx + 5xx across buckets; ignores 2xx / 3xx. */
+  it('totals the 4xx and 5xx responses across buckets', () => {
+    const rows: StatusMixRow[] = [
+      { bucket: 'a', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 2 },
+      { bucket: 'b', s2xx: 50, s3xx: 3, s4xx: 1, s5xx: 0 },
+    ]
+    // (5 + 2) + (1 + 0) = 8.
+    expect(sumStatusErrors(rows)).toBe(8)
+  })
+
+  /** No buckets → 0. */
+  it('returns 0 for no buckets', () => {
+    expect(sumStatusErrors([])).toBe(0)
+  })
+})
+
+describe('statusErrorRatePctSeries', () => {
+  /** A populated bucket yields (4xx + 5xx) / total × 100. */
+  it('computes the per-bucket HTTP error-rate percentage', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 90, s3xx: 0, s4xx: 6, s5xx: 4 }]
+    // (6 + 4) / 100 × 100 = 10.
+    expect(statusErrorRatePctSeries(rows)).toEqual([10])
+  })
+
+  /** An empty bucket (zero total) yields 0, never NaN — the divide-by-zero guard. */
+  it('returns 0 for a bucket with zero total responses', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    expect(statusErrorRatePctSeries(rows)).toEqual([0])
   })
 })

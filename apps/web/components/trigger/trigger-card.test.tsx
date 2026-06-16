@@ -281,15 +281,15 @@ describe('TriggerCard', () => {
     )
   })
 
-  /** All three level options are present in the level select. */
-  it('shows the info, warn and error options in the level select', async () => {
+  /** All six level options are present in the level select (structured trio + variadic trio). */
+  it('shows the info, warn, error, fatal, verbose and debug options in the level select', async () => {
     const { descriptor } = descriptorResolving(okResult(), { input: 'level' })
     render(<TriggerCard descriptor={descriptor} tenantId="acme" />)
     await pointerUser.click(screen.getByRole('combobox', { name: 'Level' }))
     const listbox = await screen.findByRole('listbox')
-    expect(within(listbox).getByRole('option', { name: 'info' })).toBeInTheDocument()
-    expect(within(listbox).getByRole('option', { name: 'warn' })).toBeInTheDocument()
-    expect(within(listbox).getByRole('option', { name: 'error' })).toBeInTheDocument()
+    for (const level of ['info', 'warn', 'error', 'fatal', 'verbose', 'debug']) {
+      expect(within(listbox).getByRole('option', { name: level })).toBeInTheDocument()
+    }
   })
 
   /** All four status-code options are present in the status select. */

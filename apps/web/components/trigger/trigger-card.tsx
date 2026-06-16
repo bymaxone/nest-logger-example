@@ -37,8 +37,12 @@ import type { FireContext, TriggerDescriptor } from './trigger-grid'
 /** HTTP status codes offered by the 4xx/5xx card. */
 const STATUS_CODES = [400, 404, 500, 503] as const
 
-/** Levels offered by the "Emit each level" card (the endpoint's accepted enum). */
-const LEVELS = ['info', 'warn', 'error'] as const
+/**
+ * Levels offered by the "Emit each level" card (the endpoint's accepted enum).
+ * Covers the structured trio (info/warn/error) AND the NestJS-variadic trio
+ * (fatal = level 60, verbose = Pino trace, debug).
+ */
+const LEVELS = ['info', 'warn', 'error', 'fatal', 'verbose', 'debug'] as const
 
 /** Initial burst line count — a lively-but-bounded default for the demo. */
 const DEFAULT_BURST_COUNT = 50

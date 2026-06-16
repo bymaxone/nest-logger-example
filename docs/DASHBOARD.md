@@ -88,14 +88,14 @@ A left nav with six destinations. The first three are the daily drivers; the las
 └────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-| Route          | Page                         | Primary job                                                            |
-| -------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| `/`            | **Overview**                 | Health at a glance — golden signals, RED, breakdowns, pipeline health  |
-| `/explorer`    | **Log Explorer**             | Search, filter, live-tail, drill into individual logs and their traces |
-| `/trigger`     | **Trigger Center**           | Fire every kind of log / library feature on demand (the Playground)    |
-| `/alerts`      | **Alerts & Incidents**       | Rules over log patterns, channels, incident lifecycle                  |
-| `/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail                  |
-| `/settings`    | **Settings**                 | Source endpoints, display defaults, theme                              |
+| Route          | Page                         | Primary job                                                                                                                                                               |
+| -------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`            | **Overview**                 | Health at a glance — golden signals, RED, breakdowns, pipeline health                                                                                                     |
+| `/explorer`    | **Log Explorer**             | Search, filter, live-tail, drill into individual logs and their traces                                                                                                    |
+| `/trigger`     | **Trigger Center**           | Fire every kind of log / library feature on demand (the Playground)                                                                                                       |
+| `/alerts`      | **Alerts & Incidents**       | Rules over log patterns, channels, incident lifecycle                                                                                                                     |
+| `/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail                                                                                                                     |
+| `/settings`    | **Settings**                 | Backend endpoints (logs read-API, Grafana, SSE live-tail proxy), the two log tiers (Loki `info`+ / Postgres `warn`+), and header-based RBAC roles (viewer/operator/admin) |
 
 ---
 
@@ -228,20 +228,20 @@ The **Live** toggle turns any log list into a real-time stream. This is the head
 
 The "acionar todos os tipos de logs pelo dashboard" requirement — and the exact analog of how `nest-auth-example`'s UI exercises every auth feature. A grid of buttons/forms that hit the `apps/api` demo endpoints (OVERVIEW §10) to emit each kind of log, then **auto-pivots the Explorer** to the new `requestId`/`traceId` so you immediately see what you fired.
 
-| Trigger                        | Fires                                         | Demonstrates                                                        | Endpoint                     |
-| ------------------------------ | --------------------------------------------- | ------------------------------------------------------------------- | ---------------------------- |
-| **Emit each level**            | `trace`/`debug`/`info`/`warn`/`error`/`fatal` | `PinoLoggerService.info/warn/error/fatal` + level mapping           | `POST /trigger/level`        |
-| **Structured success**         | `ORDER_CREATE_SUCCESS` (+ metadata)           | `info(logKey, msg, userId, meta)` + ALS `requestId`/`tenantId`      | `POST /orders`               |
-| **Error with stack**           | `PAYMENT_REFUND_FAILED`                       | `errorStructured(logKey, Error, …)` + `HTTP_EXCEPTION_HANDLED` once | `POST /payments`             |
-| **PII payload**                | signup with `password`/`cpf`/`cardNumber`     | 97-path redaction → `[REDACTED]`                                    | `POST /pii-demo/signup`      |
-| **Deep-nested PII**            | depth 1→5 payload                             | wildcard depth boundary (4 redacted, 5 not)                         | `POST /pii-demo/nested`      |
-| **Sensitive headers**          | `authorization`, `x-api-key`, `set-cookie`    | header bracket-syntax redaction                                     | `GET /pii-demo/echo-headers` |
-| **Oversized entry**            | >64 KB metadata                               | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                      | `POST /pii-demo/huge`        |
-| **Slow method**                | sleeps > 1s                                   | `@LogPerformance` → `METHOD_SLOW_EXECUTION`                         | `GET /orders/slow`           |
-| **HTTP 4xx / 5xx**             | client/server error                           | `HTTP_REQUEST_CLIENT_ERROR` / `_SERVER_ERROR`                       | `GET /trigger/status/:code`  |
-| **Cross-service**              | calls `apps/worker`                           | one `traceId` across two services                                   | `POST /downstream/dispatch`  |
-| **Fault-inject a destination** | point Loki at a dead host                     | `LOGGER_DESTINATION_WRITE_FAILED`, fail-soft                        | `POST /trigger/fault/loki`   |
-| **Load burst**                 | N requests over T seconds                     | populate charts / drive the RED panels / test live tail             | `POST /trigger/burst`        |
+| Trigger                        | Fires                                                                    | Demonstrates                                                        | Endpoint                     |
+| ------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------- | ---------------------------- |
+| **Emit each level**            | `info`/`warn`/`error`/`fatal`/`verbose`/`debug` (`verbose`→Pino `trace`) | `PinoLoggerService.info/warn/error/fatal` + level mapping           | `POST /trigger/level`        |
+| **Structured success**         | `ORDER_CREATE_SUCCESS` (+ metadata)                                      | `info(logKey, msg, userId, meta)` + ALS `requestId`/`tenantId`      | `POST /orders`               |
+| **Error with stack**           | `PAYMENT_REFUND_FAILED`                                                  | `errorStructured(logKey, Error, …)` + `HTTP_EXCEPTION_HANDLED` once | `POST /payments`             |
+| **PII payload**                | signup with `password`/`cpf`/`cardNumber`                                | 97-path redaction → `[REDACTED]`                                    | `POST /pii-demo/signup`      |
+| **Deep-nested PII**            | depth 1→5 payload                                                        | wildcard depth boundary (4 redacted, 5 not)                         | `POST /pii-demo/nested`      |
+| **Sensitive headers**          | `authorization`, `x-api-key`, `set-cookie`                               | header bracket-syntax redaction                                     | `GET /pii-demo/echo-headers` |
+| **Oversized entry**            | >64 KB metadata                                                          | `maxEntrySizeBytes` → `LOGGER_ENTRY_TRUNCATED`                      | `POST /pii-demo/huge`        |
+| **Slow method**                | sleeps > 1s                                                              | `@LogPerformance` → `METHOD_SLOW_EXECUTION`                         | `GET /orders/slow`           |
+| **HTTP 4xx / 5xx**             | client/server error                                                      | `HTTP_REQUEST_CLIENT_ERROR` / `_SERVER_ERROR`                       | `GET /trigger/status/:code`  |
+| **Cross-service**              | calls `apps/worker`                                                      | one `traceId` across two services                                   | `POST /downstream/dispatch`  |
+| **Fault-inject a destination** | point Loki at a dead host                                                | `LOGGER_DESTINATION_WRITE_FAILED`, fail-soft                        | `POST /trigger/fault/loki`   |
+| **Load burst**                 | N requests over T seconds                                                | populate charts / drive the RED panels / test live tail             | `POST /trigger/burst`        |
 
 Each trigger card shows the emitted `logKey`(s) and, after firing, a **“View in Explorer →”** link pre-filtered to the resulting `requestId`/`traceId`. The burst generator is what makes the Overview charts and live tail feel alive in a demo.
 

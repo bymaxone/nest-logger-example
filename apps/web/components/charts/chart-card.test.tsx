@@ -1,9 +1,10 @@
 /**
  * @fileoverview Component tests for {@link ChartCard} — the glass panel wrapper.
  *
- * Verifies the three slots the wrapper exposes: the mono title, the optional
- * right-aligned header action, and the body children. Output is asserted via
- * Testing Library role/text queries rather than class names.
+ * Verifies the slots the wrapper exposes: the mono title, the optional
+ * right-aligned header action, the optional info affordance, the optional legend
+ * footer, and the body children. Output is asserted via Testing Library
+ * role/text queries rather than class names.
  *
  * @module components/charts/chart-card.test
  */
@@ -49,6 +50,52 @@ describe('ChartCard', () => {
     expect(screen.getByText('Volume')).toBeInTheDocument()
     expect(screen.getByText('body only')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  /**
+   * By default (non-interactive) the body is exposed as a single labelled image so a
+   * decorative SVG chart gets one accessible name. Asserting the `img` role with the
+   * `"<title> chart"` name kills the StringLiteral mutation on the label and the
+   * ConditionalExpression/default-param mutations on `interactive`.
+   */
+  it('exposes the body as a labelled image by default', () => {
+    render(
+      <ChartCard title="Error rate">
+        <p>panel body</p>
+      </ChartCard>,
+    )
+    expect(screen.getByRole('img', { name: 'Error rate chart' })).toBeInTheDocument()
+  })
+
+  /**
+   * An interactive chart must NOT be collapsed to an image — its controls stay in the
+   * accessibility tree. Asserting the absence of the `img` role kills the
+   * ConditionalExpression mutation that would always apply the image role.
+   */
+  it('keeps the body in the accessibility tree when interactive', () => {
+    render(
+      <ChartCard title="Volume" interactive>
+        <button type="button">brush</button>
+      </ChartCard>,
+    )
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'brush' })).toBeInTheDocument()
+  })
+
+  /** The optional `info` (header) and `legend` (footer) slots both render. */
+  it('renders the optional info affordance and legend footer', () => {
+    render(
+      <ChartCard
+        title="Latency"
+        info={<button type="button">about</button>}
+        legend={<span>legend row</span>}
+      >
+        <p>chart</p>
+      </ChartCard>,
+    )
+    expect(screen.getByRole('button', { name: 'about' })).toBeInTheDocument()
+    expect(screen.getByText('legend row')).toBeInTheDocument()
+    expect(screen.getByText('chart')).toBeInTheDocument()
   })
 
   /**

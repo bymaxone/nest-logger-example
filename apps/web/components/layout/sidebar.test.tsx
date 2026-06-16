@@ -15,9 +15,12 @@ import userEvent from '@testing-library/user-event'
 
 /** Mutable pathname the mocked `usePathname` returns; set per test before render. */
 let currentPathname = '/'
+/** Mutable query string the mocked `useSearchParams` returns; set per test before render. */
+let currentSearch = ''
 
 vi.mock('next/navigation', () => ({
   usePathname: (): string => currentPathname,
+  useSearchParams: (): URLSearchParams => new URLSearchParams(currentSearch),
 }))
 
 // Imported after the mock so the component binds the mocked navigation module.
@@ -25,6 +28,7 @@ const { Sidebar } = await import('./sidebar')
 
 beforeEach(() => {
   currentPathname = '/'
+  currentSearch = ''
 })
 
 afterEach(() => {
@@ -123,5 +127,29 @@ describe('Sidebar', () => {
     currentPathname = '/explorerx'
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Explorer' })).not.toHaveAttribute('aria-current')
+  })
+
+  /** With no active filter state the links stay bare (the empty-query branch). */
+  it('keeps bare hrefs when there is no active query state', () => {
+    render(<Sidebar isOpen={false} />)
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Explorer' })).toHaveAttribute('href', '/explorer')
+  })
+
+  /**
+   * The active filter query (the nuqs URL state) is carried onto every destination
+   * so navigating between pages preserves the lens instead of resetting it.
+   */
+  it('appends the active query string to every nav href', () => {
+    currentSearch = 'source=postgres&live=true&tenantId=acme'
+    render(<Sidebar isOpen={false} />)
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'href',
+      '/?source=postgres&live=true&tenantId=acme',
+    )
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings?source=postgres&live=true&tenantId=acme',
+    )
   })
 })

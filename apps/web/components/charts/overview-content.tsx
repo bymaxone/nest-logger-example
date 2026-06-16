@@ -17,7 +17,10 @@ import { useLogQuery } from '@/lib/filters'
 import { useFacets } from '@/hooks/use-facets'
 import type { FacetField, FacetValue } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
+import { FeatureInfo } from '@/components/common/feature-info'
+import { ERROR_RATE_SERIES, LATENCY_SERIES, LEVEL_SERIES, STATUS_SERIES } from '@/lib/chart-series'
 import { ChartCard } from './chart-card'
+import { ChartLegend } from './chart-legend'
 import { HealthStrip } from './health-strip'
 import { VolumeBar } from './volume-bar'
 import { RequestsLine } from './requests-line'
@@ -73,25 +76,38 @@ export function OverviewContent() {
     <div className="space-y-6">
       <HealthStrip query={query} />
 
-      <ChartCard title="Log volume — drag the brush to set the time range">
+      <ChartCard
+        title="Log volume — drag the brush to set the time range"
+        interactive
+        info={<FeatureInfo id="logVolume" />}
+        legend={<ChartLegend items={LEVEL_SERIES} />}
+      >
         <VolumeBar query={query} onBrush={(from, to) => void setQuery({ from, to, range: '' })} />
       </ChartCard>
 
       {/* RED row: Rate + Errors (left), Duration + heatmap (right). */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
-          <ChartCard title="Requests / min (RED — Rate)">
+          <ChartCard title="Requests / min (RED — Rate)" info={<FeatureInfo id="requests" />}>
             <RequestsLine query={query} />
           </ChartCard>
-          <ChartCard title="Error rate % — 4xx / 5xx (RED — Errors)">
+          <ChartCard
+            title="Error rate % — 4xx / 5xx (RED — Errors)"
+            info={<FeatureInfo id="errorRate" />}
+            legend={<ChartLegend items={ERROR_RATE_SERIES} />}
+          >
             <ErrorRateLine query={query} />
           </ChartCard>
         </div>
         <div className="space-y-4">
-          <ChartCard title="Latency p50 / p95 / p99 (RED — Duration)">
+          <ChartCard
+            title="Latency p50 / p95 / p99 (RED — Duration)"
+            info={<FeatureInfo id="latencyDuration" />}
+            legend={<ChartLegend items={LATENCY_SERIES} />}
+          >
             <LatencyLines query={query} />
           </ChartCard>
-          <ChartCard title="Latency heatmap">
+          <ChartCard title="Latency heatmap" info={<FeatureInfo id="latencyHeatmap" />}>
             <LatencyHeatmap query={query} />
           </ChartCard>
         </div>
@@ -99,7 +115,11 @@ export function OverviewContent() {
 
       {/* Breakdown row: bounded dimensions, each click-to-filter. */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <ChartCard title="Levels">
+        <ChartCard
+          title="Levels"
+          info={<FeatureInfo id="levels" />}
+          legend={<ChartLegend items={LEVEL_SERIES} />}
+        >
           <LevelDonut />
         </ChartCard>
         <Card>
@@ -109,6 +129,7 @@ export function OverviewContent() {
               rows={topLogKeys}
               loading={facets.isLoading}
               onPick={(value) => void setQuery({ logKey: value })}
+              info={<FeatureInfo id="topLogKeys" />}
             />
           </CardContent>
         </Card>
@@ -120,10 +141,15 @@ export function OverviewContent() {
               fill="#ef4444"
               loading={errorFacets.isLoading}
               onPick={(value) => void setQuery({ logKey: value, level: '>=error' })}
+              info={<FeatureInfo id="topErrors" />}
             />
           </CardContent>
         </Card>
-        <ChartCard title="Status mix">
+        <ChartCard
+          title="Status mix"
+          info={<FeatureInfo id="statusMix" />}
+          legend={<ChartLegend items={STATUS_SERIES} />}
+        >
           <StatusMix query={query} />
         </ChartCard>
         <Card>
@@ -136,12 +162,16 @@ export function OverviewContent() {
               onPick={(value) =>
                 value !== 'other' ? void setQuery({ tenantId: value }) : undefined
               }
+              info={<FeatureInfo id="topTenants" />}
             />
           </CardContent>
         </Card>
       </div>
 
-      <ChartCard title="Pipeline health (logging fail-soft saturation)">
+      <ChartCard
+        title="Pipeline health (logging fail-soft saturation)"
+        info={<FeatureInfo id="pipelineHealth" />}
+      >
         <PipelineHealth query={query} />
       </ChartCard>
     </div>

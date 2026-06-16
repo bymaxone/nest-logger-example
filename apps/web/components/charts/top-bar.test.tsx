@@ -11,15 +11,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReactNode } from 'react'
+import { cloneElement, type ReactElement, type ReactNode } from 'react'
 
 import type { FacetValue } from '@/lib/types'
 
-/** Captures the label fed to the YAxis tick formatter so truncation can be asserted. */
-const yAxisFormatted: string[] = []
-
 // Recharts axis ticks and bar shapes do not paint in jsdom; stub the surface so the
-// `YAxis.tickFormatter` and the `Bar.shape` render prop both execute deterministically.
+// custom `YAxis` chip tick and the `Bar.shape` render prop both execute deterministically.
 type BarShape = (props: { payload?: FacetValue }) => ReactNode
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -27,13 +24,22 @@ vi.mock('recharts', () => ({
     <div data-testid="bar-chart">{children}</div>
   ),
   XAxis: () => <div data-testid="x-axis" />,
-  YAxis: ({ tickFormatter }: { tickFormatter?: (v: string) => string }) => {
-    if (tickFormatter) {
-      yAxisFormatted.push(tickFormatter('short'))
-      yAxisFormatted.push(tickFormatter('a-very-long-facet-value-that-overflows'))
-    }
-    return <div data-testid="y-axis" />
-  },
+  YAxis: ({
+    tick,
+  }: {
+    tick?: ReactElement<{ x?: number; y?: number; payload?: { value: string } }>
+  }) => (
+    <div data-testid="y-axis">
+      {tick && cloneElement(tick, { x: 130, y: 12, payload: { value: 'short' } })}
+      {tick &&
+        cloneElement(tick, {
+          x: 130,
+          y: 40,
+          payload: { value: 'a-very-long-facet-value-that-overflows' },
+        })}
+      {tick && cloneElement(tick, {})}
+    </div>
+  ),
   Tooltip: () => <div data-testid="tooltip" />,
   Rectangle: ({ onClick }: { onClick?: () => void }) => (
     <button type="button" data-testid="bar-rect" onClick={onClick}>
@@ -60,7 +66,6 @@ const rows: FacetValue[] = [
 ]
 
 afterEach(() => {
-  yAxisFormatted.length = 0
   cleanup()
   vi.clearAllMocks()
 })
@@ -85,12 +90,13 @@ describe('TopBar', () => {
    * Populated rows render the bar chart; the YAxis formatter passes short labels
    * through and truncates long ones with an ellipsis. The `loading` default is `false`.
    */
-  it('renders the bar chart and truncates long axis labels', () => {
+  it('renders the bar chart and chip-truncates long axis labels', () => {
     render(<TopBar title="Top logKeys" rows={rows} onPick={vi.fn()} />)
     expect(screen.getByTestId('bar-chart')).toBeInTheDocument()
-    // Short label is untouched; the long one is clipped to 17 chars + ellipsis.
-    expect(yAxisFormatted).toContain('short')
-    expect(yAxisFormatted).toContain('a-very-long-facet…')
+    // The short value renders verbatim inside its chip; the long one is clipped to
+    // 17 chars + ellipsis by the chip tick.
+    expect(screen.getByText('short')).toBeInTheDocument()
+    expect(screen.getByText('a-very-long-facet…')).toBeInTheDocument()
   })
 
   /** Clicking a bar with a payload pivots the filter to that value via `onPick`. */

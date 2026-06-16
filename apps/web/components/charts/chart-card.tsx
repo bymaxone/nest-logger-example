@@ -19,10 +19,28 @@ interface ChartCardProps {
   title: string
   /** Optional right-aligned node (e.g. a stat readout). */
   action?: ReactNode
+  /**
+   * Optional info affordance rendered in the header (typically a
+   * `<FeatureInfo id=… />`) that opens a modal explaining the panel.
+   */
+  info?: ReactNode
+  /**
+   * Optional legend rendered as a footer row below the chart (typically a
+   * `<ChartLegend items=… />`), so a viewer can read what each colour means.
+   */
+  legend?: ReactNode
   /** The chart / panel body. */
   children: ReactNode
   /** Extra classes for the card. */
   className?: string
+  /**
+   * Whether the body contains operable controls (e.g. a brushable volume bar).
+   * When false (default) the body is exposed to assistive tech as a single labelled
+   * image (`role="img"` + the panel title) so a decorative SVG chart gets ONE accessible
+   * name instead of a tree of unlabelled groups. When true, the children stay in the
+   * accessibility tree so the controls remain operable.
+   */
+  interactive?: boolean
 }
 
 /**
@@ -31,14 +49,33 @@ interface ChartCardProps {
  * @param props - {@link ChartCardProps}.
  * @returns The titled chart card.
  */
-export function ChartCard({ title, action, children, className }: ChartCardProps) {
+export function ChartCard({
+  title,
+  action,
+  info,
+  legend,
+  children,
+  className,
+  interactive = false,
+}: ChartCardProps) {
+  // Decorative charts become a single labelled image; interactive ones keep their tree.
+  const a11y = interactive ? {} : { role: 'img' as const, 'aria-label': `${title} chart` }
+  const hasHeaderRight = action !== undefined || info !== undefined
   return (
     <Card className={cn('flex flex-col', className)}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="font-mono text-sm font-medium text-white/70">{title}</CardTitle>
-        {action}
+        {hasHeaderRight && (
+          <div className="flex items-center gap-0.5">
+            {action}
+            {info}
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="flex-1">{children}</CardContent>
+      <CardContent className={cn('flex-1', legend !== undefined && 'pb-3')} {...a11y}>
+        {children}
+      </CardContent>
+      {legend !== undefined && <div className="border-t border-white/5 px-6 py-3">{legend}</div>}
     </Card>
   )
 }

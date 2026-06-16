@@ -60,6 +60,10 @@ pnpm dev
 `pnpm infra:up` runs `docker compose up -d --wait`, so it blocks until every backend reports healthy.
 `pnpm dev` fans out to all three apps in parallel.
 
+> **On a RAM-constrained machine,** `pnpm dev` runs three watchers at once and can swap-thrash the system — see
+> [TROUBLESHOOTING.md → `pnpm dev` freezes the machine](./TROUBLESHOOTING.md#pnpm-dev-freezes-the-machine-runaway-memory)
+> for capped / built-output alternatives.
+
 ---
 
 ## What you should see

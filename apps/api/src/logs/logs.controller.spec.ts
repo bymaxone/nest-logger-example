@@ -14,7 +14,8 @@ import type { Response } from 'express'
 import type { ApplicationLog } from '@prisma/client'
 
 import type { PrismaService } from '../prisma/prisma.service.js'
-import { LogsService } from './logs.service.js'
+import { LogsService, StaleCursorError } from './logs.service.js'
+import type { LogsLokiService } from './logs.loki.service.js'
 import type { LogsAggregateService } from './logs.aggregate.service.js'
 import type { LogsFacetsService } from './logs.facets.service.js'
 import type { LogsContextService } from './logs.context.service.js'
@@ -61,8 +62,21 @@ function buildController() {
     stream: jest.fn<() => Promise<unknown>>().mockResolvedValue({ kind: 'streamable' }),
   } as unknown as LogsExportService
 
-  const controller = new LogsController(prisma, logsService, aggregate, facets, ctx, exporter)
-  return { controller, findMany, logsService, aggregate, facets, ctx, exporter }
+  const lokiQuery = jest
+    .fn<() => Promise<{ data: ApplicationLog[]; nextCursor: string | null; hasMore: boolean }>>()
+    .mockResolvedValue({ data: [], nextCursor: null, hasMore: false })
+  const lokiList = { query: lokiQuery } as unknown as LogsLokiService
+
+  const controller = new LogsController(
+    prisma,
+    logsService,
+    lokiList,
+    aggregate,
+    facets,
+    ctx,
+    exporter,
+  )
+  return { controller, findMany, logsService, lokiQuery, aggregate, facets, ctx, exporter }
 }
 
 describe('LogsController.list', () => {
@@ -87,6 +101,47 @@ describe('LogsController.list', () => {
     const passedWhere = findMany.mock.calls[0]?.[0] as unknown as { where: { AND?: unknown } }
     expect(passedWhere.where.AND).toBeUndefined()
     expect(findMany).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes source=loki to the Loki list service and returns its envelope', async () => {
+    /**
+     * With `source: 'loki'`, `list` must delegate to `LogsLokiService.query` (never
+     * Prisma) and return its `{ data, nextCursor, hasMore }` envelope verbatim so the
+     * Explorer table is source-agnostic.
+     */
+    const { controller, lokiQuery, findMany } = buildController()
+    const page = { data: [makeRow({ level: 'info' })], nextCursor: 'cur', hasMore: true }
+    lokiQuery.mockResolvedValue(page)
+
+    const result = await controller.list({ 'x-role': 'admin' }, { source: 'loki', limit: 100 })
+
+    expect(result).toBe(page)
+    expect(lokiQuery).toHaveBeenCalledTimes(1)
+    expect(findMany).not.toHaveBeenCalled()
+  })
+
+  it('maps a stale Loki cursor to HTTP 410 Gone', async () => {
+    /**
+     * A `StaleCursorError` from the Loki path (e.g. a Postgres-shaped cursor) must
+     * map to `GoneException` exactly like the Postgres path so the client restarts.
+     */
+    const { controller, lokiQuery } = buildController()
+    lokiQuery.mockRejectedValue(new StaleCursorError())
+
+    await expect(
+      controller.list({}, { source: 'loki', limit: 100, cursor: 'bad' }),
+    ).rejects.toBeInstanceOf(GoneException)
+  })
+
+  it('rethrows a non-stale error from the Loki path unchanged', async () => {
+    /**
+     * Any non-`StaleCursorError` (e.g. a 502 when Loki is down) must propagate from the
+     * Loki branch untouched — covers the `throw err` side of the catch.
+     */
+    const { controller, lokiQuery } = buildController()
+    lokiQuery.mockRejectedValue(new Error('loki boom'))
+
+    await expect(controller.list({}, { source: 'loki', limit: 100 })).rejects.toThrow('loki boom')
   })
 
   it('emits a nextCursor and hasMore=true when the page fills to the limit', async () => {

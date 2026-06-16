@@ -10,7 +10,7 @@
 
 import type { ComponentType } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { LayoutDashboard, Search, Zap, BellRing, Settings2, Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +54,10 @@ interface SidebarProps {
 /** 250px glass nav rail — orange active item, logger destinations. */
 export function Sidebar({ isOpen, onNavClick }: SidebarProps) {
   const pathname = usePathname()
+  // Carry the active filter state (the nuqs URL query: source, range, tenant,
+  // role, live…) across navigation so a destination opens with the same lens
+  // instead of resetting to defaults.
+  const queryString = useSearchParams().toString()
   return (
     <nav
       aria-label="Main navigation"
@@ -69,7 +73,7 @@ export function Sidebar({ isOpen, onNavClick }: SidebarProps) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={queryString ? `${item.href}?${queryString}` : item.href}
                 {...(onNavClick ? { onClick: onNavClick } : {})}
                 className={cn(
                   NAV_ITEM_BASE_CLASS,

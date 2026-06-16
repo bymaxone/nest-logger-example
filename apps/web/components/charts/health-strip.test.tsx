@@ -102,12 +102,9 @@ describe('HealthStrip', () => {
       { bucket: '2026-01-01T00:00:00Z', level: 'error', n: 3 },
       { bucket: '2026-01-01T00:01:00Z', level: 'fatal', n: 1 },
     ]
-    const errorRate: ErrorRateRow[] = [
-      { bucket: '2026-01-01T00:00:00Z', errorRate: 0.02 },
-      { bucket: '2026-01-01T00:01:00Z', errorRate: 0.05 },
-      // A null bucket exercises the `r.errorRate ?? 0` fallback in the series map.
-      { bucket: '2026-01-01T00:02:00Z', errorRate: null },
-    ]
+    // The errorRate aggregate is no longer consumed by HealthStrip (the Errors tile is
+    // volume-weighted); kept empty so the mocked result map stays shape-complete.
+    const errorRate: ErrorRateRow[] = []
     const latency: LatencyRow[] = [
       { bucket: '2026-01-01T00:00:00Z', p50: 10, p95: 120, p99: 300 },
       { bucket: '2026-01-01T00:01:00Z', p50: 12, p95: 1500, p99: 4000 },
@@ -130,8 +127,8 @@ describe('HealthStrip', () => {
     expect(screen.getByText('LATENCY')).toBeInTheDocument()
     expect(screen.getByText('FATAL+ERROR')).toBeInTheDocument()
     expect(screen.getByText('SLO 99.9% (30d)')).toBeInTheDocument()
-    // errRate 0.035 > 1% threshold → ERRORS tile shows the percentage and is in danger.
-    expect(screen.getByText('3.50%')).toBeInTheDocument()
+    // statusMix-based: 5 (4xx) of 100 total requests = 5.00% (> 1% → danger).
+    expect(screen.getByText('5.00%')).toBeInTheDocument()
     // 4 error+fatal rows summed → FATAL+ERROR is non-zero (danger path).
     expect(screen.getByText('4')).toBeInTheDocument()
   })
@@ -173,9 +170,9 @@ describe('HealthStrip', () => {
    * and to the `>` comparison operator.
    */
   it('marks the ERRORS tile value as destructive when the error rate exceeds 1%', () => {
-    const statusMix = [{ bucket: 'b', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 5 }]
+    // statusMix-based: (5 + 0) / 100 = 5% > 1% threshold → danger=true.
+    const statusMix = [{ bucket: 'b', s2xx: 95, s3xx: 0, s4xx: 5, s5xx: 0 }]
     const volume = [{ bucket: 'b', level: 'info', n: 100 }]
-    // errRate = 0.05 (5%) > 0.01 threshold → danger=true.
     const errorRate = [{ bucket: 'b', errorRate: 0.05 }]
     const latency = [{ bucket: 'b', p50: 10, p95: 50, p99: 80 }]
     results = {
@@ -194,9 +191,9 @@ describe('HealthStrip', () => {
    * This kills the `> threshold` → `>= threshold` mutation.
    */
   it('does not mark the ERRORS tile as danger when the error rate is exactly 1%', () => {
+    // statusMix-based: (1 + 0) / 100 = 1% — NOT > 1% → danger=false.
     const statusMix = [{ bucket: 'b', s2xx: 99, s3xx: 0, s4xx: 1, s5xx: 0 }]
     const volume = [{ bucket: 'b', level: 'info', n: 100 }]
-    // errRate = 0.01 (1%) — NOT > 0.01 → danger=false.
     const errorRate = [{ bucket: 'b', errorRate: 0.01 }]
     const latency = [{ bucket: 'b', p50: 5, p95: 30, p99: 60 }]
     results = {
@@ -328,11 +325,11 @@ describe('HealthStrip — loading skeleton presence', () => {
   })
 
   /**
-   * Any one of the four aggregate queries loading must be sufficient to show
-   * skeletons. This exercises the `||` chain in the `isLoading` derivation.
+   * Any one of the aggregate queries loading must be sufficient to show skeletons.
+   * This exercises the `||` chain in the `isLoading` derivation (statusMix operand).
    */
-  it('renders skeletons when only the errorRate query is loading', () => {
-    results.errorRate = { isLoading: true, isError: false }
+  it('renders skeletons when only the statusMix query is loading', () => {
+    results.statusMix = { isLoading: true, isError: false }
     const { container } = render(<HealthStrip query={BASE_QUERY} />)
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
   })
@@ -390,6 +387,9 @@ describe('HealthStrip — empty-state guard uses both totalRequests and totalVol
     render(<HealthStrip query={BASE_QUERY} />)
     expect(screen.getByText('TRAFFIC')).toBeInTheDocument()
     expect(screen.queryByText('No logs in this window yet.')).not.toBeInTheDocument()
+    // No HTTP requests (statusMix empty) → the error rate's `totalRequests > 0 ? … : 0`
+    // guard falls back to 0% instead of dividing by zero.
+    expect(screen.getByText('0.00%')).toBeInTheDocument()
   })
 })
 

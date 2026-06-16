@@ -178,7 +178,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 
 - [ ] `apps/api` Nest app (Express), `nest-cli.json`, tsconfigs.
 - [ ] `src/instrumentation.ts` — `export const otelSdk`; `NodeSDK` start **before** any NestJS import; OTLP exporter; fs-instrumentation disabled. **No** `process.exit` here (NestJS owns termination).
-- [ ] `src/main.ts` — `import './instrumentation'` first; `NestFactory.create(AppModule, { bufferLogs: true })`; bridge via `app.useLogger(app.get(PinoLoggerService))` (or the `shouldUseAsNestLogger` option); single ordered `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit.
+- [ ] `src/main.ts` — `import './instrumentation'` first; `NestFactory.create(AppModule, { bufferLogs: true })`; bridge via `BymaxLoggerModule.useNestLogger(app)` (or the `shouldUseAsNestLogger` option); single ordered `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit.
 - [ ] `src/config/env.schema.ts` (Zod) + `src/health/` (`/health`, `/metrics`).
 
 **Definition of done:** `pnpm --filter api dev` boots; `GET /health` returns 200; a span reaches Tempo.

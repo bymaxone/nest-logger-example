@@ -301,7 +301,7 @@ describe('TRIGGERS descriptor catalog fields', () => {
       ['level', 'PinoLoggerService.info/warn/error + level mapping'],
       ['order', 'info(logKey, msg, userId, meta) + ALS requestId/tenantId'],
       ['payment', 'errorStructured(logKey, Error, …) → 402, exception logged once'],
-      ['pii-signup', '97-path redaction → [REDACTED] (password/cpf/cardNumber)'],
+      ['pii-signup', '113-path redaction → [REDACTED] (password/cpf/cardNumber)'],
       ['pii-nested', 'wildcard depth boundary (depth 4 redacted, 5 not)'],
       ['pii-headers', 'header bracket-syntax redaction (authorization, x-api-key)'],
       ['huge', 'maxEntrySizeBytes → LOGGER_ENTRY_TRUNCATED'],

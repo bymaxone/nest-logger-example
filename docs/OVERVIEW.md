@@ -12,18 +12,18 @@
 >
 > **🔧 Reconciled against the shipped `0.1.0` types (May-2026 audit).** The earlier blueprint was authored pre-code against the library's `README.md`, which itself drifts from the shipped code. This document now follows the **code**; the corrections applied:
 >
-> | Symbol                                         | Shipped `0.1.0` (authoritative)                                                                                                 | Correction applied                                                      |
-> | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-> | NestJS-logger bridge                           | `app.useLogger(app.get(PinoLoggerService))` + option `shouldUseAsNestLogger` (default true)                                     | no `BymaxLoggerModule.useNestLogger(app)` helper ships — use the idiom  |
-> | Request-id middleware                          | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId`; `applyRequestIdMiddleware()` also exported | as documented                                                           |
-> | `otel` auto-inject flag                        | **`otel.shouldAutoInjectTraceContext`** (default true)                                                                          | was `autoInjectTraceContext`                                            |
-> | `warnStructured`                               | **`(logKey, message: string, userId?, meta?)`**                                                                                 | was `(logKey, error, context?)` — message+userId, not Error+context     |
-> | structured fatal                               | **none** — use `fatal()` (variadic) or `errorStructured()`                                                                      | `fatalStructured` does not exist                                        |
-> | `@LogContext`                                  | **class decorator `@LogContext(name)`** — records a label; `setContext()` applies it in `0.1.0`                                 | was `(store)` method decorator                                          |
-> | `http.excludePaths`                            | **`readonly RegExp[]`** (anchored, ReDoS-safe)                                                                                  | was `string[]`                                                          |
-> | `redactCensor`                                 | **`string`** only                                                                                                               | the censor-function form is not in the public type                      |
-> | `DEFAULT_REDACT_PATHS`                         | **exported** from the `.` subpath; the example references it                                                                    | was wrongly called internal (the export-usage audit needs it)           |
-> | `http.slowThresholdMs` / `http.userIdResolver` | **do not exist** in `HttpOptions`                                                                                               | slow = `@LogPerformance(ms)`; userId via `info(logKey, msg, userId, …)` |
+> | Symbol                                         | Shipped `0.1.0` (authoritative)                                                                                                                  | Correction applied                                                                |
+> | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+> | NestJS-logger bridge                           | `BymaxLoggerModule.useNestLogger(app)` static helper (wires `useLogger` + flushes buffered logs) + option `shouldUseAsNestLogger` (default true) | helper **does** ship — `apps/api/src/main.ts` + `apps/worker/src/main.ts` call it |
+> | Request-id middleware                          | `RequestIdMiddleware` (via `consumer.apply(...)`) or `http.shouldGenerateRequestId`; `applyRequestIdMiddleware()` also exported                  | as documented                                                                     |
+> | `otel` auto-inject flag                        | **`otel.shouldAutoInjectTraceContext`** (default true)                                                                                           | was `autoInjectTraceContext`                                                      |
+> | `warnStructured`                               | **`(logKey, message: string, userId?, meta?)`**                                                                                                  | was `(logKey, error, context?)` — message+userId, not Error+context               |
+> | structured fatal                               | **none** — use `fatal()` (variadic) or `errorStructured()`                                                                                       | `fatalStructured` does not exist                                                  |
+> | `@LogContext`                                  | **class decorator `@LogContext(name)`** — records a label; `setContext()` applies it in `0.1.0`                                                  | was `(store)` method decorator                                                    |
+> | `http.excludePaths`                            | **`readonly RegExp[]`** (anchored, ReDoS-safe)                                                                                                   | was `string[]`                                                                    |
+> | `redactCensor`                                 | **`string`** only                                                                                                                                | the censor-function form is not in the public type                                |
+> | `DEFAULT_REDACT_PATHS`                         | **exported** from the `.` subpath; the example references it                                                                                     | was wrongly called internal (the export-usage audit needs it)                     |
+> | `http.slowThresholdMs` / `http.userIdResolver` | **do not exist** in `HttpOptions`                                                                                                                | slow = `@LogPerformance(ms)`; userId via `info(logKey, msg, userId, …)`           |
 >
 > The library's own `README.md` still documents some of these incorrectly (`@LogContext(store)`, `warnStructured(error)`, `fatalStructured`, a `redactCensor` function) — a docs issue should be filed upstream. `TraceContextMixin`, `REDACT_MAX_DEPTH`, the composed mixin, and `LOGGER_ERROR_CODES` are **internal** (not public exports) — referenced as observable _behaviors_, not importable surface.
 
@@ -114,7 +114,7 @@ Two NestJS services emit structured logs and OTLP spans. Logs reach Loki (`info`
 │  ─────────────────────────────────────                                             │
 │  instrumentation.ts → NodeSDK.start()         ← BEFORE any NestJS import            │
 │  main.ts            → NestFactory.create(AppModule, { bufferLogs: true })           │
-│                       app.useLogger(app.get(PinoLoggerService))                    │
+│                       BymaxLoggerModule.useNestLogger(app)                         │
 │                                                                                    │
 │  BymaxLoggerModule.forRootAsync({ ... })                                            │
 │    ├─ PinoLoggerService            (info / warnStructured / errorStructured / …)    │
@@ -311,7 +311,7 @@ Every row maps to a public feature/export of `@bymax-one/nest-logger`. Each one 
 | 1   | Synchronous registration                       | `BymaxLoggerModule.forRoot(options)`                                                                                                            | `apps/worker/src/app.module.ts`                                                                            | ✅     |
 | 2   | Async registration with `ConfigService`        | `BymaxLoggerModule.forRootAsync(...)` typed by `BymaxLoggerModuleOptions` / `BymaxLoggerModuleAsyncOptions` / `BymaxLoggerModuleOptionsFactory` | `apps/api/src/app.module.ts` + `logger/logger.config.ts` + `library-probe.ts` (async/factory option types) | ✅     |
 | 3   | Global module flag                             | `isGlobal` (→ `DynamicModule.global`)                                                                                                           | `forRootAsync` in `apps/api` (default `true`, set explicitly)                                              | ✅     |
-| 4   | NestJS internal-logger bridge                  | `app.useLogger(app.get(PinoLoggerService))` (or option `shouldUseAsNestLogger`) + `{ bufferLogs: true }`                                        | `apps/api/src/main.ts`, `apps/worker/src/main.ts`                                                          | ✅     |
+| 4   | NestJS internal-logger bridge                  | `BymaxLoggerModule.useNestLogger(app)` static helper (or option `shouldUseAsNestLogger`) + `{ bufferLogs: true }`                               | `apps/api/src/main.ts`, `apps/worker/src/main.ts`                                                          | ✅     |
 | 5   | Structured `info` / `warnStructured`           | `PinoLoggerService.info(logKey, msg, userId?, meta?)`                                                                                           | `orders/orders.service.ts`                                                                                 | ✅     |
 | 6   | Error logging with `Error` object              | `PinoLoggerService.errorStructured(logKey, error, userId?, meta?)`                                                                              | `payments/payments.service.ts` catch block                                                                 | ✅     |
 | 7   | Structured warn + variadic `fatal()`           | `warnStructured(logKey, msg, userId?, meta?)`; `fatal()` (no `fatalStructured`)                                                                 | `payments` (retryable warn), bootstrap fatal path                                                          | ✅     |
@@ -428,6 +428,8 @@ pnpm dev                             # nest start --watch picks up the rebuilt d
 ```
 
 > **Path note.** From `nest-logger-example/apps/api`, the library is three levels up (`../../../nest-logger`); from the repo root it is one level up (`../nest-logger`). Both repos are siblings under `…/bymax-one/`.
+
+> **Memory note.** `pnpm dev` runs three watch toolchains at once and can swap-thrash a RAM-constrained machine — see [TROUBLESHOOTING.md → `pnpm dev` freezes the machine](./TROUBLESHOOTING.md#pnpm-dev-freezes-the-machine-runaway-memory) for capped / built-output alternatives.
 
 ### After the library publishes
 
@@ -560,17 +562,16 @@ otelSdk.start()
 import './instrumentation' // MUST be first — starts the OTel SDK before NestJS loads
 import { otelSdk } from './instrumentation'
 import { NestFactory } from '@nestjs/core'
-import { PinoLoggerService } from '@bymax-one/nest-logger'
+import { BymaxLoggerModule } from '@bymax-one/nest-logger'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
 
-  // Bridge NestJS's internal logger to the library. The standard NestJS idiom below
-  // is guaranteed to work and auto-flushes the buffered logs. The library ALSO
-  // self-bridges when the module option `shouldUseAsNestLogger` is true (its default),
-  // making this line optional — keep it for explicitness/portability.
-  app.useLogger(app.get(PinoLoggerService))
+  // Bridge NestJS's internal logger to the library logger. The shipped helper wires
+  // `app.useLogger(PinoLoggerService)` and flushes the logs buffered since
+  // `bufferLogs: true`, throwing a clear error if `BymaxLoggerModule` is absent.
+  BymaxLoggerModule.useNestLogger(app)
 
   // SINGLE coordinated shutdown owner (no competing handler in instrumentation.ts):
   // app.close() runs NestJS onApplicationShutdown hooks (the library drains its

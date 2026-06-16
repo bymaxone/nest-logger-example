@@ -33,6 +33,7 @@ import { exportQuerySchema, type ExportQueryDto } from './dto/export-query.dto.j
 import { facetsQuerySchema, type FacetsQueryDto } from './dto/facets-query.dto.js'
 import { contextQuerySchema, type ContextQueryDto } from './dto/context-query.dto.js'
 import { StaleCursorError, LogsService } from './logs.service.js'
+import { LogsLokiService } from './logs.loki.service.js'
 import { LogsAggregateService } from './logs.aggregate.service.js'
 import { LogsFacetsService } from './logs.facets.service.js'
 import { LogsContextService } from './logs.context.service.js'
@@ -57,6 +58,7 @@ export class LogsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logs: LogsService,
+    private readonly lokiList: LogsLokiService,
     private readonly aggregate: LogsAggregateService,
     private readonly facets: LogsFacetsService,
     private readonly ctx: LogsContextService,
@@ -82,6 +84,21 @@ export class LogsController {
     @Query(new ZodValidationPipe(logQuerySchema)) q: LogQueryDto,
   ): Promise<LogsPageResponse> {
     const restriction = toRestriction(buildRbacContext(headers))
+
+    // The source toggle: Loki holds the full-fidelity `info`+ stream; Postgres is the
+    // durable `warn`+ tier. The Loki path returns the same envelope, so the table is
+    // source-agnostic. A stale Loki cursor maps to 410 exactly like the Postgres path.
+    if (q.source === 'loki') {
+      try {
+        return await this.lokiList.query(q, restriction)
+      } catch (err) {
+        if (err instanceof StaleCursorError) {
+          throw new GoneException('cursor is stale; restart pagination from the top')
+        }
+        throw err
+      }
+    }
+
     const where = this.logs.buildPrismaWhere(q, restriction)
 
     if (q.cursor !== undefined) {

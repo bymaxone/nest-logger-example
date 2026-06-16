@@ -9,9 +9,9 @@
  * @module app/maintenance/page
  */
 
-import type { ReactNode } from 'react'
-
 import { AppShell } from '@/components/layout/app-shell'
+import { Section } from '@/components/common/section'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { RetentionPanel } from '@/components/maintenance/retention-panel'
 import { ExportPanel } from '@/components/maintenance/export-panel'
 import { RbacPanel } from '@/components/maintenance/rbac-panel'
@@ -20,16 +20,6 @@ import { AuditTable } from '@/components/maintenance/audit-table'
 
 // RBAC-driven: the sections read role/tenant from the URL, so render dynamically.
 export const dynamic = 'force-dynamic'
-
-/** A titled page section with an anchor id. */
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} className="space-y-4 scroll-mt-20">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-      {children}
-    </section>
-  )
-}
 
 /**
  * Maintenance & Governance page.
@@ -48,23 +38,35 @@ export default function MaintenancePage() {
           </p>
         </header>
 
-        <Section id="retention" title="Retention &amp; storage">
+        <Section
+          id="retention"
+          title="Retention &amp; storage"
+          info={<FeatureInfo id="retention" />}
+        >
           <RetentionPanel />
         </Section>
 
-        <Section id="export" title="Export">
+        <Section id="export" title="Export" info={<FeatureInfo id="export" />}>
           <ExportPanel />
         </Section>
 
-        <Section id="rbac" title="RBAC (query-based, multi-tenant)">
+        <Section
+          id="rbac"
+          title="RBAC (query-based, multi-tenant)"
+          info={<FeatureInfo id="rbac" />}
+        >
           <RbacPanel />
         </Section>
 
-        <Section id="redaction" title="Governance — redaction at source">
+        <Section
+          id="redaction"
+          title="Governance — redaction at source"
+          info={<FeatureInfo id="redaction" />}
+        >
           <RedactionHero />
         </Section>
 
-        <Section id="audit" title="Audit trail">
+        <Section id="audit" title="Audit trail" info={<FeatureInfo id="audit" />}>
           <AuditTable />
         </Section>
       </div>

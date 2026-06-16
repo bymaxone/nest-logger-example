@@ -9,7 +9,7 @@
  * or aggregates log data (that is the Explorer/Overview's job).
  *
  * Request bodies mirror the real `apps/api` DTOs exactly (e.g. `/orders` requires
- * a `tenantId`, `/trigger/level` accepts only `info|warn|error`, `/trigger/burst`
+ * a `tenantId`, `/trigger/level` accepts `info|warn|error|fatal|verbose|debug`, `/trigger/burst`
  * takes a `count`), so every fire passes server-side validation.
  *
  * @module lib/trigger-api
@@ -20,8 +20,11 @@ import { z } from 'zod'
 /** API base URL — the demo + read API. Defaults to the local `apps/api` port. */
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-/** Levels the `/trigger/level` endpoint accepts (its Zod enum). */
-export type TriggerLevel = 'info' | 'warn' | 'error'
+/**
+ * Levels the `/trigger/level` endpoint accepts (its Zod enum): the structured trio
+ * (info/warn/error) plus the NestJS-variadic trio (fatal/verbose/debug).
+ */
+export type TriggerLevel = 'info' | 'warn' | 'error' | 'fatal' | 'verbose' | 'debug'
 
 /** HTTP status codes the 4xx/5xx card may request (mirrors the card's options). */
 const ALLOWED_STATUS_CODES = new Set([400, 404, 500, 503])
@@ -96,7 +99,7 @@ export const triggerApi = {
   /**
    * Emit `count` lines at the chosen level (`POST /trigger/level`).
    *
-   * @param level - Log level to emit (`info` / `warn` / `error`).
+   * @param level - Log level to emit (`info`/`warn`/`error`/`fatal`/`verbose`/`debug`).
    * @param count - How many lines to emit; defaults to `1`.
    * @returns The correlation ids, status, and parsed body of the fire.
    */

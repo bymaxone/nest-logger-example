@@ -29,6 +29,8 @@ const connectSrc = ["'self'", apiOrigin].filter(Boolean).join(' ')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Do not advertise the framework — drops the `X-Powered-By: Next.js` response header.
+  poweredByHeader: false,
   // Emit a self-contained server bundle (`.next/standalone/apps/web/server.js`)
   // so the production image ships only the traced runtime, not the full
   // workspace. `outputFileTracingRoot` points at the monorepo root so pnpm's

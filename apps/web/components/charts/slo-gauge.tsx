@@ -11,6 +11,8 @@
 
 'use client'
 
+import type { ReactNode } from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +28,8 @@ const BURN_THRESHOLDS = [14.4, 6, 1] as const
 interface SloGaugeProps {
   /** Observed error rate over the window, as a fraction in `[0, 1]`. */
   errorRate: number
+  /** Optional info affordance rendered beside the title. */
+  info?: ReactNode
 }
 
 /**
@@ -34,7 +38,7 @@ interface SloGaugeProps {
  * @param props - {@link SloGaugeProps}.
  * @returns The SLO budget gauge card.
  */
-export function SloGauge({ errorRate }: SloGaugeProps) {
+export function SloGauge({ errorRate, info }: SloGaugeProps) {
   const burnRate = errorRate / ERROR_BUDGET
   const budgetLeft = Math.max(0, Math.min(1, 1 - burnRate))
   const budgetPct = Math.round(budgetLeft * 100)
@@ -42,10 +46,11 @@ export function SloGauge({ errorRate }: SloGaugeProps) {
 
   return (
     <Card className={cn('min-w-48 flex-1', isDanger && 'ring-1 ring-destructive/60')}>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
         <CardTitle className="font-mono text-xs font-medium text-white/55">
           SLO 99.9% (30d)
         </CardTitle>
+        {info}
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-baseline gap-2">

@@ -69,6 +69,20 @@ describe('FacetRail', () => {
     expect(screen.getByRole('heading', { name: 'Tenant' })).toBeInTheDocument()
   })
 
+  /** On Loki source the rail shows an honest note: counts come from the Postgres tier. */
+  it('shows the Postgres-tier note when the source is Loki', () => {
+    logQuery = { source: 'loki' }
+    render(<FacetRail />)
+    expect(screen.getByText(/Counts come from the durable Postgres/)).toBeInTheDocument()
+  })
+
+  /** On Postgres source the note is hidden — the table and facets read the same tier. */
+  it('hides the Postgres-tier note when the source is Postgres', () => {
+    logQuery = { source: 'postgres' }
+    render(<FacetRail />)
+    expect(screen.queryByText(/Counts come from the durable Postgres/)).not.toBeInTheDocument()
+  })
+
   /** A facet load failure surfaces the error banner. */
   it('renders the error banner when the facet query fails', () => {
     facetsReturn = { ...facetsReturn, isError: true }
@@ -80,7 +94,11 @@ describe('FacetRail', () => {
   it('renders skeletons while facets load', () => {
     facetsReturn = { data: undefined, isLoading: true, isError: false }
     render(<FacetRail />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    // The section heading's info affordance is always present; assert that no
+    // facet-VALUE buttons render yet — the only button is "About Facets".
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toHaveAccessibleName('About Facets')
     expect(screen.queryByText('No values')).not.toBeInTheDocument()
   })
 

@@ -51,6 +51,10 @@ pnpm dev
 > checkout until it ships to npm. Build that checkout first; the full five-minute walkthrough is in
 > **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
 
+> On a RAM-constrained machine, `pnpm dev` runs three watchers at once and can swap-thrash the system — see
+> [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#pnpm-dev-freezes-the-machine-runaway-memory) for capped /
+> built-output alternatives.
+
 ---
 
 ## 🔥 What's inside

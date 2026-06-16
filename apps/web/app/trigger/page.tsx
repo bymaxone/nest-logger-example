@@ -10,6 +10,7 @@
  */
 
 import { AppShell } from '@/components/layout/app-shell'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { TriggerGrid } from '@/components/trigger/trigger-grid'
 
 // The grid holds per-card fire state and reads the active tenant from the URL,
@@ -26,7 +27,10 @@ export default function TriggerPage() {
     <AppShell>
       <div className="space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold text-foreground">Trigger Center</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground">Trigger Center</h1>
+            <FeatureInfo id="triggerCenter" />
+          </div>
           <p className="text-sm text-white/55">
             Fire each library feature to emit a specific kind of log, then jump straight to the
             Explorer to see what landed.

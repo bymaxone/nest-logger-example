@@ -10,7 +10,7 @@
  * does not change ES-module evaluation order). See `docs/OVERVIEW.md` §14.
  */
 import './instrumentation.js' // MUST be the first import — starts the OTel SDK before NestJS loads
-import { PinoLoggerService } from '@bymax-one/nest-logger'
+import { BymaxLoggerModule } from '@bymax-one/nest-logger'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import type { NestExpressApplication } from '@nestjs/platform-express'
@@ -39,15 +39,11 @@ async function bootstrap(): Promise<void> {
     abortOnError: false,
   })
 
-  // Bridge NestJS's internal logger to the library logger. Guard the lookup: if
-  // `BymaxLoggerModule` is not in scope the provider is absent and the catch falls back
-  // to flushing buffered logs so the process still boots. The library also self-bridges
-  // via `shouldUseAsNestLogger: true`, making this line belt-and-suspenders.
-  try {
-    app.useLogger(app.get(PinoLoggerService))
-  } catch {
-    app.flushLogs()
-  }
+  // Bridge NestJS's internal logger to the library logger via the library's canonical
+  // one-liner helper: it calls `app.useLogger(PinoLoggerService)` and flushes the logs
+  // buffered since `bufferLogs: true`, throwing a clear error (with the underlying DI
+  // failure attached as `cause`) if `BymaxLoggerModule` was not imported.
+  BymaxLoggerModule.useNestLogger(app)
 
   // SINGLE coordinated shutdown owner for SIGTERM (orchestrator stop) and SIGINT (Ctrl-C):
   // `app.close()` runs the NestJS shutdown lifecycle (`onApplicationShutdown`, where the
@@ -94,9 +90,21 @@ async function bootstrap(): Promise<void> {
   // RBAC. They are trusted verbatim only because `buildRbacContext` (governance/
   // rbac.context.ts) hard-fails in production — a real deployment must wire
   // `@bymax-one/nest-auth` before relying on these.
+  // `authorization` / `x-api-key` are allowed so the Trigger Center's sensitive-header
+  // demo (GET /pii-demo/echo-headers) can send them from the browser and prove the
+  // library redacts them at source; without them the CORS preflight blocks the call.
   app.enableCors({
     origin: configService.get('WEB_ORIGIN', { infer: true }),
-    allowedHeaders: ['Content-Type', 'Accept', 'x-role', 'x-tenant-id', 'x-actor', 'last-event-id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Accept',
+      'authorization',
+      'x-api-key',
+      'x-role',
+      'x-tenant-id',
+      'x-actor',
+      'last-event-id',
+    ],
     exposedHeaders: ['X-Export-Truncated', 'Content-Disposition', 'X-Request-Id', 'X-Trace-Id'],
   })
 

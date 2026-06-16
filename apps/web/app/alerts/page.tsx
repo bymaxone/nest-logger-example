@@ -9,10 +9,10 @@
  * @module app/alerts/page
  */
 
-import type { ReactNode } from 'react'
-
 import { AppShell } from '@/components/layout/app-shell'
 import { ScopedDemoCallout } from '@/components/common/scoped-demo-callout'
+import { Section } from '@/components/common/section'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { RuleForm } from '@/components/alerts/rule-form'
 import { RuleList } from '@/components/alerts/rule-list'
 import { ChannelRegistry } from '@/components/alerts/channel-registry'
@@ -20,16 +20,6 @@ import { IncidentList } from '@/components/alerts/incident-list'
 
 // RBAC-driven: the sections read role/tenant from the URL, so render dynamically.
 export const dynamic = 'force-dynamic'
-
-/** A titled page section with an anchor id. */
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} className="space-y-4 scroll-mt-20">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-      {children}
-    </section>
-  )
-}
 
 /**
  * Alerts & Incidents page.
@@ -49,16 +39,16 @@ export default function AlertsPage() {
           </ScopedDemoCallout>
         </header>
 
-        <Section id="rules" title="Alert rules">
+        <Section id="rules" title="Alert rules" info={<FeatureInfo id="alertRules" />}>
           <RuleForm />
           <RuleList />
         </Section>
 
-        <Section id="channels" title="Notification channels">
+        <Section id="channels" title="Notification channels" info={<FeatureInfo id="channels" />}>
           <ChannelRegistry />
         </Section>
 
-        <Section id="incidents" title="Incidents">
+        <Section id="incidents" title="Incidents" info={<FeatureInfo id="incidents" />}>
           <IncidentList />
         </Section>
       </div>

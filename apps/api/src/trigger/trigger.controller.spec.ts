@@ -79,22 +79,22 @@ describe('TriggerController.level', () => {
 
   it('throws when the body fails schema validation', () => {
     /**
-     * Scenario: an invalid `level` value.
+     * Scenario: an unrecognised `level` value (`'silly'` is not one of the six).
      * Contract: `triggerLevelSchema.parse` must reject the body so the service is never
      * invoked, surfacing a validation error to the request pipeline.
      */
-    expect(() => ctx.controller.level({ level: 'fatal' })).toThrow()
+    expect(() => ctx.controller.level({ level: 'silly' })).toThrow()
     expect(ctx.service.fireLevel).not.toHaveBeenCalled()
   })
 
-  it('accepts all three valid level values: info, warn, error', () => {
+  it('accepts all six valid level values: info, warn, error, fatal, verbose, debug', () => {
     /**
-     * Scenario: each of the three supported levels is submitted.
-     * Contract: `triggerLevelSchema` must accept `'info'`, `'warn'`, and `'error'`
-     * without throwing — kills StringLiteral mutations that change `'error'` to an
-     * unrecognised variant (the existing tests only pass `'info'` and `'warn'`).
+     * Scenario: each of the six supported levels is submitted.
+     * Contract: `triggerLevelSchema` must accept the structured trio (`info`/`warn`/`error`)
+     * AND the variadic trio (`fatal`/`verbose`/`debug`) without throwing — kills StringLiteral
+     * mutations that drop any single enum member from the accepted set.
      */
-    for (const level of ['info', 'warn', 'error'] as const) {
+    for (const level of ['info', 'warn', 'error', 'fatal', 'verbose', 'debug'] as const) {
       ctx.service.fireLevel.mockReturnValue({ fired: 1 })
       expect(() => ctx.controller.level({ level, count: 1 })).not.toThrow()
     }
