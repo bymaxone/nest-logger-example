@@ -44,8 +44,9 @@ function buildHttpOptions(): HttpOptions {
     // must not be per-event access-logged — exclude it.
     excludePaths: [/^\/health$/, /^\/metrics$/, /^\/logs\/stream$/],
     shouldCaptureExceptions: true,
-    // false: RequestIdMiddleware is wired explicitly in app.module.ts configure().
-    shouldGenerateRequestId: false,
+    // true: mint a UUID per request when no X-Request-Id inbound header is present;
+    // the middleware is still registered explicitly in app.module.ts to keep routing visible.
+    shouldGenerateRequestId: true,
     tenantIdHeader: 'x-tenant-id',
   }
 }
