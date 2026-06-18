@@ -9,6 +9,9 @@ permissions:
   contents: read
   issues: write
 
+env:
+  DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
+
 jobs:
   full-api:
     name: Mutation full — apps/api

@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
+
 jobs:
   build-and-push:
     name: Build and push Docker images

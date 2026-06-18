@@ -13,6 +13,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Placeholder required by `prisma generate` (postinstall). No job in this
+  # workflow connects to a real database — the e2e suite mocks PrismaService.
+  DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
+
 jobs:
   install:
     name: Install dependencies
