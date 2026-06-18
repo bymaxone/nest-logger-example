@@ -280,7 +280,7 @@ Build the **log-key convention audit** — the second CI gate from [Appendix C](
 
 - [x] `scripts/audit-log-keys.mjs` exists (Node ESM, shebang, zero runtime deps beyond Node built-ins + the `/shared` subpath import).
 - [x] It imports the **live** `LOG_KEYS_CONVENTION_REGEX` and `RESERVED_LOG_KEYS` from `@bymax-one/nest-logger/shared` (single source of truth — never re-declares them).
-- [x] It extracts each app-defined `logKey` literal — the first string arg of `.info(` / `.warnStructured(` / `.errorStructured(` / `.fatal(` calls and any `const … = 'MODULE_ACTION_RESULT'` log-key constants — across `apps/api` + `apps/worker`.
+- [x] It extracts each app-defined `logKey` literal — the first string arg of `.info(` / `.warnStructured(` / `.errorStructured(` calls and any `const … = 'MODULE_ACTION_RESULT'` log-key constants — across `apps/api` + `apps/worker`. (`.fatal()` uses a message-first signature and is intentionally excluded.)
 - [x] Every discovered app key matches `LOG_KEYS_CONVENTION_REGEX.test(key)`.
 - [x] No discovered app key is a member of `RESERVED_LOG_KEYS` (the 16 reserved values, e.g. the `HTTP_REQUEST_*` / `LOGGER_*` framework keys) — reserved keys may be _referenced_ (the framework emits them) but never _re-defined_ by app code as a new business key.
 - [x] It prints a report (`✓ <key>` / `✗ <key> — fails regex` / `✗ <key> — reserved`) and a summary, exiting `0` only when all app keys are valid and non-reserved.

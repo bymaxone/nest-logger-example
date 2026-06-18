@@ -306,6 +306,24 @@ describe('LogsLokiService.query — stream mapping', () => {
     expect(byId['1718549881000000000']).toBe(1718549881000)
   })
 
+  it('uses the ns id as a tiebreaker when entries share the same millisecond', async () => {
+    /**
+     * Multiple entries with the same ISO-ms timestamp are common (pino emits
+     * at 1 ms precision). The sort must fall through to the nanosecond `id`
+     * so newest-ns-first order is stable and the keyset cursor is deterministic.
+     */
+    const { svc, queryRange } = build()
+    queryRange.mockResolvedValue(
+      lokiResp([
+        ['1718549880000000000', { time: '2026-06-16T14:00:00.000Z', msg: 'lower-ns' }],
+        ['1718549880000000001', { time: '2026-06-16T14:00:00.000Z', msg: 'higher-ns' }],
+      ]),
+    )
+
+    const { data } = await svc.query(query())
+    expect(data.map((r) => r.message)).toEqual(['higher-ns', 'lower-ns'])
+  })
+
   it('sorts rows newest-first regardless of Loki return order', async () => {
     /**
      * Rows must be ordered by descending time so the Explorer table shows newest at

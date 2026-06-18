@@ -148,7 +148,7 @@ export class LogsLokiService {
     }
     rows.sort((a, b) => {
       const dt = b.time.getTime() - a.time.getTime()
-      return dt !== 0 ? dt : b.id > a.id ? 1 : -1
+      return dt !== 0 ? dt : b.id.localeCompare(a.id)
     })
     return rows
   }
