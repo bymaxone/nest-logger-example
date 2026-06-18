@@ -135,6 +135,7 @@ export class LogsLokiService {
       const labels = (stream as { stream?: Record<string, unknown> }).stream ?? {}
       if (!Array.isArray(values)) continue
       for (const entry of values) {
+        // Stryker disable next-line ConditionalExpression,LogicalOperator -- equivalent mutants: JSON.parse rejects the bypassed entries regardless
         if (!Array.isArray(entry) || entry.length < 2) continue
         let line: Record<string, unknown>
         try {
@@ -145,7 +146,10 @@ export class LogsLokiService {
         rows.push(this.toRow(String(entry[0]), line, labels))
       }
     }
-    rows.sort((a, b) => b.time.getTime() - a.time.getTime())
+    rows.sort((a, b) => {
+      const dt = b.time.getTime() - a.time.getTime()
+      return dt !== 0 ? dt : b.id > a.id ? 1 : -1
+    })
     return rows
   }
 

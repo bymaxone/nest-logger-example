@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.3.2
     command: ['-config.file=/etc/loki/loki-config.yml']
     ports:
       - '127.0.0.1:3100:3100'
@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:3.1.2
     command: ['-config.file=/etc/tempo/tempo-config.yml']
     ports:
       - '127.0.0.1:3200:3200'
@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
 
   otel-collector:
-    image: otel/opentelemetry-collector:latest
+    image: otel/opentelemetry-collector:0.115.0
     command: ['--config=/etc/otelcol/config.yml']
     ports:
       - '127.0.0.1:4317:4317' # OTLP gRPC
@@ -90,7 +90,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.4.0
     environment:
       # Demo-only anonymous admin, identical to the dev stack. Safe only because
       # every port is loopback-bound — never enable when the host is exposed.

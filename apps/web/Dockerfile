@@ -21,6 +21,9 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/api/prisma apps/api/prisma
+# prisma generate (postinstall) reads DATABASE_URL; a credential-free placeholder
+# satisfies the schema reference without opening any connection.
+ENV DATABASE_URL=postgresql://ci@localhost/placeholder
 RUN pnpm install --frozen-lockfile
 
 # ── build ────────────────────────────────────────────────────────────────────

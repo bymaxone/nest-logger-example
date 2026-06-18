@@ -74,8 +74,10 @@ function collect(root, keys) {
       if (stat.isDirectory()) walk(full)
       else if (SRC_EXT.has(extname(entry)) && !/\.d\.[mc]?ts$/.test(full)) {
         const text = readFileSync(full, 'utf8')
-        for (const re of [CALL_KEY, CONST_KEY])
+        for (const re of [CALL_KEY, CONST_KEY]) {
+          re.lastIndex = 0
           for (const m of text.matchAll(re)) if (!keys.has(m[1])) keys.set(m[1], full)
+        }
       }
     }
   }
@@ -86,7 +88,7 @@ const keys = new Map()
 for (const r of APP_ROOTS) collect(r, keys)
 
 let bad = 0
-for (const [key, file] of [...keys].sort()) {
+for (const [key, file] of [...keys].sort(([a], [b]) => a.localeCompare(b))) {
   if (reserved.has(key)) {
     console.log(`  ✗ ${key} — RESERVED (${file})`)
     bad++

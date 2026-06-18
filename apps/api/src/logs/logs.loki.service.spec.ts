@@ -114,8 +114,8 @@ describe('LogsLokiService.query — LogQL + window', () => {
 
   it('derives the start/end ns window from from/to and requests the query limit', async () => {
     /**
-     * `from`/`to` ISO times must convert to nanosecond Unix timestamps (ms × 1e6) and
-     * the `limit` must be forwarded so Loki bounds the result set.
+     * `from`/`to` ISO times must convert to nanosecond Unix timestamps (ms × 1e6),
+     * the step must be the fixed `'60s'` bucket, and the `limit` forwarded to Loki.
      */
     const { svc, queryRange } = build()
     queryRange.mockResolvedValue(lokiResp([]))
@@ -124,7 +124,7 @@ describe('LogsLokiService.query — LogQL + window', () => {
       query({ from: '2026-01-01T00:00:00.000Z', to: '2026-01-01T01:00:00.000Z', limit: 50 }),
     )
 
-    const [, startNs, endNs, , limit] = queryRange.mock.calls[0] as [
+    const [, startNs, endNs, step, limit] = queryRange.mock.calls[0] as [
       string,
       string,
       string,
@@ -133,7 +133,27 @@ describe('LogsLokiService.query — LogQL + window', () => {
     ]
     expect(startNs).toBe((BigInt(Date.parse('2026-01-01T00:00:00.000Z')) * 1_000_000n).toString())
     expect(endNs).toBe((BigInt(Date.parse('2026-01-01T01:00:00.000Z')) * 1_000_000n).toString())
+    expect(step).toBe('60s')
     expect(limit).toBe(50)
+  })
+
+  it('reads the service from the OTEL_SERVICE_NAME key specifically', async () => {
+    /**
+     * A key-specific mock returns a custom name only for `'OTEL_SERVICE_NAME'`.
+     * If the StringLiteral is mutated to any other key, the mock returns its
+     * default and the LogQL will NOT contain `'cfg-svc'`, killing the mutant.
+     */
+    const logs = new LogsService()
+    const queryRange = jest.fn() as jest.MockedFunction<LokiClient['queryRange']>
+    queryRange.mockResolvedValue(lokiResp([]))
+    const config = {
+      get: jest.fn((key: string, def?: string) => (key === 'OTEL_SERVICE_NAME' ? 'cfg-svc' : def)),
+    } as unknown as ConfigService
+    const svc = new LogsLokiService(logs, { queryRange } as unknown as LokiClient, config)
+
+    await svc.query(query())
+
+    expect(queryRange.mock.calls[0]?.[0]).toContain('service="cfg-svc"')
   })
 
   it('defaults the window to roughly now-1h..now when from/to are absent', async () => {
@@ -389,6 +409,44 @@ describe('LogsLokiService.query — pagination', () => {
     expect(hasMore).toBe(true)
     expect(nextCursor).not.toBeNull()
     // The cursor must round-trip to the oldest row's ns id.
+    expect(logs.decodeCursor(nextCursor as string).id).toBe('1718549880000000000')
+  })
+
+  it('caps the returned page at the query limit', async () => {
+    /**
+     * When Loki returns more rows than `limit`, `data` must contain exactly
+     * `limit` entries — verifies the upper-bound argument of `rows.slice(0, limit)`
+     * so mutating the method or removing the bound is caught.
+     */
+    const { svc, queryRange } = build()
+    queryRange.mockResolvedValue(
+      lokiResp([
+        ['1718549880000000002', { time: '2026-06-16T14:00:02.000Z', msg: 'c' }],
+        ['1718549880000000001', { time: '2026-06-16T14:00:01.000Z', msg: 'b' }],
+        ['1718549880000000000', { time: '2026-06-16T14:00:00.000Z', msg: 'a' }],
+      ]),
+    )
+
+    const { data } = await svc.query(query({ limit: 2 }))
+    expect(data).toHaveLength(2)
+  })
+
+  it('nextCursor encodes the oldest entry (page.at(-1), not page.at(1))', async () => {
+    /**
+     * With three rows sorted newest-first and limit 3, `page.at(-1)` is the third
+     * (oldest) row. `page.at(1)` is the second (middle). The cursor id must match
+     * the oldest ns id so the UnaryOperator mutation on `-1` is caught.
+     */
+    const { svc, queryRange, logs } = build()
+    queryRange.mockResolvedValue(
+      lokiResp([
+        ['1718549880000000002', { time: '2026-06-16T14:00:02.000Z', msg: 'newest' }],
+        ['1718549880000000001', { time: '2026-06-16T14:00:01.000Z', msg: 'middle' }],
+        ['1718549880000000000', { time: '2026-06-16T14:00:00.000Z', msg: 'oldest' }],
+      ]),
+    )
+
+    const { nextCursor } = await svc.query(query({ limit: 3 }))
     expect(logs.decodeCursor(nextCursor as string).id).toBe('1718549880000000000')
   })
 

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-06-10
+## [1.0.0] - 2026-06-18
 
 ### Added
 
@@ -23,4 +23,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD: `ci.yml` (lint / typecheck / unit / e2e / coverage / audits), per-PR + nightly Stryker mutation workflows, a `v*`-tag release pipeline (GHCR images + `RELEASES.md`), and production Dockerfiles + `docker-compose.prod.yml`.
 - The full reference documentation set under `docs/` (OVERVIEW, DASHBOARD, OTEL, TROUBLESHOOTING, DEPLOYMENT, RELEASES, and the phased development plan).
 
-> **Library status:** consumes `@bymax-one/nest-logger@^1.0.0` from npm (`npm.io/@bymax-one/nest-logger`). The library published as `1.0.0` on 2026-06-18.
+> **Library status:** consumes `@bymax-one/nest-logger@^1.0.0` from npm (`npmjs.com/package/@bymax-one/nest-logger`). The library published as `1.0.0` on 2026-06-18.

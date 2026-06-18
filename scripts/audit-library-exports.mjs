@@ -14,7 +14,7 @@
  * linked (local `link:`/`file:`) before this runs.
  *
  * Exit codes: 0 = every non-ignored export referenced; 1 = unused export(s);
- * 2 = a declaration file is missing (library not built/linked).
+ * 2 = infrastructure error (declaration file missing or ignore-list unreadable).
  *
  * @module scripts/audit-library-exports
  */
