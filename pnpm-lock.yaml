@@ -344,6 +344,9 @@ importers:
       rxjs:
         specifier: ^7.8
         version: 7.8.2
+      zod:
+        specifier: ^4
+        version: 4.4.3
     devDependencies:
       '@jest/globals':
         specifier: ^30.4.1

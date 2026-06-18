@@ -128,9 +128,6 @@ jobs:
     needs: e2e-api
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container:
-      image: mcr.microsoft.com/playwright:v1.59.1-noble
-      options: --user root
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -141,6 +138,8 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter web exec playwright install --with-deps chromium
       - name: Build API
         run: pnpm --filter @nest-logger-example/api run build
       - name: Build web

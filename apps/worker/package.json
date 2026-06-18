@@ -28,7 +28,8 @@
     "@opentelemetry/semantic-conventions": "^1",
     "pino": "^10",
     "reflect-metadata": "^0.2",
-    "rxjs": "^7.8"
+    "rxjs": "^7.8",
+    "zod": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
