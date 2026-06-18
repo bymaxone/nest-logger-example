@@ -236,7 +236,7 @@ describe('buildLoggerOptions', () => {
 
     expect(opts.http?.isEnabled).toBe(true)
     expect(opts.http?.shouldCaptureExceptions).toBe(true)
-    expect(opts.http?.shouldGenerateRequestId).toBe(false)
+    expect(opts.http?.shouldGenerateRequestId).toBe(true)
     expect(opts.http?.tenantIdHeader).toBe('x-tenant-id')
   })
 
