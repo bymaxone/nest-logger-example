@@ -25,7 +25,7 @@
     "mutation:dry-run": "NODE_OPTIONS='--experimental-vm-modules' stryker run --dryRunOnly"
   },
   "dependencies": {
-    "@bymax-one/nest-logger": "file:../../../nest-logger",
+    "@bymax-one/nest-logger": "^1.0.0",
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
     "@nestjs/core": "^11",

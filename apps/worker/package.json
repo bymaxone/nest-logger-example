@@ -16,7 +16,7 @@
     "test:e2e": "NODE_OPTIONS='--experimental-vm-modules' jest --config test/jest-e2e.config.cjs"
   },
   "dependencies": {
-    "@bymax-one/nest-logger": "file:../../../nest-logger",
+    "@bymax-one/nest-logger": "^1.0.0",
     "@nestjs/common": "^11",
     "@nestjs/core": "^11",
     "@nestjs/platform-express": "^11",

@@ -21,7 +21,7 @@
     "mutation:dry-run": "stryker run --dryRunOnly"
   },
   "dependencies": {
-    "@bymax-one/nest-logger": "file:../../../nest-logger",
+    "@bymax-one/nest-logger": "^1.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",

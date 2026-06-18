@@ -16,6 +16,7 @@ import {
   BymaxLoggerModule,
   type BymaxLoggerModuleAsyncOptions,
   type BymaxLoggerModuleOptionsFactory,
+  type LogContextBag,
   LOG_CONTEXT_METADATA_KEY,
   LOG_CONTEXT_TOKEN,
   LOGGER_DESTINATIONS_TOKEN,
@@ -48,6 +49,9 @@ export type ServerOptionsFactory = BymaxLoggerModuleOptionsFactory
  * `BymaxLoggerModule.forRootAsync` (the `useFactory` form used in app.module.ts).
  */
 export type ServerAsyncOptions = BymaxLoggerModuleAsyncOptions
+
+/** Type-position proof: the map of extra context entries attached to a log record. */
+export type ServerLogContextBag = LogContextBag
 
 /** Type-annotation proof for the `/shared` subpath: a member of the `LogLevel` union. */
 const sampleLevel: LogLevel = 'info'
