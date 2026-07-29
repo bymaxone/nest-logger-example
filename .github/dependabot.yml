@@ -1,0 +1,52 @@
+# Dependabot version updates.
+#
+# Security *alerts* are enabled repo-wide, but an alert only reports — it never opens
+# the pull request that fixes it. Without this file the alert list just grows, which is
+# how the repo reached ~49 open advisories with nothing proposing a bump.
+#
+# `directory: /` is correct for this pnpm workspace: Dependabot reads the root
+# `pnpm-lock.yaml` plus every `apps/*/package.json` from there, so no per-app entry is
+# needed. Patch and minor updates are grouped into one pull request per dependency type
+# to keep the review load sane; majors still arrive individually, because they are the
+# ones that deserve a human read.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    # husky runs commitlint (@commitlint/config-conventional) on every commit, which
+    # rejects Dependabot's unprefixed default subject. `chore(deps): …` and
+    # `chore(deps-dev): …` are both valid conventional commits.
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      production-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      development-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        update-types: [minor, patch]
