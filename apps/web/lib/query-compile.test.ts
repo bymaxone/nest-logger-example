@@ -9,7 +9,7 @@
  *
  * @module lib/query-compile.test
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { LogQuery } from './types'
 import { toLogQL, toSqlWhere } from './query-compile'
@@ -235,5 +235,26 @@ describe('levelsAtOrAbove — filter boundary', () => {
     expect(sql).not.toContain("'info'")
     expect(sql).not.toContain("'debug'")
     expect(sql).not.toContain("'trace'")
+  })
+})
+
+describe('levelsAtOrAbove — LEVEL_RANK constant (module re-import)', () => {
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /**
+   * `LEVEL_RANK` is a module-level constant read once at load, so a statically
+   * imported caller cannot observe a mutation to it. Re-importing forces a fresh
+   * evaluation: with the map populated, `gte: 'warn'` yields exactly fatal/error/warn.
+   * The ObjectLiteral mutation (`{}`) empties the map so `Object.keys` is empty and
+   * the IN list collapses to `level IN ()`, which this assertion catches.
+   */
+  it('re-imports and derives the at-or-above list from the populated rank map', async () => {
+    vi.resetModules()
+    const { toSqlWhere: freshToSqlWhere } = await import('./query-compile')
+    expect(freshToSqlWhere({ source: 'postgres', level: { gte: 'warn' } })).toContain(
+      "level IN ('fatal', 'error', 'warn')",
+    )
   })
 })

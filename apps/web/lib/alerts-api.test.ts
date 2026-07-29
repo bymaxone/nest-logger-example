@@ -216,6 +216,37 @@ describe('transitionIncident', () => {
       transitionIncident('i1', 'acknowledge', { role: 'viewer', tenantId: '' }),
     ).rejects.toMatchObject({ message: '403 Forbidden' })
   })
+
+  /**
+   * A non-snooze transition must build a body object with NO `snoozeDuration` key at
+   * all — not even one valued `undefined`. The serialized body alone cannot prove
+   * this (JSON.stringify drops undefined-valued keys), so this spies on the body
+   * object passed to JSON.stringify and inspects its keys. This kills the
+   * ConditionalExpression mutation (`...(true ? { snoozeDuration } : {})`) that always
+   * spreads `{ snoozeDuration: undefined }`, adding the key for acknowledge/resolve.
+   */
+  it('builds an acknowledge body object without a snoozeDuration key', async () => {
+    const stringifySpy = vi.spyOn(JSON, 'stringify')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(VALID_INCIDENT),
+        } as Response),
+      ),
+    )
+    await transitionIncident('i1', 'acknowledge', RBAC)
+    const bodyArg = stringifySpy.mock.calls
+      .map((call) => call[0])
+      .find(
+        (arg): arg is Record<string, unknown> =>
+          typeof arg === 'object' && arg !== null && 'action' in arg,
+      )
+    stringifySpy.mockRestore()
+    expect(bodyArg).toBeDefined()
+    expect(Object.keys(bodyArg as Record<string, unknown>)).not.toContain('snoozeDuration')
+  })
 })
 
 describe('listRules', () => {
@@ -898,5 +929,141 @@ describe('alerts-api — module-level re-import (kill API, schema enum string mu
       const incidents = await freshListIncidents(RBAC)
       expect(incidents[0]?.status, `status ${status} failed validation`).toBe(status)
     }
+  })
+
+  /**
+   * Each exported mutator is a module-level `const` arrow, so its body is bound at
+   * load and a statically imported caller cannot observe an ArrowFunction mutation
+   * (`() => undefined`). Re-importing forces a fresh evaluation; under the mutation
+   * the function returns `undefined` instead of issuing the request, so the captured
+   * fetch never fires and the parsed payload is absent.
+   */
+  it('re-imports: createRule issues the POST and returns the parsed rule', async () => {
+    vi.resetModules()
+    const { createRule: freshCreateRule } = await import('./alerts-api')
+    let called = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        called = true
+        return Promise.resolve(jsonResponse(VALID_RULE))
+      }),
+    )
+    const input: AlertRuleInput = {
+      name: 'n',
+      expr: 'e',
+      threshold: 0,
+      forDuration: '1m',
+      severity: 'critical',
+      channels: [],
+    }
+    const result = await freshCreateRule(input, RBAC)
+    expect(called).toBe(true)
+    expect(result).toEqual(VALID_RULE)
+  })
+
+  it('re-imports: updateRule issues the PATCH and returns the parsed rule', async () => {
+    vi.resetModules()
+    const { updateRule: freshUpdateRule } = await import('./alerts-api')
+    let called = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        called = true
+        return Promise.resolve(jsonResponse({ ...VALID_RULE, isEnabled: false }))
+      }),
+    )
+    const result = await freshUpdateRule('r1', { isEnabled: false }, RBAC)
+    expect(called).toBe(true)
+    expect(result.isEnabled).toBe(false)
+  })
+
+  it('re-imports: createChannel issues the POST and returns the envelope', async () => {
+    vi.resetModules()
+    const { createChannel: freshCreateChannel } = await import('./alerts-api')
+    let called = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        called = true
+        return Promise.resolve(jsonResponse({ ok: true, channel: VALID_CHANNEL }))
+      }),
+    )
+    const result = await freshCreateChannel(VALID_CHANNEL, RBAC)
+    expect(called).toBe(true)
+    expect(result).toEqual({ ok: true, channel: VALID_CHANNEL })
+  })
+
+  it('re-imports: testChannel issues the POST and returns the ok envelope', async () => {
+    vi.resetModules()
+    const { testChannel: freshTestChannel } = await import('./alerts-api')
+    let called = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        called = true
+        return Promise.resolve(jsonResponse({ ok: true }))
+      }),
+    )
+    const result = await freshTestChannel('c1', RBAC)
+    expect(called).toBe(true)
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('re-imports: transitionIncident issues the PATCH and returns the incident', async () => {
+    vi.resetModules()
+    const { transitionIncident: freshTransitionIncident } = await import('./alerts-api')
+    let called = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        called = true
+        return Promise.resolve(jsonResponse(VALID_INCIDENT))
+      }),
+    )
+    const result = await freshTransitionIncident('i1', 'resolve', RBAC)
+    expect(called).toBe(true)
+    expect(result).toEqual(VALID_INCIDENT)
+  })
+
+  /**
+   * The response envelope schemas are module-level `const`s, so an ObjectLiteral
+   * mutation (`z.object({})`) — which strips every field check and accepts any
+   * object — is invisible to a statically imported caller. Re-importing forces a
+   * fresh schema build; feeding a structurally invalid payload then throws under the
+   * real schema but would be accepted by the emptied one.
+   */
+  it('re-imports: createChannelResultSchema rejects a malformed envelope', async () => {
+    vi.resetModules()
+    const { createChannel: freshCreateChannel } = await import('./alerts-api')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse({ ok: 'not-a-boolean', channel: 'bad' }))),
+    )
+    await expect(freshCreateChannel(VALID_CHANNEL, RBAC)).rejects.toThrow(
+      /unexpected response shape/,
+    )
+  })
+
+  it('re-imports: okResultSchema rejects a non-boolean ok field', async () => {
+    vi.resetModules()
+    const { testChannel: freshTestChannel } = await import('./alerts-api')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse({ ok: 'not-a-boolean' }))),
+    )
+    await expect(freshTestChannel('c1', RBAC)).rejects.toThrow(/unexpected response shape/)
+  })
+
+  it('re-imports: incidentEventSchema rejects malformed timeline events', async () => {
+    vi.resetModules()
+    const { listIncidents: freshListIncidents } = await import('./alerts-api')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(jsonResponse([{ ...VALID_INCIDENT, timeline: [{ bogus: true }] }])),
+      ),
+    )
+    await expect(freshListIncidents(RBAC)).rejects.toThrow(/unexpected response shape/)
   })
 })

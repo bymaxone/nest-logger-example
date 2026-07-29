@@ -88,14 +88,14 @@ A left nav with six destinations. The first three are the daily drivers; the las
 └────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-| Route          | Page                         | Primary job                                                                                                                                                               |
-| -------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`            | **Overview**                 | Health at a glance — golden signals, RED, breakdowns, pipeline health                                                                                                     |
-| `/explorer`    | **Log Explorer**             | Search, filter, live-tail, drill into individual logs and their traces                                                                                                    |
-| `/trigger`     | **Trigger Center**           | Fire every kind of log / library feature on demand (the Playground)                                                                                                       |
-| `/alerts`      | **Alerts & Incidents**       | Rules over log patterns, channels, incident lifecycle                                                                                                                     |
-| `/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail                                                                                                                     |
-| `/settings`    | **Settings**                 | Backend endpoints (logs read-API, Grafana, SSE live-tail proxy), the two log tiers (Loki `info`+ / Postgres `warn`+), and header-based RBAC roles (viewer/operator/admin) |
+| Route                    | Page                         | Primary job                                                                                                                                                               |
+| ------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`             | **Overview**                 | Health at a glance — golden signals, RED, breakdowns, pipeline health                                                                                                     |
+| `/dashboard/explorer`    | **Log Explorer**             | Search, filter, live-tail, drill into individual logs and their traces                                                                                                    |
+| `/dashboard/trigger`     | **Trigger Center**           | Fire every kind of log / library feature on demand (the Playground)                                                                                                       |
+| `/dashboard/alerts`      | **Alerts & Incidents**       | Rules over log patterns, channels, incident lifecycle                                                                                                                     |
+| `/dashboard/maintenance` | **Maintenance & Governance** | Retention, export, RBAC, redaction proof, audit trail                                                                                                                     |
+| `/dashboard/settings`    | **Settings**                 | Backend endpoints (logs read-API, Grafana, SSE live-tail proxy), the two log tiers (Loki `info`+ / Postgres `warn`+), and header-based RBAC roles (viewer/operator/admin) |
 
 ---
 
@@ -698,14 +698,14 @@ Reuse `nest-auth-example`'s Topbar + Sidebar shell **classes verbatim**; only th
 
 **Logger nav items** (replacing auth's Overview/Account/Security/…), lucide icons:
 
-| Label          | href           | Icon              |
-| -------------- | -------------- | ----------------- |
-| Overview       | `/`            | `LayoutDashboard` |
-| Explorer       | `/explorer`    | `Search`          |
-| Trigger Center | `/trigger`     | `Zap`             |
-| Alerts         | `/alerts`      | `BellRing`        |
-| Maintenance    | `/maintenance` | `Settings2`       |
-| Settings       | `/settings`    | `Cog`             |
+| Label          | href                     | Icon              |
+| -------------- | ------------------------ | ----------------- |
+| Overview       | `/dashboard`             | `LayoutDashboard` |
+| Explorer       | `/dashboard/explorer`    | `Search`          |
+| Trigger Center | `/dashboard/trigger`     | `Zap`             |
+| Alerts         | `/dashboard/alerts`      | `BellRing`        |
+| Maintenance    | `/dashboard/maintenance` | `Settings2`       |
+| Settings       | `/dashboard/settings`    | `Cog`             |
 
 ### Glass-morphism & component recipes (verbatim)
 

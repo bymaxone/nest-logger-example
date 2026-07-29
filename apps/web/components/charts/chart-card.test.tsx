@@ -112,4 +112,64 @@ describe('ChartCard', () => {
     expect(container.firstChild).toHaveClass('flex')
     expect(container.firstChild).toHaveClass('flex-col')
   })
+
+  /**
+   * With neither an `action` nor `info`, `hasHeaderRight` is false so the header-right
+   * cluster must not render. Asserting the absence of its unique `gap-0.5` element kills
+   * the ConditionalExpression→true mutation on `hasHeaderRight`.
+   */
+  it('renders no header-right cluster when there is no action or info', () => {
+    const { container } = render(
+      <ChartCard title="Bare">
+        <p>body</p>
+      </ChartCard>,
+    )
+    expect(container.querySelector('[class~="gap-0.5"]')).toBeNull()
+  })
+
+  /**
+   * The body keeps its `flex-1` base class so it stretches to fill height.
+   * Asserting it kills the StringLiteral→'' mutation on the first `cn()` argument.
+   */
+  it('applies the flex-1 base class to the card body', () => {
+    render(
+      <ChartCard title="Body">
+        <p>body</p>
+      </ChartCard>,
+    )
+    expect(screen.getByRole('img', { name: 'Body chart' }).className).toContain('flex-1')
+  })
+
+  /**
+   * When a legend IS provided, the body gains the `pb-3` padding and the footer divider
+   * renders. Asserting both kills the StringLiteral→'' on `'pb-3'`, the
+   * ConditionalExpression→false / `===` / `||` mutations on `legend !== undefined && 'pb-3'`,
+   * and the ConditionalExpression→true on the footer when read together with the no-legend case.
+   */
+  it('adds pb-3 padding and a footer when a legend is provided', () => {
+    const { container } = render(
+      <ChartCard title="Legended" legend={<span>legend row</span>}>
+        <p>body</p>
+      </ChartCard>,
+    )
+    expect(screen.getByRole('img', { name: 'Legended chart' }).className).toContain('pb-3')
+    expect(container.querySelector('[class~="border-t"]')).not.toBeNull()
+    expect(screen.getByText('legend row')).toBeInTheDocument()
+  })
+
+  /**
+   * Without a legend, the body has NO `pb-3` padding and the footer is absent.
+   * Asserting both kills the ConditionalExpression→true mutations (on the `pb-3` toggle
+   * and on the footer render) and the LogicalOperator/`===` mutations that would
+   * spuriously add the padding or footer when no legend exists.
+   */
+  it('omits the pb-3 padding and the footer when there is no legend', () => {
+    const { container } = render(
+      <ChartCard title="Plain">
+        <p>body</p>
+      </ChartCard>,
+    )
+    expect(screen.getByRole('img', { name: 'Plain chart' }).className).not.toContain('pb-3')
+    expect(container.querySelector('[class~="border-t"]')).toBeNull()
+  })
 })

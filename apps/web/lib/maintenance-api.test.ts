@@ -18,6 +18,16 @@ import {
   updateRetention,
 } from './maintenance-api'
 import type { LogQuery, RbacContext } from './types'
+import { rbacHeaders } from './rbac-headers'
+
+// Spy on rbacHeaders while keeping its real implementation, so a test can assert
+// the exact identity object exportLogs builds (the `tenantId ?? ''` default) — a
+// value that is otherwise invisible because a non-conforming tenant and '' both
+// yield no x-tenant-id header after validation.
+vi.mock('./rbac-headers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./rbac-headers')>()
+  return { ...actual, rbacHeaders: vi.fn(actual.rbacHeaders) }
+})
 
 /** The active identity sent with every RBAC-scoped request. */
 const RBAC: RbacContext = { role: 'admin', tenantId: 'acme' }
@@ -621,5 +631,27 @@ describe('exportLogs — no role omits x-role header', () => {
     )
     await exportLogs('json', { source: 'postgres' })
     expect(capturedHeaders).not.toHaveProperty('x-role')
+  })
+})
+
+describe('exportLogs — tenant default forwarded to rbacHeaders', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /**
+   * When the query carries a role but no tenantId, exportLogs must call
+   * rbacHeaders with `tenantId: ''` — the empty-string default. Asserting the
+   * exact identity object kills the StringLiteral mutation that replaces the
+   * `?? ''` fallback with a sentinel like `"Stryker was here!"`; that sentinel is
+   * invisible in the emitted headers (it fails the tenant regex and is dropped,
+   * exactly like ''), so only inspecting the argument can detect it.
+   */
+  it('passes an empty-string tenant default to rbacHeaders when the query omits tenantId', async () => {
+    vi.mocked(rbacHeaders).mockClear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([]))),
+    )
+    await exportLogs('json', { source: 'postgres', role: 'admin' })
+    expect(rbacHeaders).toHaveBeenCalledWith({ role: 'admin', tenantId: '' })
   })
 })

@@ -125,6 +125,9 @@
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono:
     ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  /* Drives the shell's ambient glow layers; the keyframes are declared below. */
+  --animate-glow-float: glow-float 10s ease-in-out infinite;
+  --animate-glow-drift: glow-drift 12s ease-in-out infinite;
 }
 
 @layer base {
@@ -160,5 +163,37 @@
   h5,
   h6 {
     font-family: var(--font-mono);
+  }
+}
+
+@keyframes glow-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(20px, -20px);
+  }
+}
+
+@keyframes glow-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-15px, 15px);
+  }
+}
+
+/*
+ * The glow layers drift indefinitely, so they are silenced for anyone who has
+ * asked the system to reduce motion. The layers stay visible: it is the motion,
+ * not the decoration, that is opted out of.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-glow-float,
+  .animate-glow-drift {
+    animation: none;
   }
 }

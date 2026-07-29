@@ -81,4 +81,38 @@ describe('LiveToggle', () => {
     // Flipping a default-false boolean back off clears it from the URL.
     expect(onUrlUpdate.mock.calls[0]![0].searchParams.get('live')).toBeNull()
   })
+
+  /**
+   * When live, the icon carries its sizing classes (`h-3.5 w-3.5`) and the spin
+   * animation, and the button uses the brand-gradient default variant. Asserting
+   * the icon classes kills the `cn` base-string mutation and the spin
+   * mutations (`live && 'animate-spin'` → true/false and `'animate-spin'` → '').
+   */
+  it('renders the spinning sized icon when live', () => {
+    renderToggle('?live=true')
+    const button = screen.getByRole('button', { name: /live/i })
+    const iconClass = button.querySelector('svg')?.getAttribute('class') ?? ''
+    expect(iconClass).toContain('h-3.5')
+    expect(iconClass).toContain('w-3.5')
+    expect(iconClass).toContain('animate-spin')
+    expect(button.className).toContain('from-brand-500')
+  })
+
+  /**
+   * When not live, the icon keeps its sizing classes but does NOT spin, and the
+   * button uses the outline variant (border, no gradient). The absence of
+   * `animate-spin` kills the `&&` → `||` logical-operator mutation; the outline
+   * classes kill the `'outline'` → '' variant mutation (which would otherwise
+   * fall back to the brand-gradient default variant via cva).
+   */
+  it('renders a static sized icon and outline button when not live', () => {
+    renderToggle('')
+    const button = screen.getByRole('button', { name: /live/i })
+    const iconClass = button.querySelector('svg')?.getAttribute('class') ?? ''
+    expect(iconClass).toContain('h-3.5')
+    expect(iconClass).toContain('w-3.5')
+    expect(iconClass).not.toContain('animate-spin')
+    expect(button.className).toContain('border')
+    expect(button.className).not.toContain('from-brand-500')
+  })
 })

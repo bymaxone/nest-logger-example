@@ -1,3 +1,15 @@
+# Mutation testing — PR gate.
+#
+# Runs Stryker on the workspace(s) touched by the pull request, using the
+# incremental cache so warm PRs finish in a couple of minutes. The api config
+# sets `thresholds.break = 100`, so any surviving mutant fails that job; the web
+# config uses `break = 90`. A cold first run (no cache yet) mutates the full
+# surface, which for apps/web is ~3.3k mutants and needs the larger time budget
+# below; once main has a warm cache, subsequent PRs are fast.
+#
+# A weekly full (non-incremental) run lives in `mutation-nightly.yml` and
+# catches drift the incremental cache might mask.
+
 name: Mutation Testing (PR)
 
 on:
@@ -68,7 +80,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.api == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:
@@ -110,7 +122,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:

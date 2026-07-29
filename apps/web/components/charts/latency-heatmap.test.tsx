@@ -20,12 +20,22 @@ let aggregateReturn: { data: LatencyRow[] | undefined; isLoading: boolean } = {
 }
 let facetsReturn: { data: FacetsResult | undefined } = { data: undefined }
 
+/** Captured hook arguments, asserted to lock the metric name and facet keys. */
+let capturedAggMetric: string | undefined
+let capturedFacetKeys: unknown
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateReturn,
+  useAggregate: (metric: string) => {
+    capturedAggMetric = metric
+    return aggregateReturn
+  },
 }))
 
 vi.mock('@/hooks/use-facets', () => ({
-  useFacets: () => facetsReturn,
+  useFacets: (keys: unknown) => {
+    capturedFacetKeys = keys
+    return facetsReturn
+  },
 }))
 
 const { LatencyHeatmap } = await import('./latency-heatmap')
@@ -36,6 +46,8 @@ const query = { source: 'loki' } as const
 beforeEach(() => {
   aggregateReturn = { data: [], isLoading: false }
   facetsReturn = { data: undefined }
+  capturedAggMetric = undefined
+  capturedFacetKeys = undefined
 })
 
 afterEach(() => {
@@ -71,6 +83,39 @@ describe('LatencyHeatmap', () => {
   it('defaults the slow-request count to zero when the facet is absent', () => {
     facetsReturn = { data: undefined }
     render(<LatencyHeatmap query={query} />)
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+
+  /**
+   * The panel reads the `latency` metric and the `['logKey']` facet. Asserting both
+   * kills the StringLiteral→"" mutation on the metric, plus the ArrayDeclaration→[]
+   * and StringLiteral→"" mutations on the `['logKey']` facet argument.
+   */
+  it('queries the latency metric and the logKey facet', () => {
+    render(<LatencyHeatmap query={query} />)
+    expect(capturedAggMetric).toBe('latency')
+    expect(capturedFacetKeys).toEqual(['logKey'])
+  })
+
+  /**
+   * The facet data may exist while its `logKey` array is absent; the `?.logKey?.`
+   * optional chain must short-circuit to the `?? 0` default rather than throw.
+   * Removing the `?.` after `logKey` (`data?.logKey.find`) would throw here.
+   */
+  it('defaults the slow count to zero when the facet data has no logKey array', () => {
+    facetsReturn = { data: {} }
+    expect(() => render(<LatencyHeatmap query={query} />)).not.toThrow()
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+
+  /**
+   * When the `logKey` values carry no METHOD_SLOW_EXECUTION entry, `find` returns
+   * undefined and the `?.count` optional chain must guard it. Removing that `?.`
+   * (`find(...).count`) would throw on the undefined match.
+   */
+  it('defaults the slow count to zero when no logKey value matches the slow key', () => {
+    facetsReturn = { data: { logKey: [{ value: 'OTHER_KEY', count: 12 }] } }
+    expect(() => render(<LatencyHeatmap query={query} />)).not.toThrow()
     expect(screen.getByText('0')).toBeInTheDocument()
   })
 
@@ -156,5 +201,28 @@ describe('LatencyHeatmap', () => {
     const p95Cell = [...cells].find((c) => c.getAttribute('title')?.includes('p95 200ms'))
     expect(p95Cell).toBeDefined()
     expect((p95Cell as HTMLElement).style.background).toBe('rgba(239, 68, 68, 0.51)')
+  })
+
+  /**
+   * Each heat cell's React key is `${row.key}-${b.bucket}`, unique among the cells
+   * of a row. The StringLiteral→"" mutation collapses every cell key to "", which
+   * React reports as a duplicate-key console error. Asserting no such warning fires
+   * (with two distinct buckets) kills that mutation.
+   */
+  it('gives each heat cell a unique key so React logs no duplicate-key warning', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    aggregateReturn = {
+      data: [
+        { bucket: '2026-06-05T10:00:00.000Z', p50: 100, p95: 200, p99: 400 },
+        { bucket: '2026-06-05T10:01:00.000Z', p50: 100, p95: 200, p99: 400 },
+      ],
+      isLoading: false,
+    }
+    render(<LatencyHeatmap query={query} />)
+    const dupKeyWarning = errorSpy.mock.calls.some((args) =>
+      args.some((a) => typeof a === 'string' && a.includes('same key')),
+    )
+    errorSpy.mockRestore()
+    expect(dupKeyWarning).toBe(false)
   })
 })

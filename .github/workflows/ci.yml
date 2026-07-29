@@ -123,6 +123,31 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.test.yml down -v
 
+  integration:
+    name: Integration — apps/api
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The `*.int-spec.ts` suites talk to the real test-stack Postgres (:55432) and Loki
+      # (:53100); the suite applies the committed migrations against that database itself.
+      - name: Start test infrastructure
+        run: docker compose -f docker-compose.test.yml up -d --wait
+      - name: Run API integration tests
+        run: pnpm --filter @nest-logger-example/api run test:int
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
   e2e-web:
     name: E2E — apps/web
     needs: e2e-api

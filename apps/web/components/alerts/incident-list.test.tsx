@@ -330,6 +330,50 @@ describe('IncidentList', () => {
     expect(screen.queryByText(/snoozed until/)).not.toBeInTheDocument()
   })
 
+  /**
+   * On a successful transition the onSuccess handler invalidates exactly the
+   * `['incidents']` query; because the active incidents query carries the
+   * `['incidents', role, tenantId]` key it matches by prefix and refetches.
+   *
+   * Spying on `invalidateQueries` and asserting the exact `{ queryKey: ['incidents'] }`
+   * argument kills the onSuccess BlockStatement→{} mutation and the ObjectLiteral→{},
+   * ArrayDeclaration→[], and StringLiteral→"" mutations on the invalidate call.
+   * Asserting the refetch (listIncidents called again) kills the ArrayDeclaration→[]
+   * and StringLiteral→"" mutations on the useQuery queryKey.
+   */
+  it('invalidates the incidents query and refetches after a successful transition', async () => {
+    listIncidentsMock.mockResolvedValue([makeIncident({ status: 'triggered' })])
+    transitionIncidentMock.mockResolvedValue(makeIncident({ status: 'acknowledged' }))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <IncidentList />
+      </QueryClientProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Acknowledge' }))
+    await waitFor(() => expect(transitionIncidentMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['incidents'] }))
+    // The query key matched, so the active list refetched (initial + post-invalidate).
+    await waitFor(() => expect(listIncidentsMock.mock.calls.length).toBeGreaterThanOrEqual(2))
+  })
+
+  /**
+   * The logKey must render inside its own dedicated Badge — a `<div>` whose entire
+   * text is the logKey. The `incident.logKey && <Badge>` → `incident.logKey || <Badge>`
+   * LogicalOperator mutation would instead splice the bare logKey string directly
+   * into the row (because `'ORDER_FAILED' || …` short-circuits to the string), so the
+   * matched element's full textContent would be the whole row, not just the logKey.
+   * Asserting the matched element's textContent equals exactly the logKey kills it.
+   */
+  it('renders the logKey inside its own badge rather than as bare row text', async () => {
+    listIncidentsMock.mockResolvedValue([makeIncident({ logKey: 'ORDER_FAILED' })])
+    renderWithClient(<IncidentList />)
+    const logKeyEl = await screen.findByText('ORDER_FAILED')
+    expect(logKeyEl.textContent).toBe('ORDER_FAILED')
+  })
+
   /** Only the in-flight row blocks its actions, proving the per-row pending guard. */
   it('blocks only the in-flight row while its transition is pending', async () => {
     listIncidentsMock.mockResolvedValue([

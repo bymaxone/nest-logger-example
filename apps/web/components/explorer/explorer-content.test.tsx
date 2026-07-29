@@ -59,8 +59,19 @@ const sampleRow: LogRow = {
 }
 
 vi.mock('./log-table', () => ({
-  LogTable: ({ onRowClick }: { onRowClick: (row: LogRow) => void }) => (
-    <button type="button" data-testid="open-row" onClick={() => onRowClick(sampleRow)}>
+  LogTable: ({
+    onRowClick,
+    liveRows = [],
+  }: {
+    onRowClick: (row: LogRow) => void
+    liveRows?: LogRow[]
+  }) => (
+    <button
+      type="button"
+      data-testid="open-row"
+      data-live-count={liveRows.length}
+      onClick={() => onRowClick(sampleRow)}
+    >
       open row
     </button>
   ),
@@ -280,5 +291,98 @@ describe('ExplorerContent', () => {
     followState = baseFollow({ paused: true, newCount: 1 })
     render(<ExplorerContent />)
     expect(screen.getByRole('button', { name: /1 new logs/ })).toBeInTheDocument()
+  })
+
+  /**
+   * The connected status pill carries the base layout classes and the success
+   * colour. Kills the L79 base className→"" and L83 `text-(--color-success)`→""
+   * StringLiteral mutations.
+   */
+  it('applies the base layout and success colour classes to the connected status pill', () => {
+    queryState = baseQuery({ live: true })
+    streamState = baseStream({ connected: true })
+    render(<ExplorerContent />)
+    const pill = screen.getByText('Streaming')
+    expect(pill.className).toContain('font-mono')
+    expect(pill.className).toContain('items-center')
+    expect(pill.className).toContain('text-(--color-success)')
+    expect(pill.className).not.toContain('text-destructive')
+    expect(pill.className).not.toContain('text-white/40')
+  })
+
+  /**
+   * The failed status pill carries the destructive colour. Kills the L81
+   * `text-destructive`→"" StringLiteral mutation.
+   */
+  it('applies the destructive colour class to the failed status pill', () => {
+    queryState = baseQuery({ live: true })
+    streamState = baseStream({ failed: true })
+    render(<ExplorerContent />)
+    const pill = screen.getByText('Live tail failed — retry')
+    expect(pill.className).toContain('text-destructive')
+    expect(pill.className).not.toContain('text-(--color-success)')
+  })
+
+  /**
+   * The neutral (connecting) status pill carries the muted colour. Kills the L84
+   * `text-white/40`→"" StringLiteral mutation.
+   */
+  it('applies the muted colour class to the connecting status pill', () => {
+    queryState = baseQuery({ live: true, isRelative: true })
+    streamState = baseStream({ connected: false, failed: false })
+    render(<ExplorerContent />)
+    const pill = screen.getByText('Connecting…')
+    expect(pill.className).toContain('text-white/40')
+    expect(pill.className).not.toContain('text-(--color-success)')
+    expect(pill.className).not.toContain('text-destructive')
+  })
+
+  /**
+   * The Radio icon carries its sizing classes and pulses ONLY while connected.
+   * Kills L87:36 `h-3.5 w-3.5`→"", L87:71 `animate-pulse`→"", and the L87:51
+   * ConditionalExpression(→true/→false) + LogicalOperator(→||) mutations — with
+   * any of those, the pulse class is wrongly present/absent for the connected state.
+   */
+  it('sizes the Radio icon and pulses it only while connected', () => {
+    queryState = baseQuery({ live: true })
+    streamState = baseStream({ connected: true })
+    render(<ExplorerContent />)
+    // The Radio icon is the leading svg inside the status pill span.
+    const svg = screen.getByText('Streaming').querySelector('svg')
+    expect(svg).not.toBeNull()
+    expect(svg!.getAttribute('class')).toContain('h-3.5')
+    expect(svg!.getAttribute('class')).toContain('w-3.5')
+    expect(svg!.getAttribute('class')).toContain('animate-pulse')
+  })
+
+  /** When disconnected the Radio icon must NOT pulse (kills the L87:51 →true / →|| mutations). */
+  it('does not pulse the Radio icon while disconnected', () => {
+    queryState = baseQuery({ live: true, isRelative: true })
+    streamState = baseStream({ connected: false, failed: false })
+    render(<ExplorerContent />)
+    const svg = screen.getByText('Connecting…').querySelector('svg')
+    expect(svg).not.toBeNull()
+    expect(svg!.getAttribute('class')).toContain('h-3.5')
+    expect(svg!.getAttribute('class')).not.toContain('animate-pulse')
+  })
+
+  /**
+   * With Live OFF the table receives an empty `liveRows` array even when the
+   * stream buffer has rows. Kills the L119:44 `[]`→`["Stryker was here"]`
+   * ArrayDeclaration mutation on the ternary's else branch.
+   */
+  it('passes an empty liveRows array to the table when Live is off', () => {
+    queryState = baseQuery({ live: false })
+    streamState = baseStream({ rows: [sampleRow, sampleRow] })
+    render(<ExplorerContent />)
+    expect(screen.getByTestId('open-row')).toHaveAttribute('data-live-count', '0')
+  })
+
+  /** With Live ON the table receives the live stream rows (the ternary's then branch). */
+  it('passes the live stream rows to the table when Live is on', () => {
+    queryState = baseQuery({ live: true })
+    streamState = baseStream({ connected: true, rows: [sampleRow, sampleRow, sampleRow] })
+    render(<ExplorerContent />)
+    expect(screen.getByTestId('open-row')).toHaveAttribute('data-live-count', '3')
   })
 })

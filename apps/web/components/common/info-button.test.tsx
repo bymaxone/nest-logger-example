@@ -69,4 +69,39 @@ describe('InfoButton', () => {
     expect(dialog).toHaveTextContent('body only text')
     expect(screen.queryByText('Tail latency.')).not.toBeInTheDocument()
   })
+
+  /**
+   * When summary is omitted the description guard renders `null`, so the dialog's
+   * `aria-describedby` id must resolve to no element. The mutated guard (always
+   * truthy) would render an empty DialogDescription `<p>`, which this catches.
+   */
+  it('renders no description element when summary is omitted', async () => {
+    const user = userEvent.setup()
+    render(
+      <InfoButton title="No summary" summary={undefined}>
+        <p>body only text</p>
+      </InfoButton>,
+    )
+    await user.click(screen.getByRole('button', { name: 'About No summary' }))
+    const dialog = screen.getByRole('dialog')
+    const describedBy = dialog.getAttribute('aria-describedby')
+    expect(describedBy).not.toBeNull()
+    expect(document.getElementById(describedBy!)).toBeNull()
+  })
+
+  /** The trigger carries its hover and focus-visible class literals from `cn(...)`. */
+  it('applies the hover and focus-visible class literals to the trigger', () => {
+    render(
+      <InfoButton title="Latency">
+        <p>x</p>
+      </InfoButton>,
+    )
+    const trigger = screen.getByRole('button', { name: 'About Latency' })
+    // Kills the StringLiteral→"" mutation on the hover class block.
+    expect(trigger.className).toContain('hover:bg-white/10')
+    expect(trigger.className).toContain('text-white/35')
+    // Kills the StringLiteral→"" mutation on the focus-visible class block.
+    expect(trigger.className).toContain('focus-visible:ring-2')
+    expect(trigger.className).toContain('focus-visible:ring-ring')
+  })
 })

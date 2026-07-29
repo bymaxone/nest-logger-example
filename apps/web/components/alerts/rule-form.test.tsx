@@ -11,7 +11,7 @@
  * @module components/alerts/rule-form.test
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
@@ -571,6 +571,130 @@ describe('RuleForm', () => {
     await user.clear(nameInput)
     await user.click(screen.getByRole('button', { name: 'Create rule' }))
     expect(createRuleMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * On a successful create the onSuccess handler invalidates exactly the
+   * `['alert-rules']` query so the sibling rules table refreshes. Spying on
+   * `invalidateQueries` and asserting the exact `{ queryKey: ['alert-rules'] }`
+   * argument kills the ObjectLiteral→{}, ArrayDeclaration→[], and StringLiteral→""
+   * mutations on the invalidate call.
+   */
+  it('invalidates the alert-rules query after a successful create', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RuleForm />
+      </QueryClientProvider>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(createRuleMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['alert-rules'] }))
+  })
+
+  /**
+   * The onSubmit guard must bail when the logKey is invalid — even when the form
+   * is submitted directly (the submit button is disabled while invalid, so the
+   * guard is the only protection against a bad submit via Enter/programmatic submit).
+   *
+   * With only `isLogKeyInvalid` true and the window/for/name all valid, the original
+   * guard `A || B || C || D` short-circuits to block. This single case kills every
+   * L159 mutation, all of which would instead submit:
+   *   - ConditionalExpression→false (guard removed)
+   *   - LogicalOperator `((A||B) && C) || D` (the `&& false` collapses to submit)
+   *   - LogicalOperator `(A && B) || C || D` (the `&& false` collapses to submit)
+   */
+  it('blocks a direct form submit when only the logKey is invalid', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.type(screen.getByLabelText('logKey (optional)'), 'not a key')
+    const form = screen.getByLabelText('Name').closest('form')
+    expect(form).not.toBeNull()
+    fireEvent.submit(form!)
+    // Allow any (mutant) mutation to fire, then prove the guard blocked the create.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(createRuleMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The editor channels query reads from the `['alert-channels', role, tenantId]`
+   * cache key. Priming that exact key (with `staleTime: Infinity`) makes the query
+   * a cache hit, so the channels render WITHOUT a network fetch. If the queryKey's
+   * ArrayDeclaration→[] or StringLiteral→"" mutation changed the key, the cache
+   * would miss, `listChannels` would be invoked, and the primed channel would not
+   * render — so asserting the cache-hit render and the absent fetch kills both.
+   */
+  it('reads channels from the alert-channels cache key without refetching', async () => {
+    const channels: NotificationChannel[] = [
+      {
+        id: 'primed-slack',
+        type: 'slack',
+        name: 'Primed Slack',
+        endpoint: 'https://hooks.slack.com/primed',
+        severities: ['critical'],
+      },
+    ]
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+    })
+    // Prime the exact key the component builds for the active (admin) identity.
+    queryClient.setQueryData(['alert-channels', 'admin', ''], channels)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RuleForm />
+      </QueryClientProvider>,
+    )
+    const channelGroup = await screen.findByRole('group', { name: 'Notify channels' })
+    expect(within(channelGroup).getByRole('checkbox', { name: 'Primed Slack' })).toBeInTheDocument()
+    // The cache hit on the exact key means the network boundary is never touched.
+    expect(listChannelsMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * With a RESOLVED-but-empty channels list, the Notify-channels group must not
+   * render. Priming the exact cache key with `[]` (and `staleTime: Infinity`) makes
+   * `channelsQuery.data` an empty array on the first render — not `undefined` as
+   * during loading — so the guard runs against empty data. Both the
+   * ConditionalExpression `channelsQuery.data.length > 0` → `true` and the
+   * EqualityOperator `length > 0` → `length >= 0` mutations would render the (empty)
+   * group; asserting the group's label is absent kills both.
+   */
+  it('renders no channel group when the resolved channels list is empty', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+    })
+    queryClient.setQueryData(['alert-channels', 'admin', ''], [])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RuleForm />
+      </QueryClientProvider>,
+    )
+    // The form rendered (data is the cached empty array), but the channel group did not.
+    expect(screen.getByRole('button', { name: 'Create rule' })).toBeInTheDocument()
+    expect(screen.queryByText('Notify channels')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Notify channels' })).not.toBeInTheDocument()
+  })
+
+  /**
+   * When no `onCreated` prop is given, `onCreated?.()` must be a no-op. The
+   * OptionalChaining→`onCreated()` mutation would instead throw inside onSuccess;
+   * TanStack Query routes that throw to onError, firing the "Could not create rule"
+   * error toast. Asserting that NO error toast fires after a clean success kills
+   * the mutation.
+   */
+  it('does not error when onCreated is absent on a successful create', async () => {
+    createRuleMock.mockResolvedValue({ id: 'r1' })
+    const user = userEvent.setup()
+    renderWithClient(<RuleForm />)
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Alert rule created'))
+    // Give the (mutant) onError path time to run, then prove it never did.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
   /**

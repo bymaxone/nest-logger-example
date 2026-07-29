@@ -20,8 +20,17 @@ let aggregateReturn: { data: StatusMixRow[] | undefined; isLoading: boolean } = 
   isLoading: false,
 }
 
+/** Captured recharts props / hook arg, asserted to lock the wiring. */
+let capturedMetric: string | undefined
+let capturedBarChartMargin: unknown
+let capturedGridVertical: unknown
+let capturedYAxisAllowDecimals: unknown
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateReturn,
+  useAggregate: (metric: string) => {
+    capturedMetric = metric
+    return aggregateReturn
+  },
 }))
 
 // Recharts axes/tooltip only invoke their formatter props when their ticks/content
@@ -30,13 +39,27 @@ vi.mock('@/hooks/use-aggregate', () => ({
 // surfacing the formatted bucket labels as plain text for assertion.
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children, data }: { children: ReactNode; data: StatusMixRow[] }) => (
-    <div data-testid="bar-chart" data-rows={data.length}>
-      {children}
-    </div>
-  ),
+  BarChart: ({
+    children,
+    data,
+    margin,
+  }: {
+    children: ReactNode
+    data: StatusMixRow[]
+    margin?: unknown
+  }) => {
+    capturedBarChartMargin = margin
+    return (
+      <div data-testid="bar-chart" data-rows={data.length}>
+        {children}
+      </div>
+    )
+  },
   Bar: ({ name }: { name: string }) => <div data-testid="bar">{name}</div>,
-  CartesianGrid: () => <div data-testid="grid" />,
+  CartesianGrid: ({ vertical }: { vertical?: unknown }) => {
+    capturedGridVertical = vertical
+    return <div data-testid="grid" />
+  },
   XAxis: ({
     tickFormatter,
     dataKey,
@@ -48,7 +71,10 @@ vi.mock('recharts', () => ({
       {tickFormatter ? tickFormatter('2026-06-05T10:00:00.000Z') : dataKey}
     </div>
   ),
-  YAxis: () => <div data-testid="y-axis" />,
+  YAxis: ({ allowDecimals }: { allowDecimals?: unknown }) => {
+    capturedYAxisAllowDecimals = allowDecimals
+    return <div data-testid="y-axis" />
+  },
   Tooltip: ({ labelFormatter }: { labelFormatter?: (label: unknown) => string }) => (
     <div data-testid="tooltip">
       {labelFormatter ? labelFormatter('2026-06-05T10:00:00.000Z') : ''}
@@ -63,6 +89,10 @@ const query = { source: 'loki' } as const
 
 beforeEach(() => {
   aggregateReturn = { data: [], isLoading: false }
+  capturedMetric = undefined
+  capturedBarChartMargin = undefined
+  capturedGridVertical = undefined
+  capturedYAxisAllowDecimals = undefined
 })
 
 afterEach(() => {
@@ -111,5 +141,26 @@ describe('StatusMix', () => {
     aggregateReturn = { data: undefined, isLoading: false }
     render(<StatusMix query={query} />)
     expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-rows', '0')
+  })
+
+  /** The panel reads the `statusMix` aggregate metric (StringLiteral→"" mutation). */
+  it('queries the statusMix aggregate metric', () => {
+    aggregateReturn = { data: [], isLoading: false }
+    render(<StatusMix query={query} />)
+    expect(capturedMetric).toBe('statusMix')
+  })
+
+  /**
+   * The chart wiring is fixed: the exact margins object, no vertical grid lines, and
+   * integer-only Y ticks. Asserting these kills the ObjectLiteral→{} mutation on
+   * `margin` and the BooleanLiteral→true mutations on `vertical={false}` /
+   * `allowDecimals={false}`.
+   */
+  it('passes the fixed margins, hides vertical grid lines and disables Y decimals', () => {
+    aggregateReturn = { data: [], isLoading: false }
+    render(<StatusMix query={query} />)
+    expect(capturedBarChartMargin).toEqual({ top: 4, right: 8, bottom: 0, left: 0 })
+    expect(capturedGridVertical).toBe(false)
+    expect(capturedYAxisAllowDecimals).toBe(false)
   })
 })

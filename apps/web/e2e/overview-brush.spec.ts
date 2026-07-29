@@ -19,7 +19,7 @@ test.describe('Overview brush → filter', () => {
   test('dragging the volume brush writes from/to and clears the relative range', async ({
     page,
   }) => {
-    await page.goto('/')
+    await page.goto('/dashboard')
     // The brushable "Log volume" chart card is the entry point for an absolute window.
     await expect(page.getByText(/Log volume/i).first()).toBeVisible()
 
@@ -44,7 +44,7 @@ test.describe('Overview brush → filter', () => {
 
     // The window is global state, so the Explorer inherits the brushed range.
     const search = page.url().split('?')[1] ?? ''
-    await page.goto('/explorer?' + search)
+    await page.goto('/dashboard/explorer?' + search)
     await expect(page).toHaveURL(/[?&]from=/)
     await expect(page).toHaveURL(/[?&]to=/)
   })

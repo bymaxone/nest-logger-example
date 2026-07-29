@@ -41,6 +41,7 @@ import { LogsAggregateService } from '../../src/logs/logs.aggregate.service.js'
 import { LogsFacetsService } from '../../src/logs/logs.facets.service.js'
 import { LogsContextService } from '../../src/logs/logs.context.service.js'
 import { LogsExportService } from '../../src/logs/logs.export.service.js'
+import { LogsLokiService } from '../../src/logs/logs.loki.service.js'
 import { PrismaLogDestination } from '../../src/destinations/prisma-log.destination.js'
 
 /** Dedicated test Postgres connection string (matches docker-compose.test.yml). */
@@ -122,12 +123,15 @@ let prisma: PrismaService
 let app: INestApplication
 
 beforeAll(async () => {
-  // Apply the schema to the dedicated test database. `--url` overrides the datasource so
-  // this only ever touches the test stack (127.0.0.1:55432), never the dev database.
-  execSync(`pnpm --filter api exec prisma db push --url=${TEST_DATABASE_URL} --accept-data-loss`, {
+  // Apply the schema to the dedicated test database via the SAME committed migrations the
+  // app and the web e2e stack use (`migrate deploy`, not `db push`), so the test DB carries
+  // a proper migration history. This keeps the suites order-independent on the shared local
+  // stack: a prior `db push` leaves no history, which makes a later `migrate deploy` fail
+  // with P3005. `DATABASE_URL` (test stack only) drives both this command and prisma.config.ts.
+  execSync(`pnpm --filter api exec prisma migrate deploy`, {
     cwd: REPO_ROOT,
-    // prisma.config.ts resolves DATABASE_URL at load time (throwing if unset), so it must be
-    // present; both it and `--url` point at the test stack, never the dev database.
+    // prisma.config.ts resolves DATABASE_URL at load time (throwing if unset); it points at
+    // the test stack (127.0.0.1:55432), never the dev database.
     env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
     stdio: 'inherit',
   })
@@ -164,13 +168,30 @@ afterAll(async () => {
  */
 const PRISMA_PLACEHOLDER = { provide: PrismaService, useValue: {} }
 
+/**
+ * Stand-in for `LogsLokiService`, a constructor dependency of `LogsController`. It is only
+ * exercised on the `source=loki` request path, which this Postgres-focused suite never
+ * takes, so a stub satisfies DI without pulling in `LokiClient` / `ConfigService`. Throwing
+ * on use guards against an accidental Loki-path call slipping into this suite unnoticed.
+ */
+const LOKI_SERVICE_PLACEHOLDER = {
+  provide: LogsLokiService,
+  useValue: {
+    query: () => {
+      throw new Error('LogsLokiService must not be called on the Postgres path')
+    },
+  },
+}
+
 // Minimal module: the real logs read-API controller + services. The SSE and Loki-proxy
-// controllers are intentionally excluded so no ConfigService / LokiClient is needed —
-// the Postgres path is what this suite proves, and Prisma is REAL.
+// controllers are intentionally excluded, and LogsLokiService is stubbed, so no
+// ConfigService / LokiClient is needed — the Postgres path is what this suite proves, and
+// Prisma is REAL.
 @Module({
   controllers: [LogsController],
   providers: [
     PRISMA_PLACEHOLDER,
+    LOKI_SERVICE_PLACEHOLDER,
     LogsService,
     LogsAggregateService,
     LogsFacetsService,

@@ -51,6 +51,20 @@ function ready(data: unknown = []): FakeQuery {
 
 const BASE_QUERY: LogQuery = { source: 'loki' }
 
+/**
+ * The Δ-badge text of a named tile — the span carrying the ▲/▼ glyph inside that tile's
+ * card — or null when no badge renders. Scoping by card avoids cross-tile glyph collisions
+ * so each tile's `series`/`delta` (and the arrow/arithmetic/logical mutations behind it)
+ * can be asserted in isolation.
+ */
+function tileDelta(title: string): string | null {
+  const card = screen.getByText(title).closest('[class~="min-w-40"]')
+  const badge = Array.from(card?.querySelectorAll('span') ?? []).find((s) =>
+    /[▲▼]/.test(s.textContent ?? ''),
+  )
+  return badge?.textContent ?? null
+}
+
 beforeEach(() => {
   results = {
     volume: ready(),
@@ -390,6 +404,151 @@ describe('HealthStrip — empty-state guard uses both totalRequests and totalVol
     // No HTTP requests (statusMix empty) → the error rate's `totalRequests > 0 ? … : 0`
     // guard falls back to 0% instead of dividing by zero.
     expect(screen.getByText('0.00%')).toBeInTheDocument()
+  })
+})
+
+describe('HealthStrip — series, totals and window edge cases', () => {
+  /**
+   * With `from` undefined but `to` defined, `windowMinutes` must still fall back to the
+   * 60-minute default (the `from === undefined ||` operand). Asserting reqPerMin = 100
+   * (6000 requests / 60 min) kills the ConditionalExpression that drops the `from` check:
+   * without it the window becomes `to - NaN = NaN`, driving reqPerMin to NaN.
+   */
+  it('uses the default window when only the to bound is set', () => {
+    const statusMix: StatusMixRow[] = [{ bucket: 'b', s2xx: 6000, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    const volume: VolumeRow[] = [{ bucket: 'b', level: 'info', n: 1 }]
+    results = {
+      volume: ready(volume),
+      errorRate: ready([]),
+      latency: ready([]),
+      statusMix: ready(statusMix),
+    }
+    render(<HealthStrip query={{ source: 'loki', to: '2026-01-01T00:00:00Z' }} />)
+    expect(screen.getByText('100')).toBeInTheDocument()
+  })
+
+  /**
+   * The empty-state guard requires BOTH totals to be zero. With HTTP requests present
+   * (`totalRequests > 0`) but no log volume, the tiles must still render. This kills the
+   * ConditionalExpression→true on `totalRequests === 0`, which would otherwise show the
+   * empty prompt whenever volume is empty.
+   */
+  it('renders the tiles when there are requests but no log volume', () => {
+    const statusMix: StatusMixRow[] = [{ bucket: 'b', s2xx: 60, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    results = {
+      volume: ready([]),
+      errorRate: ready([]),
+      latency: ready([]),
+      statusMix: ready(statusMix),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(screen.getByText('TRAFFIC')).toBeInTheDocument()
+    expect(screen.queryByText('No logs in this window yet.')).not.toBeInTheDocument()
+  })
+
+  /**
+   * When statusMix is empty and every volume bucket is zero, `totalVolume` is genuinely 0,
+   * so the empty-state prompt must show. This kills the ArrowFunction→`() => undefined`
+   * mutation on the `totalVolume` reduce, which would yield `undefined !== 0` and wrongly
+   * render the tiles instead of the prompt.
+   */
+  it('shows the empty prompt when volume buckets are present but all zero', () => {
+    const volume: VolumeRow[] = [{ bucket: 'b', level: 'info', n: 0 }]
+    results = {
+      volume: ready(volume),
+      errorRate: ready([]),
+      latency: ready([]),
+      statusMix: ready([]),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(screen.getByText('No logs in this window yet.')).toBeInTheDocument()
+  })
+
+  /**
+   * The TRAFFIC sparkline series is the per-bucket request totals; its Δ badge is the
+   * trend of that series. With totals [10, 30] the trend is +200%. Asserting the exact
+   * badge kills the ArrowFunction→`() => undefined` mutation on `totals.map((t) => t.total)`,
+   * which collapses the series to undefined → a non-finite trend → no badge.
+   */
+  it('derives the TRAFFIC trend badge from the per-bucket request totals', () => {
+    const statusMix: StatusMixRow[] = [
+      { bucket: 'b1', s2xx: 10, s3xx: 0, s4xx: 0, s5xx: 0 },
+      { bucket: 'b2', s2xx: 30, s3xx: 0, s4xx: 0, s5xx: 0 },
+    ]
+    results = {
+      volume: ready([]),
+      errorRate: ready([]),
+      latency: ready([]),
+      statusMix: ready(statusMix),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(tileDelta('TRAFFIC')).toBe('▲ 200.0%')
+  })
+
+  /**
+   * The LATENCY tile reads p95 as the mean of the bucket p95s and trends the p95 series.
+   * With p95 [100, 200]: value = mean = 150ms and the trend = +100%. Asserting both kills:
+   * - LogicalOperator `latency.data ?? []` → `&& []` (empties the rows → 0ms / 0% trend);
+   * - ArrowFunction `latencyRows.map((r) => r.p95)` → `() => undefined` (mean → NaNms);
+   * - ArrowFunction `latencyRows.map((r) => r.p95 ?? 0)` → `() => undefined` (no badge);
+   * - LogicalOperator `r.p95 ?? 0` → `r.p95 && 0` (series → all 0 → 0% trend).
+   */
+  it('computes the LATENCY value and trend from the p95 series', () => {
+    const statusMix: StatusMixRow[] = [{ bucket: 'b', s2xx: 50, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    const latency: LatencyRow[] = [
+      { bucket: 'b1', p50: 1, p95: 100, p99: 1 },
+      { bucket: 'b2', p50: 1, p95: 200, p99: 1 },
+    ]
+    results = {
+      volume: ready([]),
+      errorRate: ready([]),
+      latency: ready(latency),
+      statusMix: ready(statusMix),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(screen.getByText('150ms')).toBeInTheDocument()
+    expect(tileDelta('LATENCY')).toBe('▲ 100.0%')
+  })
+
+  /**
+   * When the latency aggregate is undefined, the rows fall back to an EMPTY array, so the
+   * mean p95 is 0 → "0ms". This kills the ArrayDeclaration→`["Stryker was here"]` fallback,
+   * which would feed a junk row whose undefined p95 makes the mean NaN → "NaNms".
+   */
+  it('shows a zero latency when the latency aggregate is undefined', () => {
+    const statusMix: StatusMixRow[] = [{ bucket: 'b', s2xx: 50, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    results = {
+      volume: ready([]),
+      errorRate: ready([]),
+      latency: { data: undefined, isLoading: false, isError: false },
+      statusMix: ready(statusMix),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(screen.getByText('0ms')).toBeInTheDocument()
+  })
+
+  /**
+   * The FATAL+ERROR sparkline series sums error + fatal per bucket. With buckets
+   * (error 10, fatal 8) and (error 20, fatal 4) the series is [18, 24] → +33.3% trend.
+   * Asserting the exact badge kills:
+   * - ArithmeticOperator `p.error + p.fatal` → `p.error - p.fatal` (series [2, 16] → +700%);
+   * - ArrowFunction `(p) => p.error + p.fatal` → `() => undefined` (no finite trend → no badge).
+   */
+  it('sums error and fatal per bucket for the FATAL+ERROR trend', () => {
+    const volume: VolumeRow[] = [
+      { bucket: 'b1', level: 'error', n: 10 },
+      { bucket: 'b1', level: 'fatal', n: 8 },
+      { bucket: 'b2', level: 'error', n: 20 },
+      { bucket: 'b2', level: 'fatal', n: 4 },
+    ]
+    results = {
+      volume: ready(volume),
+      errorRate: ready([]),
+      latency: ready([]),
+      statusMix: ready([]),
+    }
+    render(<HealthStrip query={BASE_QUERY} />)
+    expect(tileDelta('FATAL+ERROR')).toBe('▲ 33.3%')
   })
 })
 

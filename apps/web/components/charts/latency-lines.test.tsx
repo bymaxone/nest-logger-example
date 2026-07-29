@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import type { LatencyRow, LogQuery } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
@@ -22,8 +22,14 @@ let aggregateState: { data: LatencyRow[] | undefined; isLoading: boolean } = {
   isLoading: false,
 }
 
+/** The metric name the component passes to `useAggregate`, captured per render. */
+let capturedAggregateMetric: string | undefined
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateState,
+  useAggregate: (metric: string) => {
+    capturedAggregateMetric = metric
+    return aggregateState
+  },
 }))
 
 // Imported after the mock so the component binds the mocked hook.
@@ -40,6 +46,7 @@ function renderWithClient(ui: ReactElement): ReturnType<typeof render> {
 
 beforeEach(() => {
   aggregateState = { data: [], isLoading: false }
+  capturedAggregateMetric = undefined
 })
 
 afterEach(() => {
@@ -108,5 +115,92 @@ describe('LatencyLines', () => {
     const label = container.querySelector('.recharts-tooltip-label')
     expect(label).not.toBeNull()
     expect(label).toHaveTextContent(formatBucket('2026-06-05T10:05:00.000Z'))
+  })
+
+  /** The panel reads the `latency` aggregate metric (StringLiteral→"" mutation). */
+  it('queries the latency aggregate metric', () => {
+    aggregateState = { data: [], isLoading: false }
+    renderWithClient(<LatencyLines query={query} />)
+    expect(capturedAggregateMetric).toBe('latency')
+  })
+})
+
+describe('LatencyLines — recharts prop wiring (stubbed recharts)', () => {
+  /** Captured recharts props for the chart, grid and line primitives. */
+  let lineChartProps: { data?: unknown[]; margin?: unknown } | undefined
+  let gridProps: { vertical?: unknown } | undefined
+  let lineProps: { dot?: unknown; isAnimationActive?: unknown } | undefined
+
+  /** A small populated series so the chart primitives mount. */
+  const rows: LatencyRow[] = [{ bucket: '2026-06-05T10:00:00.000Z', p50: 20, p95: 80, p99: 140 }]
+
+  /** Re-import the component with the stubbed recharts bound for this block only. */
+  async function importWithStubbedRecharts(): Promise<typeof import('./latency-lines')> {
+    vi.resetModules()
+    vi.doMock('recharts', () => ({
+      ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+      LineChart: (props: { children?: ReactNode; data?: unknown[]; margin?: unknown }) => {
+        lineChartProps = props
+        return <div>{props.children}</div>
+      },
+      Line: (props: { dot?: unknown; isAnimationActive?: unknown }) => {
+        lineProps = props
+        return null
+      },
+      CartesianGrid: (props: { vertical?: unknown }) => {
+        gridProps = props
+        return null
+      },
+      XAxis: () => null,
+      YAxis: () => null,
+      Tooltip: () => null,
+    }))
+    return import('./latency-lines')
+  }
+
+  afterEach(() => {
+    lineChartProps = undefined
+    gridProps = undefined
+    lineProps = undefined
+    vi.doUnmock('recharts')
+    vi.resetModules()
+  })
+
+  /**
+   * The chart wiring is fixed: the exact margins object and no vertical grid lines.
+   * Asserting these kills the ObjectLiteral→{} mutation on `margin` and the
+   * BooleanLiteral→true mutation on `vertical={false}`.
+   */
+  it('passes the fixed margins and hides vertical grid lines', async () => {
+    aggregateState = { data: rows, isLoading: false }
+    const { LatencyLines: StubbedLatencyLines } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedLatencyLines query={query} />)
+    expect(lineChartProps?.margin).toEqual({ top: 4, right: 8, bottom: 0, left: 0 })
+    expect(gridProps?.vertical).toBe(false)
+  })
+
+  /**
+   * The percentile lines draw no point markers and run no entry animation. Asserting
+   * both kills the BooleanLiteral→true mutations on `dot={false}` and
+   * `isAnimationActive={false}`.
+   */
+  it('renders the percentile lines with dots and animation disabled', async () => {
+    aggregateState = { data: rows, isLoading: false }
+    const { LatencyLines: StubbedLatencyLines } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedLatencyLines query={query} />)
+    expect(lineProps?.dot).toBe(false)
+    expect(lineProps?.isAnimationActive).toBe(false)
+  })
+
+  /**
+   * When the loaded data is undefined the `data ?? []` fallback yields an empty
+   * series, so the LineChart receives no points. Asserting the empty array kills the
+   * ArrayDeclaration→["Stryker was here"] mutation, which would feed one phantom point.
+   */
+  it('falls back to an empty series when the loaded data is undefined', async () => {
+    aggregateState = { data: undefined, isLoading: false }
+    const { LatencyLines: StubbedLatencyLines } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedLatencyLines query={query} />)
+    expect(lineChartProps?.data).toEqual([])
   })
 })

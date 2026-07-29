@@ -107,6 +107,15 @@ describe('logColumns', () => {
     expect(labelEl.querySelector('svg')).not.toBeNull()
   })
 
+  /** The level cell carries the severity colour as an inline `color` style (never colour-less). */
+  it('applies the severity colour as an inline color style on the level cell', () => {
+    render(<RowCells row={makeRow({ level: 'error' })} />)
+    const labelEl = screen.getByText(getSeverity('error').label)
+    // The only inline style on the level span is `{ color: meta.color }`; an
+    // ObjectLiteral→{} mutation strips it, leaving an empty color string.
+    expect(labelEl.style.color).not.toBe('')
+  })
+
   /** The logKey renders inside an outline badge so it reads as a token. */
   it('renders the logKey as a badge', () => {
     render(<RowCells row={makeRow({ logKey: 'ORDER_PLACED' })} />)

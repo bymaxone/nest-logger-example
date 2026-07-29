@@ -36,12 +36,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Overview', href: '/', icon: LayoutDashboard, exact: true },
-  { label: 'Explorer', href: '/explorer', icon: Search },
-  { label: 'Trigger Center', href: '/trigger', icon: Zap },
-  { label: 'Alerts', href: '/alerts', icon: BellRing },
-  { label: 'Maintenance', href: '/maintenance', icon: Settings2 },
-  { label: 'Settings', href: '/settings', icon: Cog },
+  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, exact: true },
+  { label: 'Explorer', href: '/dashboard/explorer', icon: Search },
+  { label: 'Trigger Center', href: '/dashboard/trigger', icon: Zap },
+  { label: 'Alerts', href: '/dashboard/alerts', icon: BellRing },
+  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Settings2 },
+  { label: 'Settings', href: '/dashboard/settings', icon: Cog },
 ]
 
 interface SidebarProps {

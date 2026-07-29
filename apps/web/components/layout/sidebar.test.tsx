@@ -14,7 +14,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 /** Mutable pathname the mocked `usePathname` returns; set per test before render. */
-let currentPathname = '/'
+let currentPathname = '/dashboard'
 /** Mutable query string the mocked `useSearchParams` returns; set per test before render. */
 let currentSearch = ''
 
@@ -27,7 +27,7 @@ vi.mock('next/navigation', () => ({
 const { Sidebar } = await import('./sidebar')
 
 beforeEach(() => {
-  currentPathname = '/'
+  currentPathname = '/dashboard'
   currentSearch = ''
 })
 
@@ -56,7 +56,7 @@ describe('Sidebar', () => {
 
   /** The root route uses exact matching, so only Overview is current at `/`. */
   it('marks only Overview active on the exact root route', () => {
-    currentPathname = '/'
+    currentPathname = '/dashboard'
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Explorer' })).not.toHaveAttribute('aria-current')
@@ -64,7 +64,7 @@ describe('Sidebar', () => {
 
   /** A non-root pathname must NOT mark the exact root item active (exact=false branch). */
   it('does not mark Overview active when the route is not the root', () => {
-    currentPathname = '/explorer'
+    currentPathname = '/dashboard/explorer'
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('link', { name: 'Explorer' })).toHaveAttribute('aria-current', 'page')
@@ -72,11 +72,11 @@ describe('Sidebar', () => {
 
   /** Each non-exact item is active on its own exact href (the `pathname === href` branch). */
   it.each([
-    ['/explorer', 'Explorer'],
-    ['/trigger', 'Trigger Center'],
-    ['/alerts', 'Alerts'],
-    ['/maintenance', 'Maintenance'],
-    ['/settings', 'Settings'],
+    ['/dashboard/explorer', 'Explorer'],
+    ['/dashboard/trigger', 'Trigger Center'],
+    ['/dashboard/alerts', 'Alerts'],
+    ['/dashboard/maintenance', 'Maintenance'],
+    ['/dashboard/settings', 'Settings'],
   ])('marks %s active for its exact route', (path, label) => {
     currentPathname = path
     render(<Sidebar isOpen={false} />)
@@ -85,7 +85,7 @@ describe('Sidebar', () => {
 
   /** A nested sub-route activates its parent via the `startsWith(href + '/')` branch. */
   it('marks a non-exact item active for a nested sub-route', () => {
-    currentPathname = '/explorer/details'
+    currentPathname = '/dashboard/explorer/details'
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Explorer' })).toHaveAttribute('aria-current', 'page')
     // The exact root must stay inactive when a sub-route is open.
@@ -94,7 +94,7 @@ describe('Sidebar', () => {
 
   /** With no matching route every item is inactive (both active branches false). */
   it('marks no item active for an unmatched route', () => {
-    currentPathname = '/nowhere'
+    currentPathname = '/dashboard/nowhere'
     render(<Sidebar isOpen={false} />)
     for (const label of ['Overview', 'Explorer', 'Trigger Center', 'Alerts']) {
       expect(screen.getByRole('link', { name: label })).not.toHaveAttribute('aria-current')
@@ -124,7 +124,7 @@ describe('Sidebar', () => {
    * StringLiteral mutation on the `startsWith` guard.
    */
   it('does not mark Explorer active for a path that only shares a prefix with its href', () => {
-    currentPathname = '/explorerx'
+    currentPathname = '/dashboard/explorerx'
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Explorer' })).not.toHaveAttribute('aria-current')
   })
@@ -132,8 +132,36 @@ describe('Sidebar', () => {
   /** With no active filter state the links stay bare (the empty-query branch). */
   it('keeps bare hrefs when there is no active query state', () => {
     render(<Sidebar isOpen={false} />)
-    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: 'Explorer' })).toHaveAttribute('href', '/explorer')
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/dashboard')
+    expect(screen.getByRole('link', { name: 'Explorer' })).toHaveAttribute(
+      'href',
+      '/dashboard/explorer',
+    )
+  })
+
+  /**
+   * When open, the rail resolves to a visible `flex` display (no `hidden`); the
+   * conditional `'flex'` literal lands last after tailwind-merge dedup, so the
+   * class string must end in `flex`. Kills the `'flex'`→"" StringLiteral mutation.
+   */
+  it('resolves the nav to a visible flex display when open', () => {
+    render(<Sidebar isOpen />)
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+    expect(nav.className).toMatch(/ flex$/)
+    expect(nav.className).not.toContain('hidden')
+  })
+
+  /**
+   * When closed, the rail is `hidden` on mobile and `lg:flex` on desktop, and the
+   * base `flex` is overridden away. Kills the `'hidden lg:flex'`→"" StringLiteral
+   * mutation (which would leave a visible base `flex` instead).
+   */
+  it('resolves the nav to hidden (lg:flex) when closed', () => {
+    render(<Sidebar isOpen={false} />)
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+    expect(nav.className).toContain('hidden')
+    expect(nav.className).toContain('lg:flex')
+    expect(nav.className).not.toMatch(/ flex$/)
   })
 
   /**
@@ -145,11 +173,11 @@ describe('Sidebar', () => {
     render(<Sidebar isOpen={false} />)
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'href',
-      '/?source=postgres&live=true&tenantId=acme',
+      '/dashboard?source=postgres&live=true&tenantId=acme',
     )
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
       'href',
-      '/settings?source=postgres&live=true&tenantId=acme',
+      '/dashboard/settings?source=postgres&live=true&tenantId=acme',
     )
   })
 })

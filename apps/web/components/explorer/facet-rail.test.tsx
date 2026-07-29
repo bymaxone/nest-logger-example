@@ -28,8 +28,14 @@ vi.mock('@/lib/filters', () => ({
 /** Mutable facet-hook result the mocked `useFacets` returns; reshaped per test. */
 let facetsReturn: { data: FacetsResult | undefined; isLoading: boolean; isError: boolean }
 
+/** Records the field-names array the component passes to `useFacets` (first arg). */
+let facetFieldsArg: unknown
+
 vi.mock('@/hooks/use-facets', () => ({
-  useFacets: () => facetsReturn,
+  useFacets: (fields: unknown) => {
+    facetFieldsArg = fields
+    return facetsReturn
+  },
 }))
 
 // Imported after the mocks so the component binds the mocked hooks.
@@ -341,6 +347,82 @@ describe('FacetRail', () => {
     // would leave it empty.
     expect(dot!.style.background).not.toBe('')
   })
+
+  /**
+   * When `level` is a comparison object the level branch yields the empty string,
+   * so an empty-string level value is marked ACTIVE. This pins every `activeValue`
+   * level-branch mutation (L73 if→false, 'level'→"", typeof ternary→true, else
+   * ''→"Stryker was here!"): each makes `activeValue` return a non-'' value, so the
+   * empty-string value is no longer active.
+   */
+  it('marks the empty-string level value active when the level filter is a comparison object', () => {
+    logQuery = { source: 'loki', level: { gte: 'warn' } }
+    facetsReturn = { data: { level: [{ value: '', count: 1 }] }, isLoading: false, isError: false }
+    render(<FacetRail />)
+    expect(screen.getByTitle('Alt-click to clear this filter')).toBeInTheDocument()
+  })
+
+  /**
+   * For an unset non-level field the `?? ''` fallback yields the empty string, so
+   * an empty-string value is marked ACTIVE. Kills the L74 `?? ''`→`?? "Stryker
+   * was here!"` mutation, which would make the empty value inactive.
+   */
+  it('marks the empty-string value active for an unset non-level field', () => {
+    logQuery = { source: 'loki' }
+    facetsReturn = {
+      data: { service: [{ value: '', count: 1 }] },
+      isLoading: false,
+      isError: false,
+    }
+    render(<FacetRail />)
+    expect(screen.getByTitle('Alt-click to clear this filter')).toBeInTheDocument()
+  })
+
+  /**
+   * The Loki note keeps the literal spaces (`{' '}`) that separate the prose from
+   * the inline `<strong>` tier badges, so the rendered text reads "Postgres warn+"
+   * and "Loki info+" with a space. Kills the L85 and L86 `{' '}`→`{""}`
+   * StringLiteral mutations, which would glue the words to the badges.
+   */
+  it('keeps the spaces around the inline tier badges in the Loki note', () => {
+    logQuery = { source: 'loki' }
+    render(<FacetRail />)
+    const note = screen.getByText('warn+').closest('p')
+    expect(note).not.toBeNull()
+    expect(note!.textContent).toContain('Postgres warn+')
+    expect(note!.textContent).toContain('Loki info+')
+  })
+
+  /**
+   * A non-level facet value that happens to spell a real level name must NOT get a
+   * colour dot. Kills the L114 `field === 'level' && …`→`true && …` mutation, which
+   * would draw a dot for the service value 'error' (a valid level name).
+   */
+  it('does not render a level dot for a non-level value that spells a level name', () => {
+    logQuery = { source: 'loki' }
+    facetsReturn = {
+      data: { service: [{ value: 'error', count: 1 }] },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = render(<FacetRail />)
+    expect(container.querySelector('span[aria-hidden="true"]')).toBeNull()
+  })
+
+  /**
+   * A facet VALUE button carries the base layout classes from the `cn(...)` base
+   * string. Selecting the value button by its accessible name (not the always-first
+   * FeatureInfo button) and asserting the layout classes kills the L126 base
+   * className→"" StringLiteral mutation.
+   */
+  it('applies the base layout classes to a facet value button', () => {
+    logQuery = { source: 'loki' }
+    render(<FacetRail />)
+    const btn = screen.getByRole('button', { name: /error/ })
+    expect(btn.className).toContain('flex')
+    expect(btn.className).toContain('rounded')
+    expect(btn.className).toContain('justify-between')
+  })
 })
 
 describe('FacetRail — LEVELS module-level re-import (kill LEVELS string mutations at module init)', () => {
@@ -373,5 +455,80 @@ describe('FacetRail — LEVELS module-level re-import (kill LEVELS string mutati
       ).not.toBeNull()
       cleanup()
     }
+  })
+})
+
+/**
+ * Re-import tests for the module-level FACET_FIELDS / FACET_FIELD_NAMES constants.
+ *
+ * These arrays are built once at module load, so their string/object/arrow
+ * mutations are otherwise attributed to no test. Re-importing inside each test
+ * forces re-evaluation with the active mutation, attributing the coverage here.
+ */
+describe('FacetRail — FACET_FIELDS module-level re-import', () => {
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+  })
+
+  /**
+   * Every section heading renders its exact label. Kills the label StringLiteral→""
+   * mutations (L28/L29/L30/L31) and the ObjectLiteral→{} mutations that null out an
+   * entry's label.
+   */
+  it('re-imports and renders all four section headings with their exact labels', async () => {
+    vi.resetModules()
+    const { FacetRail: Fresh } = await import('./facet-rail')
+    logQuery = { source: 'loki' }
+    facetsReturn = {
+      data: { level: [], service: [], logKey: [], tenantId: [] },
+      isLoading: false,
+      isError: false,
+    }
+    render(<Fresh />)
+    expect(screen.getByRole('heading', { name: 'Level' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Service' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Log key' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tenant' })).toBeInTheDocument()
+  })
+
+  /**
+   * Each facet's values are read from its `field` key. Kills the `field`
+   * StringLiteral→"" mutations (L29/L30/L31) and the ObjectLiteral→{} mutations:
+   * with a wrong/absent field key the value lookup misses and the value button
+   * never renders.
+   */
+  it('re-imports and renders each non-level facet value from its field key', async () => {
+    vi.resetModules()
+    const { FacetRail: Fresh } = await import('./facet-rail')
+    logQuery = { source: 'loki' }
+    facetsReturn = {
+      data: {
+        service: [{ value: 'api', count: 9 }],
+        logKey: [{ value: 'AUTH_LOGIN_OK', count: 4 }],
+        tenantId: [{ value: 'acme', count: 2 }],
+      },
+      isLoading: false,
+      isError: false,
+    }
+    render(<Fresh />)
+    expect(screen.getByRole('button', { name: /api/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /AUTH_LOGIN_OK/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /acme/ })).toBeInTheDocument()
+  })
+
+  /**
+   * The four facet field names are passed to `useFacets` in order. Kills the L35
+   * `FACET_FIELDS.map((f) => f.field)`→`map(() => undefined)` ArrowFunction mutation,
+   * which would hand `useFacets` an array of `undefined`.
+   */
+  it('re-imports and passes the four facet field names to useFacets', async () => {
+    vi.resetModules()
+    facetFieldsArg = undefined
+    const { FacetRail: Fresh } = await import('./facet-rail')
+    logQuery = { source: 'loki' }
+    facetsReturn = { data: {}, isLoading: false, isError: false }
+    render(<Fresh />)
+    expect(facetFieldsArg).toEqual(['level', 'service', 'logKey', 'tenantId'])
   })
 })

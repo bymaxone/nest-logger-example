@@ -293,6 +293,52 @@ describe('OverviewContent', () => {
     expect(breakdownCall?.fields).toEqual(['logKey', 'tenantId'])
     expect(errorCall?.fields).toEqual(['logKey'])
   })
+
+  /**
+   * When the facet payloads are undefined, the optional-chaining guards (`facets.data?.…`)
+   * must keep the page rendering. Removing any guard dereferences `undefined` and throws,
+   * so a successful render with the breakdown panels present kills the OptionalChaining
+   * mutations on `facets.data?.logKey`, `facets.data?.tenantId`, and `errorFacets.data?.logKey`.
+   */
+  it('renders without crashing when the facet payloads are undefined', () => {
+    facetResults = {
+      breakdown: undefined as unknown as FacetsResult,
+      error: undefined as unknown as FacetsResult,
+    }
+    render(<OverviewContent />)
+    expect(screen.getByText('Top logKeys')).toBeInTheDocument()
+    expect(screen.getByText('Top tenants')).toBeInTheDocument()
+    expect(screen.getByText('Top errors')).toBeInTheDocument()
+  })
+
+  /**
+   * A defined payload missing a field falls back to an EMPTY row list, so a breakdown panel
+   * renders ZERO row bars. The ArrayDeclaration→`["Stryker was here"]` mutation injects a
+   * sentinel row (rendered by the TopBar stub as a "<title>:…" bar), so asserting that no
+   * such row bar exists for any breakdown panel kills all three `?? []` fallback mutations.
+   */
+  it('falls back to empty rows when a facet field is absent', () => {
+    facetResults = { breakdown: {}, error: {} }
+    render(<OverviewContent />)
+    expect(screen.queryByRole('button', { name: /^Top logKeys:/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Top tenants:/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Top errors:/ })).not.toBeInTheDocument()
+  })
+
+  /**
+   * The error-scoped facet query is memoised on `query`, so a filter change must yield a
+   * fresh error query. With empty `useMemo` deps the memo returns the stale first value;
+   * asserting the latest error call reflects the UPDATED filter kills the deps→`[]` mutation.
+   */
+  it('recomputes the error facet query when the filter changes', () => {
+    query = { source: 'loki', logKey: 'first' }
+    const { rerender } = render(<OverviewContent />)
+    query = { source: 'loki', logKey: 'second' }
+    facetCalls.length = 0
+    rerender(<OverviewContent />)
+    const errorCall = facetCalls.find((c) => c.fields.length === 1)
+    expect(errorCall?.q).toMatchObject({ logKey: 'second', level: { gte: 'error' } })
+  })
 })
 
 /**

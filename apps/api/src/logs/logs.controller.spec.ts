@@ -431,6 +431,26 @@ describe('LogsController.list — exact GoneException message', () => {
     expect(caught).toBeInstanceOf(GoneException)
     expect((caught as GoneException).message).toContain('cursor is stale')
   })
+
+  it('GoneException from the Loki path carries the exact stale-cursor message string', async () => {
+    /**
+     * The Loki branch constructs its own `GoneException` with a separate hard-coded
+     * string literal. The Postgres-path test above does not exercise it, so without
+     * this case Stryker can mutate the Loki literal to '' undetected. Triggering the
+     * Loki branch (`source: 'loki'`) with a `StaleCursorError` and asserting the
+     * message kills that string-literal mutant.
+     */
+    const { controller, lokiQuery } = buildController()
+    lokiQuery.mockRejectedValue(new StaleCursorError())
+
+    let caught: Error | undefined
+    await controller.list({}, { source: 'loki', limit: 100, cursor: 'bad' }).catch((e: Error) => {
+      caught = e
+    })
+
+    expect(caught).toBeInstanceOf(GoneException)
+    expect((caught as GoneException).message).toContain('cursor is stale')
+  })
 })
 
 describe('LogsController.list — exact cursor clause shape', () => {

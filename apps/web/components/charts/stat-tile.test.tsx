@@ -8,10 +8,32 @@
  *
  * @module components/charts/stat-tile.test
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { createElement } from 'react'
 
-import { StatTile } from '@/components/charts/stat-tile'
+/** Captured per render so the data points the component feeds <LineChart> are assertable. */
+let capturedData: unknown
+
+// Wrap the real recharts so the sparkline still paints (dots / animation / stroke are
+// asserted from the genuine SVG) while the mapped `data` prop is captured — the
+// `series.map(...)` shape cannot be read back from the rendered DOM alone.
+vi.mock('recharts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('recharts')>()
+  return {
+    ...actual,
+    LineChart: (props: { data?: unknown }) => {
+      capturedData = props.data
+      return createElement(actual.LineChart, props)
+    },
+  }
+})
+
+const { StatTile } = await import('@/components/charts/stat-tile')
+
+beforeEach(() => {
+  capturedData = undefined
+})
 
 afterEach(() => {
   cleanup()
@@ -166,5 +188,63 @@ describe('StatTile', () => {
     render(<StatTile title="errors" value="42" series={[]} delta={1.5} />)
     const badge = screen.getByText(/▲/)
     expect(badge.className).toContain('font-mono')
+  })
+
+  /**
+   * The series maps to one `{ i, n }` point per value. Asserting the exact array kills
+   * both the ArrowFunction→`() => undefined` mutation (yields `[undefined, …]`) and the
+   * ObjectLiteral→`{}` mutation (yields `[{}, …]`) on the `series.map` callback.
+   */
+  it('maps the series into indexed sparkline points', () => {
+    render(<StatTile title="errors" value="42" series={[1, 2]} />)
+    expect(capturedData).toEqual([
+      { i: 0, n: 1 },
+      { i: 1, n: 2 },
+    ])
+  })
+
+  /** The non-danger sparkline stroke is the blue accent (kills the false-branch ''-stroke mutation). */
+  it('strokes the sparkline blue when not in danger', () => {
+    const { container } = render(<StatTile title="latency" value="9" series={[1, 2, 3]} />)
+    expect(container.querySelector('.recharts-line-curve')?.getAttribute('stroke')).toBe('#60a5fa')
+  })
+
+  /** The danger sparkline stroke is red (kills the danger-branch ''-stroke mutation). */
+  it('strokes the sparkline red when in danger', () => {
+    const { container } = render(<StatTile title="errors" value="9" series={[1, 2, 3]} danger />)
+    expect(container.querySelector('.recharts-line-curve')?.getAttribute('stroke')).toBe('#ef4444')
+  })
+
+  /** The card root keeps its base layout classes (kills the StringLiteral→'' on the base arg of cn). */
+  it('applies the base min-width and flex classes to the card root', () => {
+    const { container } = render(<StatTile title="errors" value="42" series={[]} />)
+    const root = container.firstChild as HTMLElement
+    expect(root.className).toContain('min-w-40')
+    expect(root.className).toContain('flex-1')
+  })
+
+  /**
+   * With no hint, the hint sub-label element must not render at all. Asserting the
+   * absence of the hint span (its unique `text-white/40` class) kills the
+   * ConditionalExpression→true mutation, which would render an empty hint span.
+   */
+  it('renders no hint element when the hint is omitted', () => {
+    const { container } = render(<StatTile title="errors" value="42" series={[1, 2]} />)
+    expect(container.querySelector('[class~="text-white/40"]')).toBeNull()
+  })
+
+  /** The sparkline renders without per-point dots (kills the dot→true mutation). */
+  it('renders the sparkline without dots', () => {
+    const { container } = render(<StatTile title="errors" value="42" series={[1, 2, 3, 4]} />)
+    expect(container.querySelectorAll('.recharts-line-dot')).toHaveLength(0)
+    // Sanity: the curve renders, so the absence of dots is meaningful.
+    expect(container.querySelector('.recharts-line-curve')).not.toBeNull()
+  })
+
+  /** Animation is off, so the sparkline curve has no react-smooth draw-animation dasharray. */
+  it('disables sparkline animation', () => {
+    const { container } = render(<StatTile title="errors" value="42" series={[1, 2, 3, 4]} />)
+    const curve = container.querySelector('.recharts-line-curve')
+    expect(curve?.getAttribute('stroke-dasharray')).toBeNull()
   })
 })

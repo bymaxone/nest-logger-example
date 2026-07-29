@@ -19,7 +19,7 @@ import { expect, test } from '@playwright/test'
 
 test.describe('Trigger Center → Explorer', () => {
   test('renders the twelve trigger cards', async ({ page }) => {
-    await page.goto('/trigger')
+    await page.goto('/dashboard/trigger')
     // The grid must expose exactly the twelve documented playground triggers — a drifted count
     // means a trigger was added/removed without updating the catalog the Explorer pivots rely on.
     await expect(page.getByRole('heading', { name: 'Trigger Center' })).toBeVisible()
@@ -27,7 +27,7 @@ test.describe('Trigger Center → Explorer', () => {
   })
 
   test('firing structured success pivots the Explorer to its requestId', async ({ page }) => {
-    await page.goto('/trigger')
+    await page.goto('/dashboard/trigger')
     const card = page.getByTestId('trigger-order')
     await card.getByRole('button', { name: 'Fire' }).click()
 
@@ -43,7 +43,7 @@ test.describe('Trigger Center → Explorer', () => {
   test('firing the error path shows PAYMENT_CHARGE_FAILED in the Explorer table', async ({
     page,
   }) => {
-    await page.goto('/trigger')
+    await page.goto('/dashboard/trigger')
     const card = page.getByTestId('trigger-payment')
     await card.getByRole('button', { name: 'Fire' }).click()
 
@@ -59,7 +59,7 @@ test.describe('Trigger Center → Explorer', () => {
   })
 
   test('cross-service fire pivots by the shared traceId', async ({ page }) => {
-    await page.goto('/trigger')
+    await page.goto('/dashboard/trigger')
     const card = page.getByTestId('trigger-dispatch')
     await card.getByRole('button', { name: 'Fire' }).click()
 

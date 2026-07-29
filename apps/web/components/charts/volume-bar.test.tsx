@@ -23,8 +23,14 @@ let aggregateState: { data: VolumeRow[] | undefined; isLoading: boolean } = {
   isLoading: false,
 }
 
+/** The metric name the component passes to `useAggregate`, captured per render. */
+let capturedAggregateMetric: string | undefined
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateState,
+  useAggregate: (metric: string) => {
+    capturedAggregateMetric = metric
+    return aggregateState
+  },
 }))
 
 // Imported after the mock so the component binds the mocked hook.
@@ -50,6 +56,7 @@ function renderWithClient(ui: ReactElement): ReturnType<typeof render> {
 
 beforeEach(() => {
   aggregateState = { data: [], isLoading: false }
+  capturedAggregateMetric = undefined
 })
 
 afterEach(() => {
@@ -64,6 +71,13 @@ describe('VolumeBar', () => {
     const { container } = renderWithClient(<VolumeBar query={query} onBrush={vi.fn()} />)
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
     expect(container.querySelector('.recharts-bar')).toBeNull()
+  })
+
+  /** The panel reads the `volume` aggregate metric (StringLiteral→"" mutation). */
+  it('queries the volume aggregate metric', () => {
+    aggregateState = { data: volumeRows, isLoading: false }
+    renderWithClient(<VolumeBar query={query} onBrush={vi.fn()} />)
+    expect(capturedAggregateMetric).toBe('volume')
   })
 
   /** With no data the chart still mounts (the `data ?? []` empty branch). */
@@ -133,28 +147,44 @@ describe('VolumeBar — Brush onChange index fallbacks (stubbed recharts)', () =
    * surrounding chart primitives render pass-through containers.
    */
   let brushOnChange: ((range: { startIndex?: number; endIndex?: number }) => void) | undefined
+  /** Captured recharts props, asserted to lock the chart wiring. */
+  let barChartProps: { data?: unknown[]; margin?: unknown } | undefined
+  let gridProps: { vertical?: unknown } | undefined
+  let yAxisProps: { allowDecimals?: unknown } | undefined
 
   /** Re-import the component with the stubbed recharts bound for this block only. */
   async function importWithStubbedRecharts(): Promise<typeof import('./volume-bar')> {
     vi.resetModules()
     vi.doMock('recharts', () => ({
       ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-      BarChart: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+      BarChart: (props: { children?: ReactNode; data?: unknown[]; margin?: unknown }) => {
+        barChartProps = props
+        return <div>{props.children}</div>
+      },
       Bar: () => null,
       Brush: (props: { onChange?: (r: { startIndex?: number; endIndex?: number }) => void }) => {
         brushOnChange = props.onChange
         return null
       },
-      CartesianGrid: () => null,
+      CartesianGrid: (props: { vertical?: unknown }) => {
+        gridProps = props
+        return null
+      },
       Tooltip: () => null,
       XAxis: () => null,
-      YAxis: () => null,
+      YAxis: (props: { allowDecimals?: unknown }) => {
+        yAxisProps = props
+        return null
+      },
     }))
     return import('./volume-bar')
   }
 
   afterEach(() => {
     brushOnChange = undefined
+    barChartProps = undefined
+    gridProps = undefined
+    yAxisProps = undefined
     vi.doUnmock('recharts')
     vi.resetModules()
   })
@@ -179,5 +209,65 @@ describe('VolumeBar — Brush onChange index fallbacks (stubbed recharts)', () =
     expect(brushOnChange).toBeDefined()
     brushOnChange!({})
     expect(onBrush).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Both ends of the brushed window must resolve before lifting: when only the
+   * start index maps to a point (the end index is out of range) the guard must
+   * block the call without throwing. This kills the `&&`→`||` LogicalOperator
+   * mutation and the ConditionalExpression→true mutation on the right operand
+   * (`end !== undefined`), both of which would call `onBrush` and dereference the
+   * undefined end point.
+   */
+  it('does not lift a range when only the start index resolves to a point', async () => {
+    aggregateState = { data: volumeRows, isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    const onBrush = vi.fn<(from: string, to: string) => void>()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={onBrush} />)
+    expect(brushOnChange).toBeDefined()
+    expect(() => brushOnChange!({ startIndex: 0, endIndex: 999 })).not.toThrow()
+    expect(onBrush).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The mirror case: when only the end index maps to a point (the start index is
+   * out of range) the guard must still block the call. This kills the
+   * ConditionalExpression→true mutation on the left operand (`start !== undefined`).
+   */
+  it('does not lift a range when only the end index resolves to a point', async () => {
+    aggregateState = { data: volumeRows, isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    const onBrush = vi.fn<(from: string, to: string) => void>()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={onBrush} />)
+    expect(brushOnChange).toBeDefined()
+    expect(() => brushOnChange!({ startIndex: 999, endIndex: 0 })).not.toThrow()
+    expect(onBrush).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The chart wiring is fixed: the exact margins object, no vertical grid lines, and
+   * integer-only Y ticks. Asserting these kills the ObjectLiteral→{} mutation on
+   * `margin` and the BooleanLiteral→true mutations on `vertical={false}` /
+   * `allowDecimals={false}`.
+   */
+  it('passes the fixed margins, hides vertical grid lines and disables Y decimals', async () => {
+    aggregateState = { data: volumeRows, isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={vi.fn()} />)
+    expect(barChartProps?.margin).toEqual({ top: 4, right: 8, bottom: 0, left: 0 })
+    expect(gridProps?.vertical).toBe(false)
+    expect(yAxisProps?.allowDecimals).toBe(false)
+  })
+
+  /**
+   * When the loaded data is undefined the `data ?? []` fallback pivots to an empty
+   * series, so the BarChart receives no points. Asserting the empty array kills the
+   * ArrayDeclaration→["Stryker was here"] mutation, which would feed one phantom point.
+   */
+  it('pivots to an empty series when the loaded data is undefined', async () => {
+    aggregateState = { data: undefined, isLoading: false }
+    const { VolumeBar: StubbedVolumeBar } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedVolumeBar query={query} onBrush={vi.fn()} />)
+    expect(barChartProps?.data).toEqual([])
   })
 })

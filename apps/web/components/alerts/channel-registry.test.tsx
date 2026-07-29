@@ -620,4 +620,80 @@ describe('ChannelRegistry', () => {
     expect(badge.className).toContain('bg-secondary')
     expect(badge.className).not.toContain('bg-destructive')
   })
+
+  /**
+   * On a successful create the onSuccess handler invalidates exactly the
+   * `['alert-channels']` query; because the active channels query carries the
+   * `['alert-channels', role, tenantId]` key it matches by prefix and refetches.
+   *
+   * Spying on `invalidateQueries` and asserting the exact `{ queryKey: ['alert-channels'] }`
+   * argument kills the ObjectLiteral→{}, ArrayDeclaration→[], and StringLiteral→""
+   * mutations on the invalidate call. Asserting the refetch (listChannels called
+   * again) kills the ArrayDeclaration→[] and StringLiteral→"" mutations on the
+   * useQuery queryKey, which would stop the invalidation from matching the query.
+   */
+  it('invalidates the alert-channels query and refetches the list after a successful create', async () => {
+    listChannelsMock.mockResolvedValue([])
+    createChannelMock.mockResolvedValue({ ok: true, channel: makeChannel() })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ChannelRegistry />
+      </QueryClientProvider>,
+    )
+    await screen.findByText('Register a channel')
+    await user.type(screen.getByLabelText('Id'), 'slack-x')
+    await user.type(screen.getByLabelText('Name'), 'Slack X')
+    await user.type(screen.getByLabelText('Webhook URL'), 'https://hooks.slack.com/x')
+    await user.click(screen.getByRole('button', { name: 'Add channel' }))
+    await waitFor(() => expect(createChannelMock).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['alert-channels'] }),
+    )
+    // The query key matched, so the active list refetched (initial + post-invalidate).
+    await waitFor(() => expect(listChannelsMock.mock.calls.length).toBeGreaterThanOrEqual(2))
+  })
+
+  /**
+   * With a non-empty list, the channel `<ul>` renders one list item per channel.
+   * Asserting the exact item count kills the EqualityOperator `length > 0` → `>= 0`
+   * mutation only indirectly, so the empty-list assertion below is the real killer.
+   */
+  it('renders one list item per channel when the list is non-empty', async () => {
+    listChannelsMock.mockResolvedValue([
+      makeChannel({ id: 'a', name: 'Alpha' }),
+      makeChannel({ id: 'b', name: 'Bravo' }),
+    ])
+    renderWithClient(<ChannelRegistry />)
+    const list = await screen.findByRole('list')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  /**
+   * An empty (but RESOLVED) channel list must render no list block. Priming the
+   * exact `['alert-channels', role, tenantId]` cache key with `[]` (and
+   * `staleTime: Infinity`) makes `data` an empty array on the first render — not
+   * `undefined` as during loading — so the `data && data.length > 0` guard is
+   * actually exercised against empty data. With data already `[]`, both the
+   * ConditionalExpression `data && data.length > 0` → `true` and the
+   * EqualityOperator `length > 0` → `length >= 0` mutations would render an empty
+   * `<ul>` (which carries role `list`); asserting no list is present kills both.
+   */
+  it('renders no list block when the resolved channel list is empty', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+    })
+    queryClient.setQueryData(['alert-channels', 'admin', ''], [])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ChannelRegistry />
+      </QueryClientProvider>,
+    )
+    // The admin form proves render finished; data is the cached empty array.
+    expect(screen.getByText('Register a channel')).toBeInTheDocument()
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(listChannelsMock).not.toHaveBeenCalled()
+  })
 })

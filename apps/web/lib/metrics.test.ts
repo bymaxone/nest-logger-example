@@ -9,7 +9,7 @@
  *
  * @module lib/metrics.test
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ErrorRateRow, StatusMixRow, VolumeRow } from './types'
 import {
@@ -396,5 +396,39 @@ describe('statusErrorRatePctSeries', () => {
   it('returns 0 for a bucket with zero total responses', () => {
     const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0 }]
     expect(statusErrorRatePctSeries(rows)).toEqual([0])
+  })
+
+  /**
+   * The denominator must add all four status classes (`s2xx + s3xx + s4xx + s5xx`).
+   * With a non-zero `s3xx`, the ArithmeticOperator mutation (`s2xx - s3xx`) shrinks
+   * the total and changes the percentage, so this exact-rate assertion kills it.
+   */
+  it('includes 3xx in the rate denominator (kills the minus mutation)', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 80, s3xx: 10, s4xx: 6, s5xx: 4 }]
+    // (6 + 4) / (80 + 10 + 6 + 4) * 100 = 10. Mutant total = 80 - 10 + 6 + 4 = 80 → 12.5.
+    expect(statusErrorRatePctSeries(rows)).toEqual([10])
+  })
+})
+
+describe('pivotVolume — ALL_LEVELS constant (module re-import)', () => {
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /**
+   * `ALL_LEVELS` is a module-level constant read once at load, so a statically
+   * imported caller cannot observe a mutation to it. Re-importing forces a fresh
+   * evaluation: each of the six declared level names must still be recognised and
+   * counted. This kills the ArrayDeclaration mutation (`[]`) and every StringLiteral
+   * mutation that blanks one level name (e.g. `'fatal'` → `''`), since a blanked
+   * name fails the includes-guard and leaves that level's count at zero.
+   */
+  it('re-imports and counts every one of the six declared levels', async () => {
+    vi.resetModules()
+    const { pivotVolume: freshPivotVolume } = await import('./metrics')
+    for (const level of ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const) {
+      const [point] = freshPivotVolume([{ bucket: 'b', level, n: 1 }])
+      expect(point?.[level], `level ${level} was not counted`).toBe(1)
+    }
   })
 })

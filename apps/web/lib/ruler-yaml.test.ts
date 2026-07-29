@@ -432,3 +432,109 @@ describe('ruler-yaml — module-level re-import (kill STREAM_SELECTOR, RULER_GRO
     vi.resetModules()
   })
 })
+
+describe('isValidDuration — regex anchors (re-import to apply static mutations)', () => {
+  /**
+   * DURATION_REGEX is a module-level constant, so its mutations only take effect
+   * when the module is re-evaluated inside a test. Calling a freshly-imported
+   * `isValidDuration` with anchor-/quantifier-/class-sensitive inputs kills all
+   * four surviving regex mutations:
+   *   - '5m' true  → kills `\d`→`\D` (digit class must match a digit)
+   *   - '50m' true → kills `\d+`→`\d` (one-OR-MORE digits, not exactly one)
+   *   - 'x5m' false → kills the dropped `^` start anchor
+   *   - '5mx' false → kills the dropped `$` end anchor
+   */
+  it('anchors at both ends and requires one or more digits', async () => {
+    vi.resetModules()
+    const { isValidDuration: fresh } = await import('./ruler-yaml')
+    expect(fresh('5m')).toBe(true)
+    expect(fresh('50m')).toBe(true)
+    expect(fresh('x5m')).toBe(false)
+    expect(fresh('5mx')).toBe(false)
+    vi.resetModules()
+  })
+})
+
+describe('RULE_PRESETS — full draft shapes (re-import to apply static mutations)', () => {
+  /**
+   * Each preset draft lives in a module-level array literal, so its field
+   * mutations only apply under a fresh import. Deep-asserting the entire draft
+   * with `toEqual` pins every field at once — metric, levels array + members,
+   * shouldGroupByLogKey, comparator, threshold, window, forDuration, severity,
+   * name and (where present) logKey — killing every surviving StringLiteral,
+   * ArrayDeclaration and BooleanLiteral mutation on the four presets.
+   */
+  it('error-spike draft matches the documented shape exactly', async () => {
+    vi.resetModules()
+    const { RULE_PRESETS: fresh } = await import('./ruler-yaml')
+    const d = fresh.find((p) => p.id === 'error-spike')!.draft
+    expect(d).toEqual({
+      name: 'Error spike by logKey',
+      metric: 'count',
+      levels: ['error', 'fatal'],
+      shouldGroupByLogKey: true,
+      comparator: '>',
+      threshold: 10,
+      window: '5m',
+      forDuration: '2m',
+      severity: 'critical',
+    })
+    vi.resetModules()
+  })
+
+  it('any-fatal draft matches the documented shape exactly', async () => {
+    vi.resetModules()
+    const { RULE_PRESETS: fresh } = await import('./ruler-yaml')
+    const d = fresh.find((p) => p.id === 'any-fatal')!.draft
+    expect(d).toEqual({
+      name: 'Any fatal log',
+      metric: 'count',
+      levels: ['fatal'],
+      shouldGroupByLogKey: false,
+      comparator: '>=',
+      threshold: 1,
+      window: '1m',
+      forDuration: '1m',
+      severity: 'critical',
+    })
+    vi.resetModules()
+  })
+
+  it('specific-failure draft matches the documented shape exactly', async () => {
+    vi.resetModules()
+    const { RULE_PRESETS: fresh } = await import('./ruler-yaml')
+    const d = fresh.find((p) => p.id === 'specific-failure')!.draft
+    expect(d).toEqual({
+      name: 'Payment charge failures',
+      metric: 'rate',
+      levels: [],
+      logKey: 'PAYMENT_CHARGE_FAILED',
+      shouldGroupByLogKey: false,
+      comparator: '>',
+      threshold: 1,
+      window: '5m',
+      forDuration: '2m',
+      severity: 'warning',
+    })
+    vi.resetModules()
+  })
+
+  it('heartbeat draft matches the documented shape exactly', async () => {
+    vi.resetModules()
+    const { RULE_PRESETS: fresh } = await import('./ruler-yaml')
+    const d = fresh.find((p) => p.id === 'heartbeat')!.draft
+    expect(d).toEqual({
+      name: 'Success heartbeat absence',
+      metric: 'count',
+      levels: [],
+      logKey: 'HTTP_REQUEST_SUCCESS',
+      shouldGroupByLogKey: false,
+      comparator: '==',
+      threshold: 0,
+      window: '10m',
+      forDuration: '1m',
+      severity: 'critical',
+    })
+    vi.resetModules()
+  })
+})

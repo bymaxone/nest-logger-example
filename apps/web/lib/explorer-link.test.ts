@@ -4,7 +4,7 @@
  *
  * @module lib/explorer-link.test
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { explorerHref } from './explorer-link'
 
@@ -175,5 +175,25 @@ describe('explorerHref — absent optional fields must not appear in the URL', (
     const href = explorerHref({ requestId: 'req_1' })
     const params = new URLSearchParams(href.split('?')[1])
     expect(params.get('logKey')).toBeNull()
+  })
+})
+
+describe('explorerHref — DEFAULT_RANGE constant value (module re-import)', () => {
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /**
+   * `DEFAULT_RANGE` is a module-level constant, so its value is captured at module
+   * load. Re-importing the module forces a fresh evaluation that observes the exact
+   * literal `'15m'`; this kills the StringLiteral mutation (`'15m'` → `''`) which a
+   * statically-imported caller cannot detect because the constant is read once at
+   * load with the original value.
+   */
+  it('re-imports the module and applies the exact 15m default range', async () => {
+    vi.resetModules()
+    const { explorerHref: freshExplorerHref } = await import('./explorer-link')
+    const params = new URLSearchParams(freshExplorerHref({ requestId: 'r1' }).split('?')[1])
+    expect(params.get('range')).toBe('15m')
   })
 })

@@ -25,6 +25,10 @@ let aggregateReturn: { data: VolumeRow[] | undefined; isLoading: boolean } = {
   isLoading: false,
 }
 
+/** Captured wiring: the aggregate metric and the Pie animation flag. */
+let capturedMetric: string | undefined
+let capturedPieAnimation: unknown
+
 vi.mock('@/lib/filters', () => ({
   useLogQuery: () => ({
     query: { source: 'loki' },
@@ -35,7 +39,10 @@ vi.mock('@/lib/filters', () => ({
 }))
 
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateReturn,
+  useAggregate: (metric: string) => {
+    capturedMetric = metric
+    return aggregateReturn
+  },
 }))
 
 // Recharts does not paint <Cell> click targets in jsdom, so the slice `onClick`
@@ -47,7 +54,10 @@ vi.mock('recharts', () => ({
   PieChart: ({ children }: { children: ReactNode }) => (
     <div data-testid="pie-chart">{children}</div>
   ),
-  Pie: ({ children }: { children: ReactNode }) => <div data-testid="pie">{children}</div>,
+  Pie: ({ children, isAnimationActive }: { children: ReactNode; isAnimationActive?: unknown }) => {
+    capturedPieAnimation = isAnimationActive
+    return <div data-testid="pie">{children}</div>
+  },
   Tooltip: () => <div data-testid="tooltip" />,
   Cell: ({ fill, onClick }: CellProps) => (
     <button type="button" data-fill={fill} onClick={onClick}>
@@ -61,6 +71,8 @@ const { SEVERITY } = await import('@/lib/severity')
 
 beforeEach(() => {
   aggregateReturn = { data: [], isLoading: false }
+  capturedMetric = undefined
+  capturedPieAnimation = undefined
   setQueryMock.mockReset()
 })
 
@@ -158,5 +170,19 @@ describe('LevelDonut', () => {
     const errorSlice = slices.find((s) => s.getAttribute('data-fill') === SEVERITY.error.color)
     await userEvent.click(errorSlice as HTMLElement)
     expect(setQueryMock).toHaveBeenCalledWith({ level: 'error' })
+  })
+
+  /** The donut sums the `volume` aggregate metric (StringLiteral→"" mutation). */
+  it('queries the volume aggregate metric', () => {
+    aggregateReturn = { data: [{ bucket: 'b1', level: 'info', n: 1 }], isLoading: false }
+    render(<LevelDonut />)
+    expect(capturedMetric).toBe('volume')
+  })
+
+  /** The Pie disables its slice animation (BooleanLiteral `isAnimationActive={false}`→true). */
+  it('disables the slice animation on the pie', () => {
+    aggregateReturn = { data: [{ bucket: 'b1', level: 'info', n: 1 }], isLoading: false }
+    render(<LevelDonut />)
+    expect(capturedPieAnimation).toBe(false)
   })
 })

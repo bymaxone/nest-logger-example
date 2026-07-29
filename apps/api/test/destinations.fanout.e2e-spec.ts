@@ -73,10 +73,25 @@ function buildMockPrisma(): ApplicationLogClient & {
 
 // Loki URL used in the test — intercepted via fetch spy so no real network call.
 const TEST_LOKI_URL = 'http://loki.test/loki/api/v1/push'
-// Allow batchSize:1 flush + network microtask to settle before asserting destination calls.
-const FLUSH_SETTLE_MS = 100
+// Upper bound for the async batch flush + network microtask to settle. The assertion
+// polls for the fan-out calls rather than sleeping a fixed amount, so a loaded machine
+// (parallel Jest workers) cannot race the fixed delay — the cause of past flakes.
+const FLUSH_TIMEOUT_MS = 5000
 // Allow the synchronous write to propagate through the pino multistream pipeline.
 const MULTISTREAM_SETTLE_MS = 10
+
+/**
+ * Poll `predicate` until it is true or `timeoutMs` elapses. Returns either way; the
+ * caller's assertions report the precise failure if the condition never held. Deterministic
+ * replacement for a fixed `setTimeout`, which under load could fire before the async
+ * destination flush completed.
+ */
+async function waitFor(predicate: () => boolean, timeoutMs = FLUSH_TIMEOUT_MS): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate() && Date.now() < deadline) {
+    await new Promise<void>((r) => setTimeout(r, 25))
+  }
+}
 
 describe('Destination fan-out (e2e)', () => {
   let app: INestApplication
@@ -143,7 +158,14 @@ describe('Destination fan-out (e2e)', () => {
         .send({ level: 'warn', count: 1 })
         .expect(201)
 
-      await new Promise<void>((r) => setTimeout(r, FLUSH_SETTLE_MS))
+      // Wait until BOTH async sinks have fanned out (Loki push + Postgres createMany),
+      // rather than sleeping a fixed amount that a loaded machine could outrun.
+      await waitFor(
+        () =>
+          fetchSpy.mock.calls.some((c) =>
+            typeof c[0] === 'string' ? c[0].includes('/loki/api/v1/push') : false,
+          ) && mockPrisma.applicationLog.createMany.mock.calls.length > 0,
+      )
 
       // (a) stdout JSON: DefaultStdoutDestination is in the destinations list.
       const captured = out.mock.calls.map((c) => (typeof c[0] === 'string' ? c[0] : '')).join('')

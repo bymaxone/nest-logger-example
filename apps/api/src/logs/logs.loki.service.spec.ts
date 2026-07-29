@@ -340,6 +340,26 @@ describe('LogsLokiService.query — stream mapping', () => {
     const { data } = await svc.query(query())
     expect(data.map((r) => r.message)).toEqual(['newer', 'older'])
   })
+
+  it('orders by line time, not the ns id, when the two disagree', async () => {
+    /**
+     * The primary sort key is the row `time` (from `line.time`), with the ns `id`
+     * only as a same-millisecond tiebreaker. When `line.time` order is the inverse
+     * of ns order, dropping the `dt !== 0` guard would collapse the sort onto the id
+     * alone and flip the result — so the bigger-ns/older-time entry must still come
+     * second. This kills the `ConditionalExpression -> false` mutant on that guard.
+     */
+    const { svc, queryRange } = build()
+    queryRange.mockResolvedValue(
+      lokiResp([
+        ['1718549890000000000', { time: '2026-06-16T14:00:00.000Z', msg: 'older-bigger-ns' }],
+        ['1718549880000000000', { time: '2026-06-16T15:00:00.000Z', msg: 'newer-smaller-ns' }],
+      ]),
+    )
+
+    const { data } = await svc.query(query())
+    expect(data.map((r) => r.message)).toEqual(['newer-smaller-ns', 'older-bigger-ns'])
+  })
 })
 
 describe('LogsLokiService.query — shape + malformed guards', () => {

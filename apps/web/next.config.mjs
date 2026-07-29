@@ -31,6 +31,14 @@ const connectSrc = ["'self'", apiOrigin].filter(Boolean).join(' ')
 const nextConfig = {
   // Do not advertise the framework — drops the `X-Powered-By: Next.js` response header.
   poweredByHeader: false,
+  logging: {
+    // Don't forward the browser console to the dev-server terminal. It defaults to 'warn',
+    // which relays React's dev-only "eval() is not supported" warning (our CSP omits
+    // 'unsafe-eval' by design) as noisy "[browser]" lines during `next dev` — most visibly
+    // in the Playwright e2e output, where they read like failures. Disabling the relay keeps
+    // the terminal clean without touching dev behaviour, the CSP, or the tests.
+    browserToTerminal: false,
+  },
   // Emit a self-contained server bundle (`.next/standalone/apps/web/server.js`)
   // so the production image ships only the traced runtime, not the full
   // workspace. `outputFileTracingRoot` points at the monorepo root so pnpm's

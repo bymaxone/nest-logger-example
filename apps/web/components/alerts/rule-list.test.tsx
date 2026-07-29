@@ -220,6 +220,36 @@ describe('RuleList', () => {
     expect(badge.className).not.toContain('bg-brand-500')
   })
 
+  /**
+   * On a successful toggle the onSuccess handler invalidates exactly the
+   * `['alert-rules']` query, and because the active rules query carries the
+   * `['alert-rules', role, tenantId]` key it matches by prefix and refetches.
+   *
+   * Spying on `invalidateQueries` and asserting the exact `{ queryKey: ['alert-rules'] }`
+   * argument kills the onSuccess BlockStatement→{} mutation and the ObjectLiteral→{},
+   * ArrayDeclaration→[], and StringLiteral→"" mutations on the invalidate call.
+   * Asserting the refetch (listRules called again) kills the ArrayDeclaration→[] and
+   * StringLiteral→"" mutations on the useQuery queryKey, which would otherwise stop
+   * the invalidation from matching the live query.
+   */
+  it('invalidates the alert-rules query and refetches the list after a successful toggle', async () => {
+    listRulesMock.mockResolvedValue([makeRule({ isEnabled: true })])
+    updateRuleMock.mockResolvedValue(makeRule({ isEnabled: false }))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RuleList />
+      </QueryClientProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Disable' }))
+    await waitFor(() => expect(updateRuleMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['alert-rules'] }))
+    // The query key matched, so the active list refetched (initial + post-invalidate).
+    await waitFor(() => expect(listRulesMock.mock.calls.length).toBeGreaterThanOrEqual(2))
+  })
+
   /** Only the in-flight row goes busy (aria-busy), proving the per-row pending guard. */
   it('marks only the toggled row busy while its mutation is in flight', async () => {
     listRulesMock.mockResolvedValue([
