@@ -10,7 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { createElement } from 'react'
+import { createElement, type ComponentProps } from 'react'
 
 /** Captured per render so the data points the component feeds <LineChart> are assertable. */
 let capturedData: unknown
@@ -22,7 +22,7 @@ vi.mock('recharts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('recharts')>()
   return {
     ...actual,
-    LineChart: (props: { data?: unknown }) => {
+    LineChart: (props: ComponentProps<typeof actual.LineChart>) => {
       capturedData = props.data
       return createElement(actual.LineChart, props)
     },

@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createElement, type ReactElement } from 'react'
+import { createElement, type ComponentProps, type ReactElement } from 'react'
 
 import type { LogQuery, StatusMixRow } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
@@ -42,7 +42,7 @@ vi.mock('recharts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('recharts')>()
   return {
     ...actual,
-    LineChart: (props: { data?: unknown; margin?: unknown }) => {
+    LineChart: (props: ComponentProps<typeof actual.LineChart>) => {
       capturedData = props.data
       capturedMargin = props.margin
       return createElement(actual.LineChart, props)

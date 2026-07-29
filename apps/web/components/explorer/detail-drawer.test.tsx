@@ -710,7 +710,11 @@ describe('DetailDrawer Overview undefined-field guard', () => {
    * explicitly `undefined` value (not `null`) is what exercises that operand.
    */
   it('skips an omitted (undefined) field instead of rendering "undefined"', () => {
-    const row: LogRow = { ...fullRow, tenantId: undefined }
+    // `exactOptionalPropertyTypes` rejects assigning `undefined` to an optional
+    // property, so the key is removed outright — reading it back then yields the
+    // `undefined` this guard is about.
+    const row: LogRow = { ...fullRow }
+    delete row.tenantId
     renderWithClient(<DetailDrawer row={row} open onOpenChange={vi.fn()} />)
     // The omitted tenantId field's label must not appear ...
     expect(screen.queryByText('tenantId')).not.toBeInTheDocument()
