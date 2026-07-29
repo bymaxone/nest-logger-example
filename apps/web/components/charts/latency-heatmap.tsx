@@ -16,6 +16,7 @@ import { useAggregate } from '@/hooks/use-aggregate'
 import { useFacets } from '@/hooks/use-facets'
 import type { LogQuery } from '@/lib/types'
 import { formatBucket, formatMs } from '@/lib/metrics'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** logKey emitted by the library when a `@LogPerformance` method exceeds its threshold. */
@@ -64,9 +65,13 @@ export function LatencyHeatmap({ query }: LatencyHeatmapProps) {
 
   return (
     <div className="space-y-2">
-      <p className="font-mono text-xs text-white/55">
-        Slow reqs (METHOD_SLOW_EXECUTION): <span className="text-amber-400">{slowCount}</span>
-      </p>
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs text-white/55">
+        <span>Slow reqs</span>
+        <Badge variant="outline" className="font-mono text-[10px] font-normal text-white/55">
+          {SLOW_EXECUTION_KEY}
+        </Badge>
+        <span className="text-amber-400">{slowCount}</span>
+      </div>
       {buckets.length === 0 ? (
         <p className="py-8 text-center text-xs text-white/40">No latency samples in this window.</p>
       ) : (

@@ -150,6 +150,47 @@ describe('ExportPanel', () => {
   })
 
   /**
+   * The truncation banner is hidden until an export actually reports truncation.
+   * Kills the BooleanLiteral→true mutation on `useState(false)` for `truncated`,
+   * which would show the alert banner immediately on mount.
+   */
+  it('shows no truncation banner before any export runs', () => {
+    render(<ExportPanel />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  /**
+   * The downloaded file is named `logs-export.<format>`. Kills the StringLiteral→""
+   * mutation on the filename template by asserting the anchor's download attribute.
+   */
+  it('names the downloaded file logs-export.<format>', async () => {
+    exportLogsMock.mockResolvedValue({ blob: new Blob([',']), truncated: false })
+    const user = userEvent.setup()
+    render(<ExportPanel />)
+    const appendSpy = vi.spyOn(document.body, 'appendChild')
+
+    await user.click(screen.getByRole('button', { name: /Download CSV/ }))
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled())
+
+    const anchor = appendSpy.mock.calls
+      .map((call) => call[0])
+      .find((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
+    expect(anchor?.download).toBe('logs-export.csv')
+    appendSpy.mockRestore()
+  })
+
+  /**
+   * The CSV-columns label and the column list are separated by a real space.
+   * Kills the StringLiteral→"" mutation on the `{' '}` whitespace literal between
+   * "CSV columns:" and the `<code>` column list.
+   */
+  it('keeps a space between the CSV-columns label and the column list', () => {
+    render(<ExportPanel />)
+    const paragraph = screen.getByText(/CSV columns/)
+    expect(paragraph.textContent).toContain('CSV columns: time, level')
+  })
+
+  /**
    * While an export is in flight both buttons are disabled (the `busy !== null`
    * branch); they re-enable once the promise settles in the `finally` block.
    */

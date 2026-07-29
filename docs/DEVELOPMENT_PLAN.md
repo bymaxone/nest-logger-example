@@ -29,7 +29,7 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 >
 > **Status legend:** 🔴 Not Started · 🟡 In Progress · 🔵 In Review · 🟢 Done · ⚪ Blocked
 >
-> **Overall progress: 120 / 133 tasks done (90%)**
+> **Overall progress: 128 / 133 tasks done (96%)**
 
 | #   | Phase                                     | Tasks file                        | Done / Total | %    | Status |
 | --- | ----------------------------------------- | --------------------------------- | ------------ | ---- | ------ |
@@ -50,8 +50,8 @@ This plan mirrors the proven 3-layer structure of the sibling `nest-auth-example
 | 14  | Testing — Unit + E2E (**100% coverage**)  | `phase-14-testing.md`             | 10 / 10      | 100% | 🟢     |
 | 15  | Mutation Testing (**Stryker 100%**)       | `phase-15-mutation.md`            | 6 / 6        | 100% | 🟢     |
 | 16  | Documentation                             | `phase-16-documentation.md`       | 8 / 8        | 100% | 🟢     |
-| 17  | CI/CD & Release Automation                | `phase-17-cicd.md`                | 0 / 7        | 0%   | 🔴     |
-| 18  | Audit & Hardening + v1.0.0                | `phase-18-audit-hardening.md`     | 0 / 6        | 0%   | 🔴     |
+| 17  | CI/CD & Release Automation                | `phase-17-cicd.md`                | 4 / 7        | 57%  | 🟡     |
+| 18  | Audit & Hardening + v1.0.0                | `phase-18-audit-hardening.md`     | 4 / 6        | 67%  | 🟡     |
 
 ### How to update this dashboard
 
@@ -178,7 +178,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 
 - [ ] `apps/api` Nest app (Express), `nest-cli.json`, tsconfigs.
 - [ ] `src/instrumentation.ts` — `export const otelSdk`; `NodeSDK` start **before** any NestJS import; OTLP exporter; fs-instrumentation disabled. **No** `process.exit` here (NestJS owns termination).
-- [ ] `src/main.ts` — `import './instrumentation'` first; `NestFactory.create(AppModule, { bufferLogs: true })`; bridge via `app.useLogger(app.get(PinoLoggerService))` (or the `shouldUseAsNestLogger` option); single ordered `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit.
+- [ ] `src/main.ts` — `import './instrumentation'` first; `NestFactory.create(AppModule, { bufferLogs: true })`; bridge via `BymaxLoggerModule.useNestLogger(app)` (or the `shouldUseAsNestLogger` option); single ordered `SIGTERM` handler → `app.close()` → `otelSdk.shutdown()` → exit.
 - [ ] `src/config/env.schema.ts` (Zod) + `src/health/` (`/health`, `/metrics`).
 
 **Definition of done:** `pnpm --filter api dev` boots; `GET /health` returns 200; a span reaches Tempo.
@@ -387,7 +387,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Deliverables:**
 
 - [ ] `.github/workflows/ci.yml` — jobs `install → lint, typecheck, unit, export-usage-check`; `e2e-api → e2e-web`; `coverage-report` (`needs: [unit, e2e-api, e2e-web]`). Node 24, pnpm 10.8.0, `--frozen-lockfile`, concurrency cancel-in-progress.
-- [ ] `.github/workflows/mutation.yml` — per-PR incremental Stryker, `dorny/paths-filter` per workspace, `actions/cache` of `stryker-incremental.json`.
+- [ ] `.github/workflows/mutation.yml` — incremental Stryker on default-branch push + manual dispatch (never on PRs), per-workspace change detection, `actions/cache` of `stryker-incremental.json`.
 - [ ] `.github/workflows/mutation-nightly.yml` — Monday 03:00 UTC full cold run.
 - [ ] `.github/workflows/release.yml` — `v*` tags → build/push GHCR images → bot-append a row to `docs/RELEASES.md`.
 - [ ] `apps/api/Dockerfile`, `apps/web/Dockerfile`, `docker-compose.prod.yml`.
@@ -430,8 +430,8 @@ The non-negotiable bar, mirroring `nest-auth-example`'s **shipped** configuratio
 | Unit coverage (api) | Jest `coverageThreshold.global`                    | **100%** b/l/f/s                   | CI `unit` (Phase 14)    |
 | Unit coverage (web) | Vitest v8 `coverage.thresholds`                    | **100%** b/l/f/s                   | CI `unit`               |
 | E2E                 | supertest (api, stdout-capture) + Playwright (web) | all pass                           | CI `e2e-api`/`e2e-web`  |
-| Mutation (api)      | Stryker jest-runner + typescript-checker           | **`break: 100`**                   | `mutation.yml` (PR)     |
-| Mutation (web)      | Stryker vitest-runner                              | **`break: 100`**                   | `mutation.yml` (PR)     |
+| Mutation (api)      | Stryker jest-runner + typescript-checker           | **`break: 100`**                   | `mutation.yml` (main)   |
+| Mutation (web)      | Stryker vitest-runner                              | **`break: 100`**                   | `mutation.yml` (main)   |
 | Mutation drift      | Stryker full cold run                              | report; issue on regression        | `mutation-nightly.yml`  |
 | Export usage        | `scripts/audit-library-exports.mjs`                | every export used (or ignored)     | CI `export-usage-check` |
 | Log-key convention  | `scripts/audit-log-keys.mjs`                       | all match regex; no reserved reuse | CI (Phase 18)           |

@@ -31,6 +31,7 @@
     "mutation:incremental": "pnpm -r --if-present run mutation:incremental",
     "mutation:dry-run": "pnpm -r --if-present run mutation:dry-run",
     "audit:exports": "node scripts/audit-library-exports.mjs",
+    "audit:log-keys": "node scripts/audit-log-keys.mjs",
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down",
     "infra:nuke": "docker compose down -v",
@@ -40,6 +41,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@bymax-one/nest-logger": "^1.0.0",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@eslint/js": "^9.39.4",

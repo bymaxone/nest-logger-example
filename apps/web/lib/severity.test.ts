@@ -7,7 +7,7 @@
  *
  * @module lib/severity.test
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { LogLevel } from '@bymax-one/nest-logger/shared'
 
 import { SEVERITY, getSeverity } from './severity'
@@ -25,18 +25,32 @@ const EXPECTED: Record<LogLevel, { color: string; label: string }> = {
   fatal: { color: '#a855f7', label: 'Fatal' },
 }
 
+/**
+ * Re-imports the module from scratch so the top-level `SEVERITY` object literal
+ * is re-evaluated *inside* this test. The colour/label/object-shape values are
+ * produced by a module-load initializer; a hoisted top-level import would read a
+ * value captured before any mutation is applied, leaving those mutants alive. A
+ * fresh `import()` after `resetModules()` forces the initializer to run now, so
+ * the asserted values reflect the (possibly mutated) source.
+ */
+async function freshSeverity(): Promise<typeof import('./severity')> {
+  vi.resetModules()
+  return import('./severity')
+}
+
 describe('SEVERITY map', () => {
   it.each(ALL_LEVELS)(
-    /* Every level must expose the exact colour + label and a callable icon component —
-       protects the accessibility contract that severity is never colour-alone. */
-    'exposes colour, label, and an icon for "%s"',
-    (level) => {
-      const meta = SEVERITY[level]
-      expect(meta.color).toBe(EXPECTED[level].color)
-      expect(meta.label).toBe(EXPECTED[level].label)
-      // Lucide icons are forwardRef components — objects/functions, never null.
-      expect(meta.icon).toBeTruthy()
-      expect(['function', 'object']).toContain(typeof meta.icon)
+    /* Each level must expose its exact colour and label, plus a real icon component,
+       from a freshly evaluated module — kills the per-level `{}` object-literal mutant
+       and the colour/label string-literal mutants. */
+    'exposes the exact colour, label, and icon for "%s"',
+    async (level) => {
+      const { SEVERITY: fresh } = await freshSeverity()
+      expect(fresh[level].color).toBe(EXPECTED[level].color)
+      expect(fresh[level].label).toBe(EXPECTED[level].label)
+      // Lucide icons are forwardRef components — objects/functions, never null/undefined.
+      expect(fresh[level].icon).toBeTruthy()
+      expect(['function', 'object']).toContain(typeof fresh[level].icon)
     },
   )
 

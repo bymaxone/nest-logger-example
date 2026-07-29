@@ -109,6 +109,37 @@ describe('TimeRangePicker', () => {
     expect(from.value).toBe('')
   })
 
+  /**
+   * With no `from` bound, `isoToLocalInput('')` must return ''. The check reads
+   * the raw `value` ATTRIBUTE rather than the jsdom-sanitized `.value` property:
+   * sanitization collapses any non-date string to '', which would mask the
+   * empty-guard return-string mutation (`return ''` → `"Stryker was here!"`).
+   * The attribute preserves whatever the converter emitted, so a non-empty
+   * return fails this assertion.
+   */
+  it('renders an empty From value attribute when no bound is set', async () => {
+    const user = userEvent.setup()
+    renderPicker('')
+    const panel = await openPopover(user)
+    const from = within(panel).getByLabelText('From') as HTMLInputElement
+    expect(from.getAttribute('value')).toBe('')
+  })
+
+  /**
+   * An unparsable seeded ISO must yield an empty `value` attribute. Reading the
+   * raw attribute catches both the NaN-guard removal (which would let the
+   * converter emit "NaN-NaN-NaNTNaN:NaN") and the NaN-guard return-string
+   * mutation (`return ''` → `"Stryker was here!"`); the sanitized property would
+   * report '' for either and hide both.
+   */
+  it('renders an empty From value attribute for an unparsable seeded ISO', async () => {
+    const user = userEvent.setup()
+    renderPicker('?from=not-a-date')
+    const panel = await openPopover(user)
+    const from = within(panel).getByLabelText('From') as HTMLInputElement
+    expect(from.getAttribute('value')).toBe('')
+  })
+
   /** Typing into the From input writes a concrete ISO and clears `range` (covers `localInputToIso` valid). */
   it('writes an ISO from a typed absolute From value', async () => {
     const user = userEvent.setup()
@@ -325,6 +356,7 @@ describe('TimeRangePicker — PRESET_LABEL module-level re-import (kill label mu
       ['5m', 'Last 5m'],
       ['15m', 'Last 15m'],
       ['1h', 'Last 1h'],
+      ['6h', 'Last 6h'],
       ['24h', 'Last 24h'],
       ['7d', 'Last 7d'],
     ]

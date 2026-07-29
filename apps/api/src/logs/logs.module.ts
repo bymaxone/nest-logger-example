@@ -18,6 +18,7 @@ import { LogsContextService } from './logs.context.service.js'
 import { LogsController } from './logs.controller.js'
 import { LogsExportService } from './logs.export.service.js'
 import { LogsFacetsService } from './logs.facets.service.js'
+import { LogsLokiService } from './logs.loki.service.js'
 import { LogsService } from './logs.service.js'
 import { LogsSseController } from './logs.sse.controller.js'
 
@@ -32,6 +33,7 @@ import { LogsSseController } from './logs.sse.controller.js'
   controllers: [LogsController, LogsSseController, LokiProxyController],
   providers: [
     LogsService,
+    LogsLokiService,
     LogsAggregateService,
     LogsFacetsService,
     LogsContextService,

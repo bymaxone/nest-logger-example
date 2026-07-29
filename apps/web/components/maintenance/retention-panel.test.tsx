@@ -340,4 +340,19 @@ describe('RetentionPanel', () => {
     expect(screen.getByText('compactor').className).toContain('font-mono')
     expect(screen.getByText('retention_enabled: true').className).toContain('font-mono')
   })
+
+  /**
+   * The Loki explainer sentence reads verbatim, including the connective text
+   * between the code snippets. Asserting the exact prose ("compactor has …
+   * retention_enabled: true and a …") kills the StringLiteral→"" mutations on the
+   * " has" and " and a" text nodes (which would collapse the snippets together).
+   */
+  it('renders the Loki explainer sentence with its connective prose intact', async () => {
+    renderWithClient(<RetentionPanel />)
+    const paragraph = await screen.findByText(/so this reflects a real, working/)
+    // The `{' '}` after "has" separates it from the retention_enabled code snippet.
+    expect(paragraph.textContent).toContain('has retention_enabled: true')
+    // The `{' '}` after "and a" separates it from the delete_request_store snippet.
+    expect(paragraph.textContent).toContain('and a delete_request_store')
+  })
 })

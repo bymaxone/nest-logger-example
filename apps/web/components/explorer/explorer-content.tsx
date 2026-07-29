@@ -21,7 +21,10 @@ import { useFollowMode } from '@/hooks/use-follow-mode'
 import type { LogRow } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { ChartCard } from '@/components/charts/chart-card'
+import { ChartLegend } from '@/components/charts/chart-legend'
 import { VolumeBar } from '@/components/charts/volume-bar'
+import { FeatureInfo } from '@/components/common/feature-info'
+import { LEVEL_SERIES } from '@/lib/chart-series'
 import { cn } from '@/lib/utils'
 import { FacetRail } from './facet-rail'
 import { QueryBar } from './query-bar'
@@ -53,9 +56,20 @@ export function ExplorerContent() {
       <FacetRail />
       <div className="min-w-0 space-y-4">
         <QueryBar />
-        <ChartCard title="Volume — drag the brush to filter the time range">
+        <ChartCard
+          title="Volume — drag the brush to filter the time range"
+          interactive
+          info={<FeatureInfo id="volumeBrush" />}
+          legend={<ChartLegend items={LEVEL_SERIES} />}
+        >
           <VolumeBar query={query} onBrush={(from, to) => void setQuery({ from, to, range: '' })} />
         </ChartCard>
+
+        <div className="flex items-center gap-1">
+          <h2 className="font-mono text-xs uppercase tracking-wide text-white/40">Results</h2>
+          <FeatureInfo id="logTable" />
+          <FeatureInfo id="liveTail" label="About live tail" />
+        </div>
 
         {/* Live-tail control bar (only when Live is on). */}
         {live && (

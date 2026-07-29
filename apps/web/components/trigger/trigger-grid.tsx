@@ -21,7 +21,7 @@ import { useQueryStates } from 'nuqs'
 
 import { logQueryParsers } from '@/lib/filters'
 import { isValidLogKey } from '@/lib/log-keys'
-import { triggerApi, type TriggerResult } from '@/lib/trigger-api'
+import { triggerApi, type TriggerLevel, type TriggerResult } from '@/lib/trigger-api'
 import type { ExplorerTarget } from '@/lib/explorer-link'
 import { TriggerCard } from './trigger-card'
 
@@ -30,7 +30,7 @@ export interface FireContext {
   /** Active tenant id (used by tenant-scoped fires such as `/orders`). */
   tenantId: string
   /** Selected level for the "Emit each level" card. */
-  level: 'info' | 'warn' | 'error'
+  level: TriggerLevel
   /** Selected HTTP status code for the 4xx/5xx card. */
   code: number
   /** Burst line count for the load-burst card. */
@@ -116,7 +116,7 @@ export const TRIGGERS: TriggerDescriptor[] = [
   {
     id: 'pii-signup',
     title: 'PII payload',
-    demonstrates: '97-path redaction → [REDACTED] (password/cpf/cardNumber)',
+    demonstrates: '113-path redaction → [REDACTED] (password/cpf/cardNumber)',
     endpoint: 'POST /pii-demo/signup',
     logKeys: ['USER_SIGNUP_ATTEMPT'],
     fire: () => triggerApi.piiSignup(),

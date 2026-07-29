@@ -494,4 +494,49 @@ describe('useLogStream', () => {
     const { result } = renderHook(() => useLogStream(filter, true))
     expect(result.current.connected).toBe(false)
   })
+
+  /**
+   * An empty keep-alive frame must be short-circuited by the `if (!event.data)`
+   * guard before any parse attempt. Asserting `JSON.parse` is never called with the
+   * empty payload kills the ConditionalExpression mutation (`if (false)`) that drops
+   * the guard and lets the empty string fall through to `JSON.parse('')`.
+   */
+  it('does not attempt to JSON.parse an empty keep-alive frame', () => {
+    const parseSpy = vi.spyOn(JSON, 'parse')
+    renderHook(() => useLogStream(filter, true))
+    parseSpy.mockClear()
+    act(() => source().emit(''))
+    expect(parseSpy).not.toHaveBeenCalledWith('')
+    parseSpy.mockRestore()
+  })
+
+  /**
+   * On unmount with no flush queued, the cleanup must skip `cancelAnimationFrame`
+   * (the `if (rafRef.current)` guard). Asserting it is never called kills the
+   * ConditionalExpression mutation (`if (true)`) that would cancel handle `0`.
+   */
+  it('cleanup does not cancel an animation frame when none is pending', () => {
+    const cancelSpy = vi.fn((handle: number): void => {
+      rafQueue.delete(handle)
+    })
+    vi.stubGlobal('cancelAnimationFrame', cancelSpy)
+    const { unmount } = renderHook(() => useLogStream(filter, true))
+    unmount()
+    expect(cancelSpy).not.toHaveBeenCalled()
+  })
+
+  /**
+   * `clear()` with no flush queued must skip `cancelAnimationFrame` (the
+   * `if (rafRef.current)` guard). Asserting it is never called kills the
+   * ConditionalExpression mutation (`if (true)`) that would cancel handle `0`.
+   */
+  it('clear() does not cancel an animation frame when none is pending', () => {
+    const cancelSpy = vi.fn((handle: number): void => {
+      rafQueue.delete(handle)
+    })
+    vi.stubGlobal('cancelAnimationFrame', cancelSpy)
+    const { result } = renderHook(() => useLogStream(filter, true))
+    act(() => result.current.clear())
+    expect(cancelSpy).not.toHaveBeenCalled()
+  })
 })

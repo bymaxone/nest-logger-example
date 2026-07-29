@@ -21,6 +21,7 @@ import { toLogQL, toSqlWhere } from '@/lib/query-compile'
 import type { LogQuery } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { cn } from '@/lib/utils'
 
 /** The structured fields the query bar owns (writes/clears on submit). */
@@ -186,7 +187,7 @@ export function QueryBar() {
         </p>
       )}
 
-      <div className="flex flex-wrap gap-3 text-[11px]">
+      <div className="flex flex-wrap items-center gap-3 text-[11px]">
         <button
           type="button"
           onClick={() => setShowSql((v) => !v)}
@@ -201,6 +202,7 @@ export function QueryBar() {
         >
           {showLogQL ? '▾' : '▸'} generated LogQL
         </button>
+        <FeatureInfo id="queryDsl" label="About the query language" className="ml-auto" />
       </div>
 
       {showSql && (

@@ -77,6 +77,27 @@ describe('isValidLogKey — wildcard PREFIX_* keys', () => {
   })
 
   /**
+   * Directly guards the two-char `XX` probe suffix. The prefix `AB_` is invalid on
+   * its own (trailing-underscore segment) but valid as `AB_XX`; so a `AB_*` wildcard
+   * must be accepted. An empty probe suffix would test `AB_` and reject it, killing
+   * the `'XX' -> ""` string-literal mutant.
+   */
+  it('accepts AB_* whose prefix is only valid once the XX probe suffix is appended', () => {
+    expect(isValidLogKey('AB_*')).toBe(true)
+  })
+
+  /**
+   * Guards the `endsWith('*')` wildcard check itself. `AB_X` is not a wildcard, so it
+   * is validated verbatim and rejected (its last segment is a single char). If the
+   * wildcard test always matched (e.g. `endsWith("")`), `AB_X` would be rewritten to
+   * the valid probe `AB_XX` and wrongly accepted — so a non-wildcard key must never be
+   * probed.
+   */
+  it('rejects the non-wildcard AB_X without applying the wildcard probe', () => {
+    expect(isValidLogKey('AB_X')).toBe(false)
+  })
+
+  /**
    * Calling `isValidLogKey` multiple times with the same wildcard returns the
    * same result — guards the `LOG_KEYS_CONVENTION_REGEX.lastIndex = 0` reset that
    * prevents a global-flag regex from toggling between calls.

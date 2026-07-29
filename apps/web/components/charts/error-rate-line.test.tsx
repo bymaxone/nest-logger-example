@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import { createElement, type ComponentProps, type ReactElement } from 'react'
 
 import type { LogQuery, StatusMixRow } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
@@ -22,9 +22,33 @@ let aggregateState: { data: StatusMixRow[] | undefined; isLoading: boolean } = {
   isLoading: false,
 }
 
+/** Captured per render so the metric arg and the chart's data/margin props are assertable. */
+let capturedMetric: string | undefined
+let capturedData: unknown
+let capturedMargin: unknown
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateState,
+  useAggregate: (metric: string) => {
+    capturedMetric = metric
+    return aggregateState
+  },
 }))
+
+// Wrap the real recharts: existing tooltip/line/grid assertions keep exercising the
+// genuine SVG output, while the `data` and `margin` props the component passes to
+// <LineChart> are captured so the `?? []` fallback length and the plot margins can be
+// asserted directly (those are not distinguishable from the rendered DOM alone).
+vi.mock('recharts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('recharts')>()
+  return {
+    ...actual,
+    LineChart: (props: ComponentProps<typeof actual.LineChart>) => {
+      capturedData = props.data
+      capturedMargin = props.margin
+      return createElement(actual.LineChart, props)
+    },
+  }
+})
 
 // Imported after the mock so the component binds the mocked hook.
 const { ErrorRateLine } = await import('./error-rate-line')
@@ -40,6 +64,9 @@ function renderWithClient(ui: ReactElement): ReturnType<typeof render> {
 
 beforeEach(() => {
   aggregateState = { data: [], isLoading: false }
+  capturedMetric = undefined
+  capturedData = undefined
+  capturedMargin = undefined
 })
 
 afterEach(() => {
@@ -114,6 +141,92 @@ describe('ErrorRateLine', () => {
     const label = container.querySelector('.recharts-tooltip-label')
     expect(label).not.toBeNull()
     expect(label).toHaveTextContent(formatBucket('2026-06-05T10:05:00.000Z'))
+  })
+
+  /** The aggregate hook is queried with the exact 'statusMix' metric (kills the '' literal). */
+  it('queries the statusMix aggregate metric', () => {
+    aggregateState = { data: [], isLoading: false }
+    renderWithClient(<ErrorRateLine query={query} />)
+    expect(capturedMetric).toBe('statusMix')
+  })
+
+  /** Undefined aggregate data yields an EMPTY chart series (the `?? []` fallback, length 0). */
+  it('passes an empty data array to the chart when the aggregate is undefined', () => {
+    aggregateState = { data: undefined, isLoading: false }
+    renderWithClient(<ErrorRateLine query={query} />)
+    expect(Array.isArray(capturedData)).toBe(true)
+    expect(capturedData as unknown[]).toHaveLength(0)
+  })
+
+  /** The chart receives the exact configured plot margins (kills the margin→{} mutation). */
+  it('passes the configured plot margins to the chart', () => {
+    aggregateState = { data: [], isLoading: false }
+    renderWithClient(<ErrorRateLine query={query} />)
+    expect(capturedMargin).toEqual({ top: 4, right: 8, bottom: 0, left: 0 })
+  })
+
+  /** A zero-total bucket yields exactly 0% for BOTH series (the `total === 0 ? 0` guard, not NaN). */
+  it('reports 0% for both error-rate series on a zero-total bucket', () => {
+    aggregateState = {
+      data: [{ bucket: '2026-06-05T10:00:00.000Z', s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0 }],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    const surface = container.querySelector('.recharts-surface')
+    fireEvent.focus(surface as Element)
+    fireEvent.keyDown(surface as Element, { key: 'ArrowRight' })
+    const items = Array.from(container.querySelectorAll('.recharts-tooltip-item-value')).map(
+      (el) => el.textContent,
+    )
+    // rate4xx then rate5xx — both must be exactly '0'; a removed guard divides 0/0 → 'NaN'.
+    expect(items).toEqual(['0', '0'])
+  })
+
+  /** The cartesian grid draws horizontal lines only (`vertical={false}`). */
+  it('renders no vertical grid lines', () => {
+    aggregateState = {
+      data: [
+        { bucket: '2026-06-05T10:00:00.000Z', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 5 },
+        { bucket: '2026-06-05T10:05:00.000Z', s2xx: 80, s3xx: 0, s4xx: 10, s5xx: 10 },
+      ],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    expect(container.querySelectorAll('.recharts-cartesian-grid-vertical line')).toHaveLength(0)
+    // The grid itself is present (horizontal lines render), so absence is the vertical flag.
+    expect(
+      container.querySelectorAll('.recharts-cartesian-grid-horizontal line').length,
+    ).toBeGreaterThan(0)
+  })
+
+  /** The lines render without per-point dots (`dot={false}`). */
+  it('renders the lines without dots', () => {
+    aggregateState = {
+      data: [
+        { bucket: '2026-06-05T10:00:00.000Z', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 5 },
+        { bucket: '2026-06-05T10:05:00.000Z', s2xx: 80, s3xx: 0, s4xx: 10, s5xx: 10 },
+      ],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    expect(container.querySelectorAll('.recharts-line-dot')).toHaveLength(0)
+    // Sanity: both curves still render, so the absence of dots is meaningful.
+    expect(container.querySelectorAll('.recharts-line-curve').length).toBe(2)
+  })
+
+  /** Animation is off, so the curve carries no draw-animation stroke-dasharray. */
+  it('disables line animation', () => {
+    aggregateState = {
+      data: [
+        { bucket: '2026-06-05T10:00:00.000Z', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 5 },
+        { bucket: '2026-06-05T10:05:00.000Z', s2xx: 80, s3xx: 0, s4xx: 10, s5xx: 10 },
+      ],
+      isLoading: false,
+    }
+    const { container } = renderWithClient(<ErrorRateLine query={query} />)
+    const curve = container.querySelector('.recharts-line-curve')
+    // react-smooth sets stroke-dasharray (e.g. "0px 0px") only while animating.
+    expect(curve?.getAttribute('stroke-dasharray')).toBeNull()
   })
 })
 

@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "NODE_OPTIONS=--max-old-space-size=2048 nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
@@ -16,7 +16,7 @@
     "test:e2e": "NODE_OPTIONS='--experimental-vm-modules' jest --config test/jest-e2e.config.cjs"
   },
   "dependencies": {
-    "@bymax-one/nest-logger": "file:../../../nest-logger",
+    "@bymax-one/nest-logger": "^1.0.0",
     "@nestjs/common": "^11",
     "@nestjs/core": "^11",
     "@nestjs/platform-express": "^11",
@@ -28,7 +28,8 @@
     "@opentelemetry/semantic-conventions": "^1",
     "pino": "^10",
     "reflect-metadata": "^0.2",
-    "rxjs": "^7.8"
+    "rxjs": "^7.8",
+    "zod": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",

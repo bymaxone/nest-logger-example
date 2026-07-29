@@ -472,3 +472,19 @@ describe('rbacHeadersForQuery — absent fields do not produce headers', () => {
     expect(headers).not.toHaveProperty('x-tenant-id')
   })
 })
+
+describe('encodeLogQuery — only the level key uses the bracketed gte form', () => {
+  /**
+   * Only `key === 'level'` may be encoded as `level[gte]`; any other object-valued
+   * key must be serialized via `String()`. Asserting that a non-level object key
+   * passes through (and never produces `level[gte]`) kills the ConditionalExpression
+   * mutation that drops the `key === 'level'` test (`true && typeof value === 'object'`),
+   * which would route every object-valued field through the gte branch.
+   */
+  it('serializes a non-level object-valued key via String(), not as level[gte]', () => {
+    const q = { source: 'postgres', extra: { gte: 'x' } } as unknown as LogQuery
+    const qs = decodeURIComponent(encodeLogQuery(q))
+    expect(qs).toContain('extra=')
+    expect(qs).not.toContain('level[gte]')
+  })
+})

@@ -85,10 +85,9 @@ export class AppModule implements NestModule {
    * @param consumer - The NestJS middleware consumer used to register middleware.
    */
   configure(consumer: MiddlewareConsumer): void {
-    // Opens the ALS scope (requestId / tenantId) per request. Alternatives NOT used here:
-    // set `http.shouldGenerateRequestId: true` in the module options, or call the exported
-    // `applyRequestIdMiddleware()` helper. We wire the middleware explicitly, hence
-    // `shouldGenerateRequestId: false` in logger.config.ts.
+    // Opens the ALS scope (requestId / tenantId) per request, minting a UUID for each
+    // request that arrives without one. Registered here rather than via the exported
+    // `applyRequestIdMiddleware()` helper so the routing is explicit and visible.
     consumer.apply(RequestIdMiddleware).forRoutes('*')
   }
 }

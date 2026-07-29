@@ -5,7 +5,7 @@
  *
  * @module lib/rbac-headers.test
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { rbacHeaders } from './rbac-headers'
 import type { RbacContext } from './types'
@@ -107,5 +107,33 @@ describe('rbacHeaders — regex must anchor both ends', () => {
   it('omits x-tenant-id for a value with a valid prefix followed by an uppercase suffix', () => {
     const headers = rbacHeaders({ role: 'admin', tenantId: 'valid-prefix-UPPER' })
     expect(headers['x-tenant-id']).toBeUndefined()
+  })
+})
+
+describe('rbacHeaders — tenant regex constant (module re-import)', () => {
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /**
+   * `tenantIdSchema` is a module-level constant compiled once at load, so a
+   * statically imported caller cannot observe a mutation to its regex. Re-importing
+   * forces a fresh compile and exercises every anchor/quantifier/character-class of
+   * `/^[a-z0-9-]{0,40}$/` at once:
+   *  - a valid 'acme' must pass (kills `{0,40}`→single-char and the `[^…]` negation,
+   *    both of which reject 'acme');
+   *  - an uppercase prefix must be rejected (kills the dropped `^` anchor);
+   *  - an uppercase suffix must be rejected (kills the dropped `$` anchor).
+   */
+  it('re-imports and enforces the fully-anchored, bounded tenant pattern', async () => {
+    vi.resetModules()
+    const { rbacHeaders: freshRbacHeaders } = await import('./rbac-headers')
+    expect(freshRbacHeaders({ role: 'admin', tenantId: 'acme' })['x-tenant-id']).toBe('acme')
+    expect(
+      freshRbacHeaders({ role: 'admin', tenantId: 'UPPER-lower' })['x-tenant-id'],
+    ).toBeUndefined()
+    expect(
+      freshRbacHeaders({ role: 'admin', tenantId: 'valid-UPPER' })['x-tenant-id'],
+    ).toBeUndefined()
   })
 })

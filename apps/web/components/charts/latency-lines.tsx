@@ -22,6 +22,7 @@ import {
 import { useAggregate } from '@/hooks/use-aggregate'
 import type { LogQuery } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
+import { LATENCY_SERIES } from '@/lib/chart-series'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AXIS_TICK, CHART_TOOLTIP_STYLE, GRID_STROKE } from './chart-style'
 
@@ -51,33 +52,18 @@ export function LatencyLines({ query }: LatencyLinesProps) {
           contentStyle={CHART_TOOLTIP_STYLE}
           labelFormatter={(label) => formatBucket(String(label))}
         />
-        <Line
-          type="monotone"
-          dataKey="p50"
-          name="p50"
-          stroke="#60a5fa"
-          dot={false}
-          strokeWidth={1.5}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="p95"
-          name="p95"
-          stroke="#f59e0b"
-          dot={false}
-          strokeWidth={1.5}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="p99"
-          name="p99"
-          stroke="#ef4444"
-          dot={false}
-          strokeWidth={1.5}
-          isAnimationActive={false}
-        />
+        {LATENCY_SERIES.map((s) => (
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={s.color}
+            dot={false}
+            strokeWidth={1.5}
+            isAnimationActive={false}
+          />
+        ))}
       </LineChart>
     </ResponsiveContainer>
   )

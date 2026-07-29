@@ -1,0 +1,10 @@
+{
+  "$comment": "Public exports intentionally NOT demonstrated in apps/. Each entry needs a reason + issue link. Keep empty unless a genuinely-internal symbol leaks into the published .d.ts — never use this to make CI green for a real, demonstrable export.",
+  "ignored": [
+    {
+      "symbol": "ResolvedBymaxLoggerModuleOptions",
+      "reason": "Internal type — the normalized form of the module options used inside the library. It leaks into the public .d.ts because it appears in the constructor signatures of HttpLoggingInterceptor and HttpExceptionFilter (both of which accept the resolved options via DI). Consumers never construct these classes directly; the type is not part of the public API surface.",
+      "issue": "https://github.com/bymaxone/nest-logger/issues/1"
+    }
+  ]
+}

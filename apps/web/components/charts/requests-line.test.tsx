@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import type { LogQuery, StatusMixRow } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
@@ -22,8 +22,14 @@ let aggregateState: { data: StatusMixRow[] | undefined; isLoading: boolean } = {
   isLoading: false,
 }
 
+/** The metric name the component passes to `useAggregate`, captured per render. */
+let capturedAggregateMetric: string | undefined
+
 vi.mock('@/hooks/use-aggregate', () => ({
-  useAggregate: () => aggregateState,
+  useAggregate: (metric: string) => {
+    capturedAggregateMetric = metric
+    return aggregateState
+  },
 }))
 
 // Imported after the mock so the component binds the mocked hook.
@@ -40,6 +46,7 @@ function renderWithClient(ui: ReactElement): ReturnType<typeof render> {
 
 beforeEach(() => {
   aggregateState = { data: [], isLoading: false }
+  capturedAggregateMetric = undefined
 })
 
 afterEach(() => {
@@ -90,5 +97,101 @@ describe('RequestsLine', () => {
     const label = container.querySelector('.recharts-tooltip-label')
     expect(label).not.toBeNull()
     expect(label).toHaveTextContent(formatBucket('2026-06-05T10:05:00.000Z'))
+  })
+
+  /** The panel derives requests from the `statusMix` metric (StringLiteral→"" mutation). */
+  it('queries the statusMix aggregate metric', () => {
+    aggregateState = { data: [], isLoading: false }
+    renderWithClient(<RequestsLine query={query} />)
+    expect(capturedAggregateMetric).toBe('statusMix')
+  })
+})
+
+describe('RequestsLine — recharts prop wiring (stubbed recharts)', () => {
+  /** Captured recharts props for the chart, grid, axis and line primitives. */
+  let lineChartProps: { data?: unknown[]; margin?: unknown } | undefined
+  let gridProps: { vertical?: unknown } | undefined
+  let yAxisProps: { allowDecimals?: unknown } | undefined
+  let lineProps: { dot?: unknown; isAnimationActive?: unknown } | undefined
+
+  /** A small populated series so the chart primitives mount. */
+  const rows: StatusMixRow[] = [
+    { bucket: '2026-06-05T10:00:00.000Z', s2xx: 5, s3xx: 1, s4xx: 2, s5xx: 0 },
+  ]
+
+  /** Re-import the component with the stubbed recharts bound for this block only. */
+  async function importWithStubbedRecharts(): Promise<typeof import('./requests-line')> {
+    vi.resetModules()
+    vi.doMock('recharts', () => ({
+      ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+      LineChart: (props: { children?: ReactNode; data?: unknown[]; margin?: unknown }) => {
+        lineChartProps = props
+        return <div>{props.children}</div>
+      },
+      Line: (props: { dot?: unknown; isAnimationActive?: unknown }) => {
+        lineProps = props
+        return null
+      },
+      CartesianGrid: (props: { vertical?: unknown }) => {
+        gridProps = props
+        return null
+      },
+      XAxis: () => null,
+      YAxis: (props: { allowDecimals?: unknown }) => {
+        yAxisProps = props
+        return null
+      },
+      Tooltip: () => null,
+    }))
+    return import('./requests-line')
+  }
+
+  afterEach(() => {
+    lineChartProps = undefined
+    gridProps = undefined
+    yAxisProps = undefined
+    lineProps = undefined
+    vi.doUnmock('recharts')
+    vi.resetModules()
+  })
+
+  /**
+   * The chart wiring is fixed: the exact margins object, no vertical grid lines, and
+   * integer-only Y ticks. Asserting these kills the ObjectLiteral→{} mutation on
+   * `margin` and the BooleanLiteral→true mutations on `vertical={false}` /
+   * `allowDecimals={false}`.
+   */
+  it('passes the fixed margins, hides vertical grid lines and disables Y decimals', async () => {
+    aggregateState = { data: rows, isLoading: false }
+    const { RequestsLine: StubbedRequestsLine } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedRequestsLine query={query} />)
+    expect(lineChartProps?.margin).toEqual({ top: 4, right: 8, bottom: 0, left: 0 })
+    expect(gridProps?.vertical).toBe(false)
+    expect(yAxisProps?.allowDecimals).toBe(false)
+  })
+
+  /**
+   * The requests line draws no point markers and runs no entry animation. Asserting
+   * both kills the BooleanLiteral→true mutations on `dot={false}` and
+   * `isAnimationActive={false}`.
+   */
+  it('renders the requests line with dots and animation disabled', async () => {
+    aggregateState = { data: rows, isLoading: false }
+    const { RequestsLine: StubbedRequestsLine } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedRequestsLine query={query} />)
+    expect(lineProps?.dot).toBe(false)
+    expect(lineProps?.isAnimationActive).toBe(false)
+  })
+
+  /**
+   * When the loaded data is undefined the `data ?? []` fallback totals an empty
+   * series, so the LineChart receives no points. Asserting the empty array kills the
+   * ArrayDeclaration→["Stryker was here"] mutation, which would feed one phantom point.
+   */
+  it('totals an empty series when the loaded data is undefined', async () => {
+    aggregateState = { data: undefined, isLoading: false }
+    const { RequestsLine: StubbedRequestsLine } = await importWithStubbedRecharts()
+    renderWithClient(<StubbedRequestsLine query={query} />)
+    expect(lineChartProps?.data).toEqual([])
   })
 })

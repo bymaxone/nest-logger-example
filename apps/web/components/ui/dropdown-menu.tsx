@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 const SUB_TRIGGER_CLASS =
   'flex cursor-default select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none focus:bg-(--glass-bg-hover) data-[state=open]:bg-(--glass-bg-hover) [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0'
 const CONTENT_BASE_CLASSES = [
-  'z-50 min-w-32 overflow-hidden rounded-xl border border-(--glass-border) bg-(--color-bg-primary) p-1 shadow-md backdrop-blur-md',
+  'z-[300] min-w-32 overflow-hidden rounded-xl border border-(--glass-border) bg-(--color-bg-primary) p-1 shadow-md backdrop-blur-md',
   'data-[state=open]:animate-in data-[state=closed]:animate-out',
   'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
   'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

@@ -36,6 +36,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} dark`}
+      // The global `scroll-behavior: smooth` must be opted into for Next's router so
+      // it can suppress smooth scrolling during route transitions (avoids the dev advisory).
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
       <body>

@@ -17,15 +17,17 @@ import type { LogQuery } from '@/lib/types'
 import {
   formatCount,
   formatMs,
-  meanErrorRate,
   meanOf,
   pivotVolume,
+  statusErrorRatePctSeries,
   statusTotals,
   sumLevels,
+  sumStatusErrors,
   trendPct,
 } from '@/lib/metrics'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { StatTile } from './stat-tile'
 import { SloGauge } from './slo-gauge'
 
@@ -60,13 +62,11 @@ function windowMinutes(query: LogQuery): number {
  */
 export function HealthStrip({ query }: HealthStripProps) {
   const volume = useAggregate('volume', query)
-  const errorRate = useAggregate('errorRate', query)
   const latency = useAggregate('latency', query)
   const statusMix = useAggregate('statusMix', query)
 
-  const isLoading =
-    volume.isLoading || errorRate.isLoading || latency.isLoading || statusMix.isLoading
-  const isError = volume.isError || errorRate.isError || latency.isError || statusMix.isError
+  const isLoading = volume.isLoading || latency.isLoading || statusMix.isLoading
+  const isError = volume.isError || latency.isError || statusMix.isError
 
   if (isError) {
     return (
@@ -97,9 +97,9 @@ export function HealthStrip({ query }: HealthStripProps) {
   }
 
   const volumeRows = volume.data ?? []
-  const errorRows = errorRate.data ?? []
   const latencyRows = latency.data ?? []
-  const totals = statusTotals(statusMix.data ?? [])
+  const statusRows = statusMix.data ?? []
+  const totals = statusTotals(statusRows)
 
   const totalRequests = totals.reduce((acc, t) => acc + t.total, 0)
   const totalVolume = volumeRows.reduce((acc, r) => acc + r.n, 0)
@@ -109,7 +109,7 @@ export function HealthStrip({ query }: HealthStripProps) {
       <Card>
         <CardContent className="flex flex-col items-start gap-3 p-6 text-sm text-muted-foreground">
           <p>No logs in this window yet.</p>
-          <Link href="/trigger" className="font-mono text-brand-500 hover:underline">
+          <Link href="/dashboard/trigger" className="font-mono text-brand-500 hover:underline">
             Fire one from the Trigger Center →
           </Link>
         </CardContent>
@@ -120,8 +120,11 @@ export function HealthStrip({ query }: HealthStripProps) {
   const reqPerMin = totalRequests / windowMinutes(query)
   const trafficSeries = totals.map((t) => t.total)
 
-  const errRate = meanErrorRate(errorRows)
-  const errorSeries = errorRows.map((r) => (r.errorRate ?? 0) * 100)
+  // RED "Errors": HTTP error responses (4xx + 5xx) ÷ total requests — a window-total ratio
+  // (NOT the mean of per-bucket rates), consistent with the on-page Error-rate chart and the
+  // server `errorRate` aggregate. Falls back to 0 when there are no requests.
+  const errRate = totalRequests > 0 ? sumStatusErrors(statusRows) / totalRequests : 0
+  const errorSeries = statusErrorRatePctSeries(statusRows)
 
   const p95 = meanOf(latencyRows.map((r) => r.p95))
   const latencySeries = latencyRows.map((r) => r.p95 ?? 0)
@@ -137,6 +140,7 @@ export function HealthStrip({ query }: HealthStripProps) {
         hint="req/min"
         series={trafficSeries}
         delta={trendPct(trafficSeries)}
+        info={<FeatureInfo id="traffic" />}
       />
       <StatTile
         title="ERRORS"
@@ -144,6 +148,7 @@ export function HealthStrip({ query }: HealthStripProps) {
         series={errorSeries}
         delta={trendPct(errorSeries)}
         danger={errRate > ERROR_RATE_THRESHOLD}
+        info={<FeatureInfo id="errors" />}
       />
       <StatTile
         title="LATENCY"
@@ -151,6 +156,7 @@ export function HealthStrip({ query }: HealthStripProps) {
         hint="~p95"
         series={latencySeries}
         delta={trendPct(latencySeries)}
+        info={<FeatureInfo id="latency" />}
       />
       <StatTile
         title="FATAL+ERROR"
@@ -158,8 +164,9 @@ export function HealthStrip({ query }: HealthStripProps) {
         series={fatalErrorSeries}
         delta={trendPct(fatalErrorSeries)}
         danger={fatalError > 0}
+        info={<FeatureInfo id="fatalError" />}
       />
-      <SloGauge errorRate={errRate} />
+      <SloGauge errorRate={errRate} info={<FeatureInfo id="slo" />} />
     </div>
   )
 }

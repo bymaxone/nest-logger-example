@@ -8,7 +8,7 @@
  *
  * @module components/alerts/incident-timeline.test
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 
 import type { IncidentEvent } from '@/lib/alerts-api'
@@ -44,6 +44,27 @@ describe('IncidentTimeline', () => {
     expect(within(items[1]!).getByText('acknowledged')).toBeInTheDocument()
     // The presenter copies before reversing — the caller's array order is intact.
     expect(timeline).toEqual(original)
+  })
+
+  /**
+   * Each entry gets a unique React key (`${event.at}-${index}`). Mutating the key
+   * to an empty template literal collides two sibling entries, which React reports
+   * via a `console.error` duplicate-key warning. Asserting no such warning fires
+   * kills the StringLiteral→`` mutation on the key.
+   */
+  it('assigns unique keys so React emits no duplicate-key warning', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Two entries that share the same `at` — only the appended index keeps the
+    // keys distinct, so an empty-template-literal mutation would collide them.
+    const timeline: IncidentEvent[] = [
+      { actor: 'alice', action: 'acknowledged', at: '2026-01-01T10:00:00.000Z' },
+      { actor: 'bob', action: 'resolved', at: '2026-01-01T10:00:00.000Z' },
+    ]
+    render(<IncidentTimeline timeline={timeline} />)
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    const warnedAboutKeys = errorSpy.mock.calls.some((call) => String(call[0]).includes('same key'))
+    expect(warnedAboutKeys).toBe(false)
+    errorSpy.mockRestore()
   })
 
   /** Each entry exposes a machine-readable dateTime on its <time> element. */

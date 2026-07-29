@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 
 import { isValidLogKey } from '@/lib/log-keys'
 import type { TriggerResult } from '@/lib/trigger-api'
+import type { FireContext } from './trigger-grid'
 
 /** Records of each mocked `triggerApi` call so a `fire` can be asserted. */
 const triggerCalls: Array<{ method: string; args: unknown[] }> = []
@@ -301,7 +302,7 @@ describe('TRIGGERS descriptor catalog fields', () => {
       ['level', 'PinoLoggerService.info/warn/error + level mapping'],
       ['order', 'info(logKey, msg, userId, meta) + ALS requestId/tenantId'],
       ['payment', 'errorStructured(logKey, Error, …) → 402, exception logged once'],
-      ['pii-signup', '97-path redaction → [REDACTED] (password/cpf/cardNumber)'],
+      ['pii-signup', '113-path redaction → [REDACTED] (password/cpf/cardNumber)'],
       ['pii-nested', 'wildcard depth boundary (depth 4 redacted, 5 not)'],
       ['pii-headers', 'header bracket-syntax redaction (authorization, x-api-key)'],
       ['huge', 'maxEntrySizeBytes → LOGGER_ENTRY_TRUNCATED'],
@@ -543,5 +544,109 @@ describe('TRIGGERS — module-level re-import (kill descriptor mutations at modu
         expect(key, `${t.id} logKey`).toBeTruthy()
       }
     }
+  })
+})
+
+describe('descriptor static fields & actions via fresh module re-import', () => {
+  /**
+   * The `fire` / `explorerTarget` closures and the `input` / `isExpectedError` /
+   * `DEFAULT_TENANT` literals are baked into the TRIGGERS array at module load,
+   * so they are static mutants: a top-level (statically-loaded) catalog never
+   * observes the mutation. Re-importing the module inside the test body forces
+   * the array to be rebuilt with Stryker's active mutation, so calling each fire
+   * and explorerTarget — and reading each literal — catches the mutation here.
+   */
+  async function freshTriggers(): Promise<typeof TRIGGERS> {
+    vi.resetModules()
+    const mod = await import('./trigger-grid')
+    return mod.TRIGGERS
+  }
+
+  /** Find a descriptor by id within a freshly re-imported catalog. */
+  function pick(list: typeof TRIGGERS, id: string): (typeof TRIGGERS)[number] {
+    const found = list.find((t) => t.id === id)
+    if (found === undefined) throw new Error(`no descriptor ${id}`)
+    return found
+  }
+
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /** Every fire (re-imported) calls exactly its triggerApi method with the ctx args; the order card falls back to the 'acme' default tenant when none is selected. */
+  it('routes every fire to its triggerApi method with the threaded ctx', async () => {
+    const T = await freshTriggers()
+    const fireAndAssert = async (
+      id: string,
+      over: Partial<FireContext>,
+      expected: { method: string; args: unknown[] },
+    ): Promise<void> => {
+      triggerCalls.length = 0
+      await pick(T, id).fire({ tenantId: '', level: 'info', code: 400, count: 50, ...over })
+      expect(triggerCalls, id).toEqual([expected])
+    }
+    await fireAndAssert('level', { level: 'warn' }, { method: 'level', args: ['warn'] })
+    await fireAndAssert('order', { tenantId: 'globex' }, { method: 'order', args: ['globex'] })
+    await fireAndAssert('order', { tenantId: '' }, { method: 'order', args: ['acme'] })
+    await fireAndAssert('payment', {}, { method: 'payment', args: [] })
+    await fireAndAssert('pii-signup', {}, { method: 'piiSignup', args: [] })
+    await fireAndAssert('pii-nested', {}, { method: 'piiNested', args: [] })
+    await fireAndAssert('pii-headers', {}, { method: 'echoHeaders', args: [] })
+    await fireAndAssert('huge', {}, { method: 'huge', args: [] })
+    await fireAndAssert('slow', {}, { method: 'slow', args: [] })
+    await fireAndAssert('status', { code: 503 }, { method: 'status', args: [503] })
+    await fireAndAssert('dispatch', {}, { method: 'dispatch', args: [] })
+    await fireAndAssert('fault-loki', {}, { method: 'faultLoki', args: [] })
+    await fireAndAssert('burst', { count: 120 }, { method: 'burst', args: [120] })
+  })
+
+  /** Every explorerTarget (re-imported) builds its pivot: requestId-first cards, the traceId-only dispatch card, and the burst time-window keyed on the burst logKey. */
+  it('builds the correct explorerTarget pivot for every descriptor', async () => {
+    const T = await freshTriggers()
+    const res = (rid: string | null, tid: string | null): TriggerResult => ({
+      requestId: rid,
+      traceId: tid,
+      status: 200,
+      body: null,
+    })
+    const byRequestIds = [
+      'level',
+      'order',
+      'payment',
+      'pii-signup',
+      'pii-nested',
+      'pii-headers',
+      'huge',
+      'slow',
+      'status',
+      'fault-loki',
+    ]
+    for (const id of byRequestIds) {
+      // requestId is the primary pivot, traceId the fallback when requestId is null.
+      expect(pick(T, id).explorerTarget(res('req_z', 'trace_z'), 0), id).toEqual({
+        requestId: 'req_z',
+      })
+      expect(pick(T, id).explorerTarget(res(null, 'trace_z'), 0), id).toEqual({
+        traceId: 'trace_z',
+      })
+    }
+    // The cross-service card pivots on the shared traceId even when a requestId exists.
+    expect(pick(T, 'dispatch').explorerTarget(res('req_z', 'trace_z'), 0)).toEqual({
+      traceId: 'trace_z',
+    })
+    const firedAtMs = Date.UTC(2026, 0, 1, 12, 0, 0)
+    const burstTarget = pick(T, 'burst').explorerTarget(res(null, null), firedAtMs)
+    expect(burstTarget.logKey).toBe('TRIGGER_BURST_TICK')
+    expect(burstTarget.from).toBe(new Date(firedAtMs - 60_000).toISOString())
+  })
+
+  /** The input-control strings and isExpectedError booleans (re-imported) match their declared literals exactly. */
+  it('declares input controls and isExpectedError flags exactly', async () => {
+    const T = await freshTriggers()
+    expect(pick(T, 'level').input).toBe('level')
+    expect(pick(T, 'status').input).toBe('status')
+    expect(pick(T, 'burst').input).toBe('burst')
+    expect(pick(T, 'payment').isExpectedError).toBe(true)
+    expect(pick(T, 'status').isExpectedError).toBe(true)
   })
 })

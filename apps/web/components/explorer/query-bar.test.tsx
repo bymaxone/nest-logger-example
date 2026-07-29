@@ -418,6 +418,47 @@ describe('QueryBar', () => {
     await user.click(screen.getByRole('button', { name: 'Search' }))
     expect(setQueryMock.mock.calls[0]?.[0]).toMatchObject({ q: 'boom' })
   })
+
+  /**
+   * The matched `msg ~ "…"` span is replaced with a SPACE so a token glued to it
+   * stays separate. With `amsg ~ "boom"service:api` the trailing `service:api`
+   * must parse as its own field. Kills the L76 `replace(…, ' ')`→`replace(…, '')`
+   * mutation, which would glue `a` + `service:api` into one unrecognized token.
+   */
+  it('replaces the matched msg token with a space so a glued token stays separate', async () => {
+    const user = userEvent.setup()
+    render(<QueryBar />)
+    await user.type(screen.getByLabelText('Log query'), 'amsg ~ "boom"service:api')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(setQueryMock.mock.calls[0]?.[0]).toMatchObject({ service: 'api', q: 'boom' })
+  })
+
+  /**
+   * The `level>=` token must be anchored to the token start. `xlevel>=warn` does
+   * not start with `level>=`, so it is free text — not a level filter. Kills the
+   * L81 `/^level>=(.+)$/`→`/level>=(.+)$/` (start-anchor removal) Regex mutation.
+   */
+  it('requires the level>= token to start at the token boundary', async () => {
+    const user = userEvent.setup()
+    render(<QueryBar />)
+    await user.type(screen.getByLabelText('Log query'), 'xlevel>=warn')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(setQueryMock.mock.calls[0]?.[0]).toMatchObject({ level: '', q: 'xlevel>=warn' })
+  })
+
+  /**
+   * A `key:value` token must start with a word char. `@service:api` starts with
+   * `@`, so it is free text — not a service filter. Kills the L86
+   * `/^(\w+):(.+)$/`→`/(\w+):(.+)$/` (start-anchor removal) Regex mutation, which
+   * would otherwise find `service:api` mid-token.
+   */
+  it('requires a key:value token to start with a word character', async () => {
+    const user = userEvent.setup()
+    render(<QueryBar />)
+    await user.type(screen.getByLabelText('Log query'), '@service:api')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(setQueryMock.mock.calls[0]?.[0]).toMatchObject({ service: '', q: '@service:api' })
+  })
 })
 
 /**

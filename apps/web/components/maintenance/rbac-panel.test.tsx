@@ -229,6 +229,40 @@ describe('RbacPanel', () => {
   })
 
   /**
+   * The `{' '}` between the active role and the scoped-tenant text renders a real
+   * space, so the prose reads "<role> scoped to tenant" rather than running them
+   * together. Kills the StringLiteral→"" mutation on that whitespace literal.
+   */
+  it('keeps a space between the active role and the scoped-tenant text', () => {
+    currentRbac = { role: 'operator', tenantId: 'acme' }
+    render(<RbacPanel />)
+    const paragraph = screen.getByText(/Switching tenant injects/)
+    expect(paragraph.textContent).toContain('operator scoped to tenant')
+  })
+
+  /**
+   * The `{' '}` before `<code>LogQuery.tenantId</code>` separates it from the
+   * preceding "(the same" text. Kills the StringLiteral→"" mutation on that
+   * whitespace literal (which would yield "(the sameLogQuery.tenantId").
+   */
+  it('keeps a space before the LogQuery.tenantId code snippet', () => {
+    render(<RbacPanel />)
+    const paragraph = screen.getByText(/Switching tenant injects/)
+    expect(paragraph.textContent).toContain('(the same LogQuery.tenantId')
+  })
+
+  /**
+   * The `{' '}` before `<code>@bymax-one/nest-auth</code>` separates it from the
+   * preceding "IdP or" text in the scoped-demo callout. Kills the StringLiteral→""
+   * mutation on that whitespace literal.
+   */
+  it('keeps a space before the nest-auth code snippet in the callout', () => {
+    render(<RbacPanel />)
+    const paragraph = screen.getByText(/instead of trusting a header/)
+    expect(paragraph.textContent).toContain('IdP or @bymax-one/nest-auth')
+  })
+
+  /**
    * Role column headers must carry the `font-mono` base class from the
    * `cn('px-4 py-2 text-center font-mono text-xs capitalize', ...)` call.
    * Asserting its presence kills the StringLiteral→"" mutation that replaces

@@ -21,17 +21,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { LogLevel } from '@bymax-one/nest-logger/shared'
 
 import { useAggregate } from '@/hooks/use-aggregate'
 import type { LogQuery } from '@/lib/types'
 import { formatBucket, pivotVolume } from '@/lib/metrics'
 import { SEVERITY } from '@/lib/severity'
+import { LEVEL_STACK } from '@/lib/chart-series'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AXIS_TICK, CHART_TOOLTIP_STYLE, GRID_STROKE } from './chart-style'
-
-/** Stack order, lowest severity at the base. Colours reuse `lib/severity.ts`. */
-const STACK_LEVELS: readonly LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
 
 interface VolumeBarProps {
   /** The active filter (time window + source). */
@@ -62,7 +59,7 @@ export function VolumeBar({ query, onBrush }: VolumeBarProps) {
           contentStyle={CHART_TOOLTIP_STYLE}
           labelFormatter={(label) => formatBucket(String(label))}
         />
-        {STACK_LEVELS.map((level) => (
+        {LEVEL_STACK.map((level) => (
           <Bar key={level} dataKey={level} stackId="volume" fill={SEVERITY[level].color} />
         ))}
         <Brush

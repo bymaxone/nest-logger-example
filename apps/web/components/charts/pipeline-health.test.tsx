@@ -23,8 +23,14 @@ interface FakeFacets {
 /** Mutable result the mocked hook reads; set per test before render. */
 let facets: FakeFacets
 
+/** The facet fields the component requests, captured per render. */
+let capturedFacetKeys: unknown
+
 vi.mock('@/hooks/use-facets', () => ({
-  useFacets: (): FakeFacets => facets,
+  useFacets: (keys: unknown): FakeFacets => {
+    capturedFacetKeys = keys
+    return facets
+  },
 }))
 
 const { PipelineHealth } = await import('./pipeline-health')
@@ -34,6 +40,7 @@ const BASE_QUERY: LogQuery = { source: 'loki' }
 beforeEach(() => {
   // Omit `data` entirely so the optional key is absent (exactOptionalPropertyTypes).
   facets = { isLoading: false }
+  capturedFacetKeys = undefined
 })
 
 afterEach(() => {
@@ -80,6 +87,28 @@ describe('PipelineHealth', () => {
   it('falls back to zero counts when the logKey facet is missing', () => {
     facets = { isLoading: false, data: {} }
     render(<PipelineHealth query={BASE_QUERY} />)
+    expect(screen.getAllByText('0')).toHaveLength(3)
+  })
+
+  /**
+   * The component requests exactly the `['logKey']` facet field. Asserting the
+   * captured argument kills the ArrayDeclaration→[] and StringLiteral→"" mutations
+   * on the `useFacets(['logKey'], query)` first argument.
+   */
+  it('requests the logKey facet field', () => {
+    render(<PipelineHealth query={BASE_QUERY} />)
+    expect(capturedFacetKeys).toEqual(['logKey'])
+  })
+
+  /**
+   * When the query has settled with no payload (`data === undefined`, not loading)
+   * the `data?.logKey` optional chain must short-circuit rather than throw. Removing
+   * that `?.` (`data.logKey`) would dereference undefined and crash. Asserting a clean
+   * all-zero render kills the OptionalChaining mutation.
+   */
+  it('falls back to zero counts when the facet data is undefined', () => {
+    facets = { isLoading: false }
+    expect(() => render(<PipelineHealth query={BASE_QUERY} />)).not.toThrow()
     expect(screen.getAllByText('0')).toHaveLength(3)
   })
 

@@ -98,6 +98,44 @@ describe('SloGauge', () => {
   })
 
   /**
+   * At *exactly* 0.25 budget left the strict `< 0.25` keeps the tile out of danger.
+   * `errorRate = (1 - 0.999) * 0.75` makes burnRate exactly 0.75 → budgetLeft
+   * exactly 0.25 (no float drift). Asserting the non-destructive class here kills
+   * the EqualityOperator `< 0.25` → `<= 0.25` mutation, which the off-by-float
+   * 0.00075 case (budgetLeft 0.2500000000000007) cannot distinguish.
+   */
+  it('stays out of danger at exactly the 0.25 budget-left boundary', () => {
+    render(<SloGauge errorRate={(1 - 0.999) * 0.75} />)
+    const value = screen.getByText('25%')
+    expect(value.className).toContain('text-foreground')
+    expect(value.className).not.toContain('text-destructive')
+  })
+
+  /**
+   * The Card wrapper carries its base sizing classes regardless of danger state.
+   * Asserting `min-w-48` and `flex-1` kills the StringLiteral→"" mutation on the
+   * `cn('min-w-48 flex-1', …)` first argument.
+   */
+  it('applies the base sizing classes to the card', () => {
+    const { container } = render(<SloGauge errorRate={0} />)
+    const card = container.firstChild as HTMLElement
+    expect(card.className).toContain('min-w-48')
+    expect(card.className).toContain('flex-1')
+  })
+
+  /**
+   * When in danger the progress-bar fill switches to `bg-destructive` (the true
+   * branch of `isDanger ? 'bg-destructive' : 'bg-(--color-success)'`). Asserting
+   * the destructive fill kills the StringLiteral→"" mutation on `'bg-destructive'`.
+   */
+  it('applies bg-destructive to the bar fill when in danger', () => {
+    render(<SloGauge errorRate={0.05} />)
+    const bar = screen.getByRole('progressbar')
+    const fill = bar.firstChild as HTMLElement
+    expect(fill.className).toContain('bg-destructive')
+  })
+
+  /**
    * burnRate above 1 but below 6 breaches the 1x badge only.
    * Asserting the destructive class on 1x and its absence on 6x kills both the
    * `1 → 2` numeric-literal mutation and the ConditionalExpression `false` mutation.

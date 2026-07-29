@@ -5,7 +5,7 @@
  * `requestId`/`traceId`), both already rendering `[REDACTED]` censor values, with
  * a prominent "redacted at source — never stored raw" badge. Unlike after-ingest
  * scrubbing (Datadog SDS / OTel collector), the library redacts in-process via
- * `fast-redact` (97 default paths) before the line leaves the service — so there
+ * `fast-redact` (113 default paths) before the line leaves the service — so there
  * is nothing to unmask because raw PII never left the process. Links to the
  * active redact-path list from `LogAuditService` (`DASHBOARD.md` §10).
  *
@@ -127,7 +127,7 @@ export function RedactionHero() {
       </div>
 
       <p className="text-sm text-white/60">
-        The library redacts in-process via <code className="font-mono">fast-redact</code> (97
+        The library redacts in-process via <code className="font-mono">fast-redact</code> (113
         default paths) <strong>before</strong> the line leaves the service — so Postgres and Loki
         only ever hold redacted data. There is nothing to unmask because raw PII never left the
         process.

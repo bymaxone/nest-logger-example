@@ -122,6 +122,28 @@ describe('AuditTable', () => {
     await waitFor(() => expect(getAuditEventsMock).toHaveBeenCalledTimes(1))
   })
 
+  /**
+   * The query registers under the exact `['audit', role, tenantId]` key so the
+   * cache scopes per identity. Kills the ArrayDeclaration→[] and the
+   * `'audit'`→"" StringLiteral mutations on the queryKey.
+   */
+  it('registers the audit query under the role/tenant-scoped key', async () => {
+    getAuditEventsMock.mockResolvedValue([])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <AuditTable />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => {
+      const keys = client
+        .getQueryCache()
+        .getAll()
+        .map((q) => q.queryKey)
+      expect(keys).toContainEqual(['audit', 'operator', ''])
+    })
+  })
+
   /** The action cell text ('export.csv') and target text ('logs-export.csv') render verbatim. */
   it('renders the action and target values for each event', async () => {
     getAuditEventsMock.mockResolvedValue([

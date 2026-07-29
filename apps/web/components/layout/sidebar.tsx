@@ -10,7 +10,7 @@
 
 import type { ComponentType } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { LayoutDashboard, Search, Zap, BellRing, Settings2, Cog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -36,12 +36,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Overview', href: '/', icon: LayoutDashboard, exact: true },
-  { label: 'Explorer', href: '/explorer', icon: Search },
-  { label: 'Trigger Center', href: '/trigger', icon: Zap },
-  { label: 'Alerts', href: '/alerts', icon: BellRing },
-  { label: 'Maintenance', href: '/maintenance', icon: Settings2 },
-  { label: 'Settings', href: '/settings', icon: Cog },
+  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, exact: true },
+  { label: 'Explorer', href: '/dashboard/explorer', icon: Search },
+  { label: 'Trigger Center', href: '/dashboard/trigger', icon: Zap },
+  { label: 'Alerts', href: '/dashboard/alerts', icon: BellRing },
+  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Settings2 },
+  { label: 'Settings', href: '/dashboard/settings', icon: Cog },
 ]
 
 interface SidebarProps {
@@ -54,6 +54,10 @@ interface SidebarProps {
 /** 250px glass nav rail — orange active item, logger destinations. */
 export function Sidebar({ isOpen, onNavClick }: SidebarProps) {
   const pathname = usePathname()
+  // Carry the active filter state (the nuqs URL query: source, range, tenant,
+  // role, live…) across navigation so a destination opens with the same lens
+  // instead of resetting to defaults.
+  const queryString = useSearchParams().toString()
   return (
     <nav
       aria-label="Main navigation"
@@ -69,7 +73,7 @@ export function Sidebar({ isOpen, onNavClick }: SidebarProps) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={queryString ? `${item.href}?${queryString}` : item.href}
                 {...(onNavClick ? { onClick: onNavClick } : {})}
                 className={cn(
                   NAV_ITEM_BASE_CLASS,

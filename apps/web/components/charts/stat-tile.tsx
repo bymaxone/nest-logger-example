@@ -10,6 +10,7 @@
 
 'use client'
 
+import type { ReactNode } from 'react'
 import { Line, LineChart, ResponsiveContainer } from 'recharts'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +29,8 @@ interface StatTileProps {
   danger?: boolean
   /** Optional sub-label under the value (e.g. "p95", "req/min"). */
   hint?: string
+  /** Optional info affordance rendered beside the title. */
+  info?: ReactNode
 }
 
 /**
@@ -36,14 +39,23 @@ interface StatTileProps {
  * @param props - {@link StatTileProps}.
  * @returns The stat tile card.
  */
-export function StatTile({ title, value, delta, series, danger = false, hint }: StatTileProps) {
+export function StatTile({
+  title,
+  value,
+  delta,
+  series,
+  danger = false,
+  hint,
+  info,
+}: StatTileProps) {
   const data = series.map((n, i) => ({ i, n }))
   const stroke = danger ? '#ef4444' : '#60a5fa'
 
   return (
     <Card className={cn('min-w-40 flex-1', danger && 'ring-1 ring-destructive/60')}>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
         <CardTitle className="font-mono text-xs font-medium text-white/55">{title}</CardTitle>
+        {info}
       </CardHeader>
       <CardContent className="space-y-1">
         <div className="flex items-baseline gap-2">

@@ -50,8 +50,22 @@ vi.mock('@/lib/maintenance-api', () => ({
 // value so tests can assert the redacted payload reached the view, without the
 // viewer's heavy DOM. The mock factory must be self-contained.
 vi.mock('@uiw/react-json-view', () => ({
-  default: ({ value }: { value: unknown }) => (
-    <pre data-testid="json-view">{JSON.stringify(value)}</pre>
+  default: ({
+    value,
+    displayDataTypes,
+    enableClipboard,
+  }: {
+    value: unknown
+    displayDataTypes?: boolean
+    enableClipboard?: boolean
+  }) => (
+    <pre
+      data-testid="json-view"
+      data-display-data-types={String(displayDataTypes)}
+      data-enable-clipboard={String(enableClipboard)}
+    >
+      {JSON.stringify(value)}
+    </pre>
   ),
 }))
 
@@ -216,5 +230,130 @@ describe('RedactionHero', () => {
     await waitFor(() => expect(getActiveRedactPathsMock).toHaveBeenCalled())
     await user.click(screen.getByRole('button', { name: 'View active redact paths' }))
     expect(await screen.findByText('Failed to load redact paths.')).toBeInTheDocument()
+  })
+
+  /**
+   * The JSON viewer is rendered with `displayDataTypes` and `enableClipboard`
+   * both false. Kills the BooleanLiteral→true mutations on those two props.
+   */
+  it('renders the JSON viewer with data types and clipboard disabled', async () => {
+    getSameRecordMock.mockResolvedValue({ postgres: [makeRow()], loki: [makeRow()] })
+    const user = userEvent.setup()
+    renderWithClient(<RedactionHero />)
+    await user.type(screen.getByLabelText(/requestId/), 'req_42')
+    await user.click(screen.getByRole('button', { name: 'Load record' }))
+    const views = await screen.findAllByTestId('json-view')
+    expect(views[0]).toHaveAttribute('data-display-data-types', 'false')
+    expect(views[0]).toHaveAttribute('data-enable-clipboard', 'false')
+  })
+
+  /**
+   * The redact-paths query registers under `['redact-paths', role, tenantId]`.
+   * Kills the ArrayDeclaration→[] and `'redact-paths'`→"" mutations on its key.
+   */
+  it('registers the redact-paths query under the role/tenant-scoped key', async () => {
+    getActiveRedactPathsMock.mockResolvedValue([])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <RedactionHero />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => {
+      const keys = client
+        .getQueryCache()
+        .getAll()
+        .map((q) => q.queryKey)
+      expect(keys).toContainEqual(['redact-paths', 'admin', ''])
+    })
+  })
+
+  /**
+   * Once a record is loaded the same-record query registers under a key whose
+   * first two entries are the literal `'same-record'` tag and the active
+   * requestId. Kills the ArrayDeclaration→[] and `'same-record'`→"" mutations.
+   */
+  it('registers the same-record query under a key carrying the active requestId', async () => {
+    getSameRecordMock.mockResolvedValue({ postgres: [], loki: [] })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <RedactionHero />
+      </QueryClientProvider>,
+    )
+    await user.type(screen.getByLabelText(/requestId/), 'req_42')
+    await user.click(screen.getByRole('button', { name: 'Load record' }))
+    await waitFor(() => {
+      const keys = client
+        .getQueryCache()
+        .getAll()
+        .map((q) => q.queryKey)
+      expect(
+        keys.some((k) => Array.isArray(k) && k[0] === 'same-record' && k[1] === 'req_42'),
+      ).toBe(true)
+    })
+  })
+
+  /**
+   * The same-record query is gated by `enabled`, so it must not fire on mount
+   * while `active` is null. Kills the ConditionalExpression→true mutation that
+   * would always enable the query. The always-on redact-paths call confirms
+   * effects have flushed before asserting `getSameRecord` was never called.
+   */
+  it('does not run the same-record query before a requestId is loaded', async () => {
+    renderWithClient(<RedactionHero />)
+    // The redact-paths query resolving to [] (the "(0)" count rendering) proves the
+    // initial query cycle elapsed; the gated same-record query must stay untouched.
+    await screen.findByRole('button', { name: 'View active redact paths (0)' })
+    expect(getSameRecordMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The empty-string guard only blocks `''`, so any other non-empty requestId
+   * enables the query. Kills the StringLiteral mutation that swaps `''` for a
+   * sentinel (which would wrongly disable the query for that exact value).
+   */
+  it('enables the same-record query for any non-empty requestId', async () => {
+    getSameRecordMock.mockResolvedValue({ postgres: [], loki: [] })
+    const user = userEvent.setup()
+    renderWithClient(<RedactionHero />)
+    await user.type(screen.getByLabelText(/requestId/), 'Stryker was here!')
+    await user.click(screen.getByRole('button', { name: 'Load record' }))
+    await waitFor(() =>
+      expect(getSameRecordMock).toHaveBeenCalledWith(
+        { requestId: 'Stryker was here!' },
+        currentQuery,
+      ),
+    )
+  })
+
+  /**
+   * Leading/trailing whitespace is trimmed before the requestId becomes active.
+   * Kills the MethodExpression mutation that drops the `.trim()` call.
+   */
+  it('trims surrounding whitespace from the requestId before loading', async () => {
+    getSameRecordMock.mockResolvedValue({ postgres: [], loki: [] })
+    const user = userEvent.setup()
+    renderWithClient(<RedactionHero />)
+    await user.type(screen.getByLabelText(/requestId/), '  req_padded  ')
+    await user.click(screen.getByRole('button', { name: 'Load record' }))
+    await waitFor(() =>
+      expect(getSameRecordMock).toHaveBeenCalledWith({ requestId: 'req_padded' }, currentQuery),
+    )
+  })
+
+  /**
+   * The bottom callout renders the Datadog/OTel comparison copy, and the `{' '}`
+   * before `<strong>after</strong>` keeps "scrub" and "after" separate. Kills the
+   * StringLiteral→"" mutation on that whitespace literal (yielding "scrubafter").
+   */
+  it('renders the bottom Datadog-comparison explainer copy with spacing intact', () => {
+    renderWithClient(<RedactionHero />)
+    const paragraph = screen.getByText(/this redaction is real and irreversible/)
+    expect(paragraph.textContent).toContain(
+      'Unlike Datadog Sensitive Data Scanner or OTel-collector redaction',
+    )
+    expect(paragraph.textContent).toContain('which scrub after')
   })
 })

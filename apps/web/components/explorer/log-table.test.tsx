@@ -47,13 +47,20 @@ interface VirtualizerOptions {
   estimateSize: (index: number) => number
 }
 
+/** Captures the return value of the source's `getScrollElement` option closure. */
+let capturedScrollElement: HTMLElement | null | undefined
+/** Captures the return value of the source's `estimateSize` option closure. */
+let capturedEstimateSize: number | undefined
+
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (options: VirtualizerOptions) => {
     const { count } = options
     // Invoke the real option closures so the source's `getScrollElement` and
-    // `estimateSize` callbacks (and thus those lines) execute under test.
-    options.getScrollElement()
-    const size = options.estimateSize(0)
+    // `estimateSize` callbacks (and thus those lines) execute under test, and
+    // record their return values so tests can assert what the source wired in.
+    capturedScrollElement = options.getScrollElement()
+    capturedEstimateSize = options.estimateSize(0)
+    const size = capturedEstimateSize
     const indices = forcedVirtualIndices ?? Array.from({ length: count }, (_, i) => i)
     return {
       getTotalSize: () => count * size,
@@ -62,6 +69,23 @@ vi.mock('@tanstack/react-virtual', () => ({
     }
   },
 }))
+
+/** When true, the wrapped real table reports zero header groups (drives the `?.` guard). */
+let forceEmptyHeaderGroups = false
+
+vi.mock('@tanstack/react-table', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-table')>()
+  return {
+    ...actual,
+    useReactTable: (options: Parameters<typeof actual.useReactTable>[0]) => {
+      const table = actual.useReactTable(options)
+      if (forceEmptyHeaderGroups) {
+        return { ...table, getHeaderGroups: () => [] }
+      }
+      return table
+    },
+  }
+})
 
 // Imported after the mock so the component binds the mocked hook.
 const { LogTable } = await import('./log-table')
@@ -88,6 +112,7 @@ function makeRow(overrides: Partial<LogRow> = {}): LogRow {
 beforeEach(() => {
   fetchNextPageMock.mockReset()
   forcedVirtualIndices = null
+  forceEmptyHeaderGroups = false
   useLogsReturn = {
     data: { pages: [{ data: [] }] },
     error: null,
@@ -450,5 +475,103 @@ describe('LogTable', () => {
     const header = container.querySelector('div.sticky')
     expect(header).not.toBeNull()
     expect((header as HTMLElement).style.gridTemplateColumns).not.toBe('')
+  })
+
+  /**
+   * The virtualizer's `getScrollElement` closure returns the scroll container ref
+   * (never `undefined`). Kills the L69 `() => parentRef.current`→`() => undefined`
+   * ArrowFunction mutation.
+   */
+  it('wires the scroll container ref into the virtualizer getScrollElement', () => {
+    const scrollRef = createRef<HTMLDivElement>()
+    render(<LogTable query={query} onRowClick={vi.fn()} scrollRef={scrollRef} />)
+    // The ref is null on the first render pass (refs attach after render), but the
+    // source closure returns parentRef.current — never undefined; the mutation does.
+    expect(capturedScrollElement).not.toBeUndefined()
+  })
+
+  /**
+   * The virtualizer's `estimateSize` closure returns the fixed ROW_HEIGHT (36px).
+   * Kills the L70 `() => ROW_HEIGHT`→`() => undefined` ArrowFunction mutation.
+   */
+  it('uses the fixed row height for the virtualizer estimateSize', () => {
+    render(<LogTable query={query} onRowClick={vi.fn()} />)
+    expect(capturedEstimateSize).toBe(36)
+  })
+
+  /**
+   * With zero header groups the optional-chaining guard yields no header cells and
+   * the component does not throw. Kills the L96 `headerGroups[0]?.headers`→
+   * `headerGroups[0].headers` OptionalChaining mutation, which would dereference
+   * `undefined.headers` and crash.
+   */
+  it('renders no header cells when the table reports no header groups', () => {
+    forceEmptyHeaderGroups = true
+    render(<LogTable query={query} onRowClick={vi.fn()} />)
+    expect(screen.queryByText('Time')).not.toBeInTheDocument()
+    expect(screen.queryByText('Message')).not.toBeInTheDocument()
+  })
+
+  /**
+   * The loading branch renders exactly twelve skeleton placeholders. Kills the
+   * L115 `Array.from({ length: 12 }, …)`→`Array.from({}, …)` ObjectLiteral mutation
+   * (0 skeletons) and the `(_, i) => <Skeleton/>`→`() => undefined` ArrowFunction
+   * mutation (0 rendered).
+   */
+  it('renders exactly twelve loading skeletons', () => {
+    useLogsReturn = { ...useLogsReturn, isLoading: true, data: undefined }
+    const { container } = render(<LogTable query={query} onRowClick={vi.fn()} />)
+    expect(container.querySelectorAll('div.animate-pulse')).toHaveLength(12)
+  })
+
+  /**
+   * The virtual body container carries a non-empty height and `position: relative`.
+   * Kills the L124 `style={{…}}`→`{}` ObjectLiteral mutation and the L124
+   * `position: 'relative'`→"" StringLiteral mutation.
+   */
+  it('applies height and relative position to the virtual body container', () => {
+    useLogsReturn = {
+      ...useLogsReturn,
+      data: { pages: [{ data: [makeRow({ message: 'a row' })] }] },
+    }
+    render(<LogTable query={query} onRowClick={vi.fn()} />)
+    const body = screen.getByText('a row').closest('button')?.parentElement as HTMLElement
+    expect(body).not.toBeNull()
+    expect(body.style.position).toBe('relative')
+    expect(body.style.height).not.toBe('')
+  })
+
+  /**
+   * A row button carries the base layout classes from its `cn(...)` base string.
+   * Kills the L135 base className→"" StringLiteral mutation (a historical row is not
+   * live, so only the base string contributes these classes).
+   */
+  it('applies the base layout classes to a row button', () => {
+    useLogsReturn = {
+      ...useLogsReturn,
+      data: { pages: [{ data: [makeRow({ message: 'a row' })] }] },
+    }
+    render(<LogTable query={query} onRowClick={vi.fn()} />)
+    const btn = screen.getByText('a row').closest('button') as HTMLElement
+    expect(btn.className).toContain('absolute')
+    expect(btn.className).toContain('grid')
+    expect(btn.className).toContain('border-b')
+  })
+
+  /**
+   * A row button carries grid/height/transform inline styles derived from the
+   * virtual item. Kills the L138 `style={{…}}`→`{}` ObjectLiteral mutation, the
+   * L140 height template→`` mutation, and the L141 transform template→`` mutation.
+   */
+  it('applies grid, height, and transform inline styles to a row button', () => {
+    useLogsReturn = {
+      ...useLogsReturn,
+      data: { pages: [{ data: [makeRow({ message: 'a row' })] }] },
+    }
+    render(<LogTable query={query} onRowClick={vi.fn()} />)
+    const btn = screen.getByText('a row').closest('button') as HTMLElement
+    expect(btn.style.gridTemplateColumns).not.toBe('')
+    expect(btn.style.height).toBe('36px')
+    expect(btn.style.transform).toContain('translateY')
   })
 })

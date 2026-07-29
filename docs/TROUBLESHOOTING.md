@@ -170,6 +170,34 @@ pnpm install
 
 ---
 
+## `pnpm dev` freezes the machine (runaway memory)
+
+**Symptom.** Running the root `pnpm dev` slows the whole machine to a crawl or freezes it — fans spin up, the
+cursor stutters, and you may have to force-restart. There is no single huge allocation; memory pressure builds
+until the OS swaps heavily.
+
+**Cause.** Root `pnpm dev` is `pnpm -r --parallel --if-present run dev`, which starts **three watch toolchains at
+once** — two `nest start --watch` (`apps/api` + `apps/worker`) plus one `next dev` (`apps/web`). Each runs
+TypeScript compilation, file watchers, and an **uncapped** Node heap. On a RAM-constrained machine (e.g. 36 GB
+already loaded with an IDE, a browser, and Docker) the additive pressure of three watchers oversubscribes RAM
+and the OS thrashes swap. This is **not** a single leak or one 100 GB allocation — it is cumulative pressure
+from the three toolchains on top of an already-loaded machine.
+
+**Fix.** Reduce the concurrent footprint:
+
+- Bring infra up first — `pnpm infra:up` — so Postgres / Loki / OTel are healthy; otherwise `apps/api` exits on
+  the Prisma connect and the crash can mask the real memory issue.
+- Prefer building once and running the **built output without watchers**: `pnpm -r build`, then
+  `node apps/api/dist/main.js`, `node apps/worker/dist/main.js`, and `next start` in `apps/web`.
+- Or start **one** service at a time, each in its own terminal, instead of the parallel `pnpm dev` fan-out.
+- Cap each Node process heap with `NODE_OPTIONS=--max-old-space-size=...`. The `apps/api` / `apps/worker` `dev`
+  scripts already set `--max-old-space-size=2048`, and `.claude/launch.json` defines capped entries for
+  api / worker / web.
+
+**See also.** [GETTING_STARTED.md → quick start](./GETTING_STARTED.md#quick-start) · [OVERVIEW.md §7](./OVERVIEW.md#7-library-consumption).
+
+---
+
 ## See also
 
 - **[GETTING_STARTED.md](./GETTING_STARTED.md)** — the happy path these entries diverge from.

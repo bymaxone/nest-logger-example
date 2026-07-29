@@ -1,0 +1,170 @@
+# Mutation testing — default-branch gate.
+#
+# The deepest and slowest gate in the pipeline. It NEVER runs on pull requests
+# and NEVER on a schedule: only on a push to the default branch or a manual
+# dispatch, and only for the workspace whose source actually changed. Pull
+# requests stay gated by coverage, integration and e2e; a surviving mutant
+# breaks the build on the default branch instead of holding every PR for the
+# ~3.3k-mutant `apps/web` surface. The api config sets `thresholds.break = 100`,
+# so any surviving mutant fails that job; the web config uses `break = 90`.
+#
+# Running only on the default branch is also what makes the incremental cache
+# work at all. GitHub scopes a cache to the ref that wrote it, and a pull
+# request can read the default branch's caches but writes its own into a scope
+# that dies with the PR. Writing and restoring in a single scope is what lets a
+# run re-test only the mutants its own diff touched.
+#
+# A weekly full (non-incremental) run lives in `mutation-nightly.yml` and
+# catches drift the incremental cache might mask.
+
+name: Mutation Testing
+
+# No `paths:` filter here on purpose. What counts as mutable source is defined
+# once, in the `detect` job below, which also has to answer *which* workspace
+# changed. A second list here would be a copy to keep in sync, and the cheap
+# `detect` job skipping both mutation jobs costs less than that drift.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  # Deliberately NOT `cancel-in-progress`: a cancelled job never reaches its
+  # post-run steps, so it would leave the incremental cache unwritten and force
+  # the next run to mutate the full surface from cold. Back-to-back merges queue
+  # instead of cancelling each other.
+  group: mutation-${{ github.ref }}
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
+
+jobs:
+  detect:
+    name: Detect changed workspaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.changes.outputs.api }}
+      web: ${{ steps.changes.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history so the whole push range (before..sha) is available — a
+          # multi-commit push must not miss source touched by an earlier commit.
+          fetch-depth: 0
+      - name: Detect changed workspaces
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            echo 'api=true' >> "$GITHUB_OUTPUT"
+            echo 'web=true' >> "$GITHUB_OUTPUT"
+            echo 'Manual dispatch — mutating both workspaces.'
+            exit 0
+          fi
+          base='${{ github.event.before }}'
+          # A branch's first push reports an all-zero base, and a force-push can
+          # leave one that no longer exists — fall back to the pushed commit's parent.
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base='${{ github.sha }}^'
+          fi
+          changed=$(git diff --name-only "$base" '${{ github.sha }}')
+          api=false
+          web=false
+          # Anything that changes what gets mutated, how it is mutated, or how the
+          # tests that kill the mutants run. Shared inputs (the lockfile, this
+          # workflow) select both workspaces.
+          shared='pnpm-lock\.yaml|\.github/workflows/mutation\.yml'
+          if grep -qE "^(apps/(api|worker)/(src|test|prisma)/|apps/api/(stryker\.config\.json|jest\.stryker\.config\.cjs|package\.json|tsconfig.*\.json)|$shared)" <<<"$changed"; then
+            api=true
+          fi
+          if grep -qE "^(apps/web/(app|lib|components)/|apps/web/(stryker\.config\.json|vitest\.config\.ts|package\.json|tsconfig.*\.json)|$shared)" <<<"$changed"; then
+            web=true
+          fi
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "Changed workspaces — api=$api web=$web"
+
+  mutation-api:
+    name: Mutation — apps/api
+    needs: detect
+    if: needs.detect.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @nest-logger-example/api run db:generate
+        env:
+          # generate never opens a connection — a credential-free placeholder URL
+          # only needs to satisfy the schema's env("DATABASE_URL") reference.
+          DATABASE_URL: postgresql://localhost:5432/ci_placeholder
+      - name: Restore Stryker incremental cache (api)
+        uses: actions/cache@v4
+        with:
+          path: apps/api/reports/stryker-incremental.json
+          # The key is per-commit so every run writes fresh state; the prefix
+          # restore-key then hands the newest previous run's file to the next.
+          key: stryker-incremental-api-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-api-
+      - name: Run mutation testing (api)
+        run: pnpm --filter @nest-logger-example/api run mutation:incremental
+      - name: Upload mutation HTML report (api)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-api
+          path: apps/api/reports/mutation/
+          retention-days: 30
+
+  mutation-web:
+    name: Mutation — apps/web
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore Stryker incremental cache (web)
+        uses: actions/cache@v4
+        with:
+          path: apps/web/reports/stryker-incremental.json
+          # The key is per-commit so every run writes fresh state; the prefix
+          # restore-key then hands the newest previous run's file to the next.
+          key: stryker-incremental-web-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-web-
+      - name: Run mutation testing (web)
+        run: pnpm --filter web run mutation:incremental
+      - name: Upload mutation HTML report (web)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-web
+          path: apps/web/reports/mutation/
+          retention-days: 30

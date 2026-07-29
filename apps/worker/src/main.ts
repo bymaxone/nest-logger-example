@@ -15,7 +15,7 @@
  * @module
  */
 import { otelSdk } from './instrumentation.js' // MUST be the first import — starts the OTel SDK before NestJS loads
-import { PinoLoggerService } from '@bymax-one/nest-logger'
+import { BymaxLoggerModule } from '@bymax-one/nest-logger'
 import { NestFactory } from '@nestjs/core'
 
 import { AppModule } from './app.module.js'
@@ -29,16 +29,10 @@ async function bootstrap(): Promise<void> {
   // Env already validated at module-load time in app.module.ts; no second pass here.
   const app = await NestFactory.create(AppModule, { bufferLogs: true, abortOnError: false })
 
-  try {
-    app.useLogger(app.get(PinoLoggerService))
-  } catch (err) {
-    // PinoLoggerService not available (e.g. DI misconfiguration) — the logger itself
-    // failed, so report to stderr (the fail-soft sink) and fall back to buffered logs.
-    process.stderr.write(
-      `PinoLoggerService not available, using default logger: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
-    )
-    app.flushLogs()
-  }
+  // Bridge NestJS's internal logger to the library logger via the canonical helper —
+  // it wires `app.useLogger(PinoLoggerService)` and flushes the buffered bootstrap logs,
+  // throwing a clear error if `BymaxLoggerModule` was not imported.
+  BymaxLoggerModule.useNestLogger(app)
 
   // `enableShutdownHooks()` is deliberately NOT called here. NestJS 11 re-raises the
   // signal after `callShutdownHook()`, which races with `otelSdk.shutdown()` and can

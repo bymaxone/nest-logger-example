@@ -14,6 +14,7 @@ import { RESERVED_LOG_KEYS } from '@bymax-one/nest-logger/shared'
 
 import { useFacets } from '@/hooks/use-facets'
 import type { LogQuery } from '@/lib/types'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** The fail-soft logKeys surfaced as saturation stats, with display labels. */
@@ -57,7 +58,12 @@ export function PipelineHealth({ query }: PipelineHealthProps) {
             >
               {count}
             </span>
-            <span className="font-mono text-[10px] text-white/30">{key}</span>
+            <Badge
+              variant="outline"
+              className="mt-1 self-start font-mono text-[10px] font-normal text-white/50"
+            >
+              {key}
+            </Badge>
           </div>
         )
       })}

@@ -21,7 +21,7 @@ test.describe('Maintenance & Governance', () => {
   test('CSV export downloads the documented column header', async ({ page }) => {
     // An operator's CSV export must emit the exact documented column order on the first row —
     // the header is a contract downstream tooling parses, so any drift in column names/order breaks it.
-    await page.goto('/maintenance?role=operator')
+    await page.goto('/dashboard/maintenance?role=operator')
     const download = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download CSV' }).click()
     const file = await download
@@ -32,7 +32,7 @@ test.describe('Maintenance & Governance', () => {
   test('a Viewer cannot export', async ({ page }) => {
     // RBAC gate: the Viewer role lacks export rights, so the Download CSV control must be disabled
     // and explain why — proves the UI enforces the role grant matrix, not just the API.
-    await page.goto('/maintenance?role=viewer')
+    await page.goto('/dashboard/maintenance?role=viewer')
     await expect(page.getByRole('button', { name: 'Download CSV' })).toBeDisabled()
     await expect(page.getByText('Viewers cannot export.')).toBeVisible()
   })
@@ -40,7 +40,7 @@ test.describe('Maintenance & Governance', () => {
   test('every scoped-demo surface renders its callout', async ({ page }) => {
     // Each governance surface (retention, export, RBAC) must render its scoped-demo callout so the
     // demo boundary is always disclosed — protects against a surface shipping without its disclaimer.
-    await page.goto('/maintenance?role=admin')
+    await page.goto('/dashboard/maintenance?role=admin')
     await expect(page.getByText('Scoped demo of tiered retention')).toBeVisible()
     await expect(page.getByText('Scoped demo of exporting filtered logs')).toBeVisible()
     await expect(page.getByText('Scoped demo of query-based RBAC')).toBeVisible()
@@ -52,7 +52,7 @@ test.describe('Maintenance & Governance', () => {
     // The RBAC panel must reflect the active role (admin column flagged "(active)") and the
     // redaction hero must be present — proves role context and the redact-at-source guarantee
     // are surfaced to the operator on the governance page.
-    await page.goto('/maintenance?role=admin')
+    await page.goto('/dashboard/maintenance?role=admin')
     await expect(page.getByText('Redacted at source — never stored raw')).toBeVisible()
     // The active-role marker highlights the admin column in the grant matrix.
     await expect(page.getByText('(active)')).toBeVisible()

@@ -40,10 +40,19 @@ vi.mock('@/lib/api-client', () => ({
 }))
 
 // Deterministic stub for the third-party JSON viewer: render the value as text so
-// the already-redacted `[REDACTED]` token (and other fields) can be asserted.
+// the already-redacted `[REDACTED]` token (and other fields) can be asserted. The
+// `displayDataTypes` prop is surfaced as a data attribute so its value is testable.
 vi.mock('@uiw/react-json-view', () => ({
-  default: ({ value }: { value: Record<string, unknown> }) => (
-    <pre data-testid="json-view">{JSON.stringify(value)}</pre>
+  default: ({
+    value,
+    displayDataTypes,
+  }: {
+    value: Record<string, unknown>
+    displayDataTypes?: boolean
+  }) => (
+    <pre data-testid="json-view" data-display-data-types={String(displayDataTypes)}>
+      {JSON.stringify(value)}
+    </pre>
   ),
 }))
 
@@ -644,5 +653,210 @@ describe('DetailDrawer traceUrl base-URL validation', () => {
     const link = await screen.findByRole('link', { name: /View trace/ })
     expect(link.getAttribute('href')).not.toBe('#')
     expect(link.getAttribute('href')).toContain('https://grafana.example.com')
+  })
+
+  /**
+   * With the env unset the base falls back to `http://localhost:3000`, so the
+   * trace link is a real localhost URL. Asserting that kills the L30
+   * StringLiteral→"" mutation on the default base: an empty default would make
+   * `new URL('')` throw and the href collapse to `#`.
+   */
+  it('falls back to the localhost Grafana base when the env is unset', async () => {
+    vi.stubEnv('NEXT_PUBLIC_GRAFANA_URL', undefined)
+    vi.resetModules()
+    const { DetailDrawer: Drawer } = await import('./detail-drawer')
+    const user = userEvent.setup()
+    renderWithClient(<Drawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Trace' }))
+    const link = await screen.findByRole('link', { name: /View trace/ })
+    expect(link.getAttribute('href')).toContain('localhost:3000')
+    expect(link.getAttribute('href')).not.toBe('#')
+  })
+})
+
+describe('DetailDrawer header severity icon', () => {
+  /**
+   * The header renders the level icon (a coloured, aria-hidden svg). Asserting the
+   * icon exists kills the L120 BlockStatement→{} mutation (an empty `LevelIcon`
+   * body returns nothing, so no svg would render in the title).
+   */
+  it('renders the level icon svg in the dialog title', () => {
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const title = screen.getByRole('heading', { name: 'PAYMENT_CHARGE_FAIL' })
+    expect(title.querySelector('svg')).not.toBeNull()
+  })
+
+  /**
+   * The level icon carries an inline `color` style from the severity descriptor.
+   * Asserting the svg's style attribute includes `color` kills the L123
+   * ObjectLiteral→{} mutation (which would strip the inline colour, rendering the
+   * svg with no style attribute at all).
+   */
+  it('applies the severity colour as an inline style on the level icon', () => {
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const title = screen.getByRole('heading', { name: 'PAYMENT_CHARGE_FAIL' })
+    const icon = title.querySelector('svg')
+    expect(icon).not.toBeNull()
+    expect(icon?.getAttribute('style') ?? '').toContain('color')
+  })
+})
+
+describe('DetailDrawer Overview undefined-field guard', () => {
+  /**
+   * An `undefined` (omitted) field must be skipped, never rendered as the literal
+   * text "undefined". The guard is `raw === null || raw === undefined`; the L139
+   * mutation replaces the `raw === undefined` operand with `false`, so an omitted
+   * field would slip through and `String(undefined)` would render. Using an
+   * explicitly `undefined` value (not `null`) is what exercises that operand.
+   */
+  it('skips an omitted (undefined) field instead of rendering "undefined"', () => {
+    // `exactOptionalPropertyTypes` rejects assigning `undefined` to an optional
+    // property, so the key is removed outright — reading it back then yields the
+    // `undefined` this guard is about.
+    const row: LogRow = { ...fullRow }
+    delete row.tenantId
+    renderWithClient(<DetailDrawer row={row} open onOpenChange={vi.fn()} />)
+    // The omitted tenantId field's label must not appear ...
+    expect(screen.queryByText('tenantId')).not.toBeInTheDocument()
+    // ... and its value must never render as the string "undefined".
+    expect(screen.queryByText('undefined')).not.toBeInTheDocument()
+    // The defined acme value is gone (tenantId is now undefined).
+    expect(screen.queryByText('acme')).not.toBeInTheDocument()
+  })
+})
+
+describe('DetailDrawer Raw JSON viewer props', () => {
+  /**
+   * The Raw JSON viewer is configured with `displayDataTypes={false}` so the type
+   * annotations stay hidden. Asserting the prop reaches the viewer as `false`
+   * kills the L170 BooleanLiteral→true mutation.
+   */
+  it('disables data-type annotations on the JSON viewer', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Raw JSON' }))
+    const view = await screen.findByTestId('json-view')
+    expect(view).toHaveAttribute('data-display-data-types', 'false')
+  })
+})
+
+describe('DetailDrawer Context line spacing', () => {
+  /**
+   * Each context line renders `<level> <logKey> <message>` — the `{' '}` between
+   * the level and logKey spans is a real space. Asserting the line text contains
+   * "error CTX_KEY" (with the gap) kills the L204 StringLiteral→"" mutation, which
+   * would collapse the level and logKey into "errorCTX_KEY".
+   */
+  it('keeps a space between the level and logKey in a context line', async () => {
+    const line: LogRow = {
+      id: 'ctx-line-1',
+      time: '2024-01-01T00:00:00.000Z',
+      level: 'error',
+      logKey: 'CTX_KEY',
+      message: 'ctx message',
+      service: 'api',
+    }
+    getContextMock.mockResolvedValue({ before: [line], match: null, after: [] })
+    const user = userEvent.setup()
+    renderWithClient(<DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'Context' }))
+    const levelSpan = await screen.findByText('error')
+    expect(levelSpan.closest('div')).toHaveTextContent('error CTX_KEY')
+  })
+})
+
+describe('DetailDrawer Context query key', () => {
+  /**
+   * The context query must be cached under `['context', correlationId, source]`.
+   * Reading the data back from that exact key kills both the L267 ArrayDeclaration→[]
+   * mutation (which would cache under `[]`) and the L267 StringLiteral→"" mutation
+   * (which would cache under `['', …]`); either would leave the canonical key empty.
+   */
+  it('caches the context result under [context, correlationId, source]', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const ctx: ContextResult = { before: [], match: null, after: [] }
+    getContextMock.mockResolvedValue(ctx)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DetailDrawer row={fullRow} open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(getContextMock).toHaveBeenCalled())
+    // correlationId is the row's requestId ('req-1'); source comes from the mocked
+    // useLogQuery ('loki'). The data must be retrievable at that canonical key.
+    await waitFor(() => expect(queryClient.getQueryData(['context', 'req-1', 'loki'])).toEqual(ctx))
+  })
+})
+
+describe('DetailDrawer OVERVIEW_FIELDS (fresh module import)', () => {
+  // OVERVIEW_FIELDS is a module-load constant, so its mutations only take effect
+  // when the module is re-imported with the mutant active. Each test resets the
+  // module registry and re-imports the drawer so the array is rebuilt per test.
+  afterEach(() => {
+    vi.resetModules()
+    cleanup()
+  })
+
+  /**
+   * Re-importing rebuilds OVERVIEW_FIELDS, so rendering every label here kills the
+   * L36 ArrayDeclaration→[] mutation, every L37–47 ObjectLiteral→{} mutation, and
+   * every `key`/`label` StringLiteral→"" mutation: an emptied array, an emptied
+   * object, an emptied key (row skipped), or an emptied label all remove the
+   * corresponding `dt` text.
+   */
+  it('renders every Overview field label from the freshly imported array', async () => {
+    vi.resetModules()
+    const { DetailDrawer: Drawer } = await import('./detail-drawer')
+    renderWithClient(<Drawer row={fullRow} open onOpenChange={vi.fn()} />)
+    const labels = [
+      'time',
+      'level',
+      'logKey',
+      'service',
+      'tenantId',
+      'requestId',
+      'traceId',
+      'spanId',
+      'status',
+      'durationMs',
+      'message',
+    ]
+    for (const label of labels) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  /**
+   * Re-importing rebuilds OVERVIEW_FIELDS, so asserting exactly six "filter for"
+   * buttons kills every `filter` BooleanLiteral mutation: flipping a filterable
+   * field's `true`→`false` drops the count to five, and flipping a non-filterable
+   * field's `false`→`true` raises it to seven.
+   */
+  it('renders exactly six filter-for buttons from the freshly imported array', async () => {
+    vi.resetModules()
+    const { DetailDrawer: Drawer } = await import('./detail-drawer')
+    renderWithClient(<Drawer row={fullRow} open onOpenChange={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: 'filter for' })).toHaveLength(6)
+  })
+
+  /**
+   * Re-importing rebuilds OVERVIEW_FIELDS, so asserting each field's value renders
+   * reinforces the `key` StringLiteral→"" and ObjectLiteral→{} kills: an emptied
+   * key looks up `row['']` (undefined) and skips the whole field, hiding its value.
+   */
+  it('renders every Overview field value from the freshly imported array', async () => {
+    vi.resetModules()
+    const { DetailDrawer: Drawer } = await import('./detail-drawer')
+    renderWithClient(<Drawer row={fullRow} open onOpenChange={vi.fn()} />)
+    expect(screen.getByText('2024-01-01T00:00:00.000Z')).toBeInTheDocument()
+    expect(screen.getByText('error')).toBeInTheDocument()
+    expect(screen.getByText('api')).toBeInTheDocument()
+    expect(screen.getByText('acme')).toBeInTheDocument()
+    expect(screen.getByText('req-1')).toBeInTheDocument()
+    expect(screen.getByText('trace-1')).toBeInTheDocument()
+    expect(screen.getByText('span-1')).toBeInTheDocument()
+    expect(screen.getByText('500')).toBeInTheDocument()
+    expect(screen.getByText('42')).toBeInTheDocument()
+    expect(screen.getByText('charge declined')).toBeInTheDocument()
   })
 })

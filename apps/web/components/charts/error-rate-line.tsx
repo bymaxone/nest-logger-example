@@ -25,6 +25,7 @@ import {
 import { useAggregate } from '@/hooks/use-aggregate'
 import type { LogQuery } from '@/lib/types'
 import { formatBucket } from '@/lib/metrics'
+import { ERROR_RATE_SERIES } from '@/lib/chart-series'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AXIS_TICK, CHART_TOOLTIP_STYLE, GRID_STROKE } from './chart-style'
 
@@ -67,24 +68,18 @@ export function ErrorRateLine({ query }: ErrorRateLineProps) {
           labelFormatter={(label) => formatBucket(String(label))}
         />
         <ReferenceLine y={THRESHOLD_PCT} stroke="#f59e0b" strokeDasharray="4 4" />
-        <Line
-          type="monotone"
-          dataKey="rate4xx"
-          name="4xx %"
-          stroke="#f59e0b"
-          dot={false}
-          strokeWidth={2}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="rate5xx"
-          name="5xx %"
-          stroke="#ef4444"
-          dot={false}
-          strokeWidth={2}
-          isAnimationActive={false}
-        />
+        {ERROR_RATE_SERIES.map((s) => (
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={s.color}
+            dot={false}
+            strokeWidth={2}
+            isAnimationActive={false}
+          />
+        ))}
       </LineChart>
     </ResponsiveContainer>
   )

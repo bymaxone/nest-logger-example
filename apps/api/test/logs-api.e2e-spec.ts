@@ -34,6 +34,7 @@ import { LogsAggregateService } from '../src/logs/logs.aggregate.service.js'
 import { LogsFacetsService } from '../src/logs/logs.facets.service.js'
 import { LogsContextService } from '../src/logs/logs.context.service.js'
 import { LogsExportService } from '../src/logs/logs.export.service.js'
+import { LogsLokiService } from '../src/logs/logs.loki.service.js'
 
 /** Minimal row shape the controller reads back from `applicationLog.findMany`. */
 interface SeedRow {
@@ -97,6 +98,11 @@ const PAGE_TWO: SeedRow[] = [
 // concrete mock is injected at compile time via `.overrideProvider(...).useValue(...)`.
 const PRISMA_PLACEHOLDER = { provide: PrismaService, useValue: {} }
 
+// Stand-in for LogsLokiService — added to the controller when Loki query support
+// was introduced. The existing tests do not exercise `source=loki`, so a no-op
+// stub is sufficient to satisfy DI resolution.
+const LOKI_SERVICE_PLACEHOLDER = { provide: LogsLokiService, useValue: { query: jest.fn() } }
+
 // Minimal test module: wires the real logs read-API controller + services. The
 // SSE controller and Loki proxy are intentionally excluded so no ConfigService /
 // LokiClient is needed — this keeps the boot hermetic and DB/Loki-free.
@@ -104,6 +110,7 @@ const PRISMA_PLACEHOLDER = { provide: PrismaService, useValue: {} }
   controllers: [LogsController],
   providers: [
     PRISMA_PLACEHOLDER,
+    LOKI_SERVICE_PLACEHOLDER,
     LogsService,
     LogsAggregateService,
     LogsFacetsService,

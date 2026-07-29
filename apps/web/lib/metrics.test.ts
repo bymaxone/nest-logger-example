@@ -9,7 +9,7 @@
  *
  * @module lib/metrics.test
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ErrorRateRow, StatusMixRow, VolumeRow } from './types'
 import {
@@ -19,8 +19,10 @@ import {
   meanErrorRate,
   meanOf,
   pivotVolume,
+  statusErrorRatePctSeries,
   statusTotals,
   sumLevels,
+  sumStatusErrors,
   trendPct,
 } from './metrics'
 
@@ -362,5 +364,71 @@ describe('pivotVolume — all six known levels counted', () => {
   it('assigns the count for the trace level', () => {
     const [pt] = pivotVolume([{ bucket: 'b', level: 'trace', n: 7 }])
     expect(pt!.trace).toBe(7)
+  })
+})
+
+describe('sumStatusErrors', () => {
+  /** Sums 4xx + 5xx across buckets; ignores 2xx / 3xx. */
+  it('totals the 4xx and 5xx responses across buckets', () => {
+    const rows: StatusMixRow[] = [
+      { bucket: 'a', s2xx: 90, s3xx: 0, s4xx: 5, s5xx: 2 },
+      { bucket: 'b', s2xx: 50, s3xx: 3, s4xx: 1, s5xx: 0 },
+    ]
+    // (5 + 2) + (1 + 0) = 8.
+    expect(sumStatusErrors(rows)).toBe(8)
+  })
+
+  /** No buckets → 0. */
+  it('returns 0 for no buckets', () => {
+    expect(sumStatusErrors([])).toBe(0)
+  })
+})
+
+describe('statusErrorRatePctSeries', () => {
+  /** A populated bucket yields (4xx + 5xx) / total × 100. */
+  it('computes the per-bucket HTTP error-rate percentage', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 90, s3xx: 0, s4xx: 6, s5xx: 4 }]
+    // (6 + 4) / 100 × 100 = 10.
+    expect(statusErrorRatePctSeries(rows)).toEqual([10])
+  })
+
+  /** An empty bucket (zero total) yields 0, never NaN — the divide-by-zero guard. */
+  it('returns 0 for a bucket with zero total responses', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0 }]
+    expect(statusErrorRatePctSeries(rows)).toEqual([0])
+  })
+
+  /**
+   * The denominator must add all four status classes (`s2xx + s3xx + s4xx + s5xx`).
+   * With a non-zero `s3xx`, the ArithmeticOperator mutation (`s2xx - s3xx`) shrinks
+   * the total and changes the percentage, so this exact-rate assertion kills it.
+   */
+  it('includes 3xx in the rate denominator (kills the minus mutation)', () => {
+    const rows: StatusMixRow[] = [{ bucket: 'a', s2xx: 80, s3xx: 10, s4xx: 6, s5xx: 4 }]
+    // (6 + 4) / (80 + 10 + 6 + 4) * 100 = 10. Mutant total = 80 - 10 + 6 + 4 = 80 → 12.5.
+    expect(statusErrorRatePctSeries(rows)).toEqual([10])
+  })
+})
+
+describe('pivotVolume — ALL_LEVELS constant (module re-import)', () => {
+  afterEach(() => {
+    vi.resetModules()
+  })
+
+  /**
+   * `ALL_LEVELS` is a module-level constant read once at load, so a statically
+   * imported caller cannot observe a mutation to it. Re-importing forces a fresh
+   * evaluation: each of the six declared level names must still be recognised and
+   * counted. This kills the ArrayDeclaration mutation (`[]`) and every StringLiteral
+   * mutation that blanks one level name (e.g. `'fatal'` → `''`), since a blanked
+   * name fails the includes-guard and leaves that level's count at zero.
+   */
+  it('re-imports and counts every one of the six declared levels', async () => {
+    vi.resetModules()
+    const { pivotVolume: freshPivotVolume } = await import('./metrics')
+    for (const level of ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const) {
+      const [point] = freshPivotVolume([{ bucket: 'b', level, n: 1 }])
+      expect(point?.[level], `level ${level} was not counted`).toBe(1)
+    }
   })
 })

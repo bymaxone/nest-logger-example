@@ -20,6 +20,7 @@ import { getSeverity } from '@/lib/severity'
 import type { FacetField, LogLevel } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { FeatureInfo } from '@/components/common/feature-info'
 import { cn } from '@/lib/utils'
 
 /** Faceted fields and their section headings. */
@@ -75,7 +76,18 @@ export function FacetRail() {
 
   return (
     <aside className="w-full">
-      <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-white/40">Facets</h2>
+      <div className="mb-3 flex items-center gap-1">
+        <h2 className="font-mono text-xs uppercase tracking-wide text-white/40">Facets</h2>
+        <FeatureInfo id="facets" />
+      </div>
+      {query.source === 'loki' && (
+        <p className="mb-3 text-[10px] leading-tight text-white/35">
+          Counts come from the durable Postgres{' '}
+          <strong className="font-semibold text-white/55">warn+</strong> tier; the Loki{' '}
+          <strong className="font-semibold text-white/55">info+</strong> rows in the table
+          aren&apos;t aggregated here.
+        </p>
+      )}
       {isError && <p className="mb-2 text-[11px] text-destructive">Failed to load facet counts.</p>}
       <ScrollArea className="h-[calc(100vh-12rem)] pr-2">
         <div className="space-y-5">
