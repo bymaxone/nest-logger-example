@@ -109,7 +109,7 @@ export function HealthStrip({ query }: HealthStripProps) {
       <Card>
         <CardContent className="flex flex-col items-start gap-3 p-6 text-sm text-muted-foreground">
           <p>No logs in this window yet.</p>
-          <Link href="/trigger" className="font-mono text-brand-500 hover:underline">
+          <Link href="/dashboard/trigger" className="font-mono text-brand-500 hover:underline">
             Fire one from the Trigger Center →
           </Link>
         </CardContent>

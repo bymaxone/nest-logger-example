@@ -37,7 +37,7 @@ test.describe('Trigger Center → Explorer', () => {
     await expect(link).toBeVisible()
     await link.click()
     // The pivot pre-applies the produced requestId (the info-tier row surfaces via live tail).
-    await expect(page).toHaveURL(/\/explorer\?.*requestId=/)
+    await expect(page).toHaveURL(/\/dashboard\/explorer\?.*requestId=/)
   })
 
   test('firing the error path shows PAYMENT_CHARGE_FAILED in the Explorer table', async ({
@@ -51,7 +51,7 @@ test.describe('Trigger Center → Explorer', () => {
     await expect(link).toBeVisible()
     await link.click()
 
-    await expect(page).toHaveURL(/\/explorer\?.*requestId=/)
+    await expect(page).toHaveURL(/\/dashboard\/explorer\?.*requestId=/)
     // Error-level rows land in the durable Postgres tier, so the keyset table shows them.
     // The table refetches when the relative-range window advances (~30s cadence), so allow
     // margin beyond it for the freshly-fired row to surface.

@@ -93,10 +93,10 @@ describe('explorerHref', () => {
     expect(params.get('logKey')).toBe('PAYMENT_CHARGE_FAILED')
   })
 
-  /** The href must be root-relative and begin with the exact `/explorer?` prefix. */
-  it('returns an href rooted at /explorer', () => {
+  /** The href must be root-relative and begin with the exact `/dashboard/explorer?` prefix. */
+  it('returns an href rooted at /dashboard/explorer', () => {
     const href = explorerHref({ requestId: 'req_x' })
-    expect(href.startsWith('/explorer?')).toBe(true)
+    expect(href.startsWith('/dashboard/explorer?')).toBe(true)
   })
 
   /**

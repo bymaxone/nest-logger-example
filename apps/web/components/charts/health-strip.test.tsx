@@ -102,7 +102,7 @@ describe('HealthStrip', () => {
     render(<HealthStrip query={BASE_QUERY} />)
     expect(screen.getByText('No logs in this window yet.')).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /Fire one from the Trigger Center/ })
-    expect(link).toHaveAttribute('href', '/trigger')
+    expect(link).toHaveAttribute('href', '/dashboard/trigger')
   })
 
   /** A populated window renders the five tiles; high error/fatal flips danger. */

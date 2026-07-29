@@ -35,7 +35,7 @@ const DEFAULT_RANGE = '15m'
  * applies a relative `range` (default `15m`) so the Explorer covers "now".
  *
  * @param target - The correlation id(s), optional `logKey`, and time window.
- * @returns A root-relative href like `/explorer?traceId=…&range=15m`.
+ * @returns A root-relative href like `/dashboard/explorer?traceId=…&range=15m`.
  */
 export function explorerHref(target: ExplorerTarget): string {
   const params = new URLSearchParams()
@@ -55,5 +55,5 @@ export function explorerHref(target: ExplorerTarget): string {
   } else {
     params.set('range', target.range ?? DEFAULT_RANGE)
   }
-  return `/explorer?${params.toString()}`
+  return `/dashboard/explorer?${params.toString()}`
 }
