@@ -48,7 +48,7 @@
   },
   "optionalDependencies": {
     "pino-pretty": "^13",
-    "pino-roll": "^3"
+    "pino-roll": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
