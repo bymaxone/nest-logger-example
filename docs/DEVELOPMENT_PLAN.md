@@ -387,7 +387,7 @@ test  mutation docs  ci/cd audit+v1.0.0
 **Deliverables:**
 
 - [ ] `.github/workflows/ci.yml` — jobs `install → lint, typecheck, unit, export-usage-check`; `e2e-api → e2e-web`; `coverage-report` (`needs: [unit, e2e-api, e2e-web]`). Node 24, pnpm 10.8.0, `--frozen-lockfile`, concurrency cancel-in-progress.
-- [ ] `.github/workflows/mutation.yml` — per-PR incremental Stryker, `dorny/paths-filter` per workspace, `actions/cache` of `stryker-incremental.json`.
+- [ ] `.github/workflows/mutation.yml` — incremental Stryker on default-branch push + manual dispatch (never on PRs), per-workspace change detection, `actions/cache` of `stryker-incremental.json`.
 - [ ] `.github/workflows/mutation-nightly.yml` — Monday 03:00 UTC full cold run.
 - [ ] `.github/workflows/release.yml` — `v*` tags → build/push GHCR images → bot-append a row to `docs/RELEASES.md`.
 - [ ] `apps/api/Dockerfile`, `apps/web/Dockerfile`, `docker-compose.prod.yml`.
@@ -430,8 +430,8 @@ The non-negotiable bar, mirroring `nest-auth-example`'s **shipped** configuratio
 | Unit coverage (api) | Jest `coverageThreshold.global`                    | **100%** b/l/f/s                   | CI `unit` (Phase 14)    |
 | Unit coverage (web) | Vitest v8 `coverage.thresholds`                    | **100%** b/l/f/s                   | CI `unit`               |
 | E2E                 | supertest (api, stdout-capture) + Playwright (web) | all pass                           | CI `e2e-api`/`e2e-web`  |
-| Mutation (api)      | Stryker jest-runner + typescript-checker           | **`break: 100`**                   | `mutation.yml` (PR)     |
-| Mutation (web)      | Stryker vitest-runner                              | **`break: 100`**                   | `mutation.yml` (PR)     |
+| Mutation (api)      | Stryker jest-runner + typescript-checker           | **`break: 100`**                   | `mutation.yml` (main)   |
+| Mutation (web)      | Stryker vitest-runner                              | **`break: 100`**                   | `mutation.yml` (main)   |
 | Mutation drift      | Stryker full cold run                              | report; issue on regression        | `mutation-nightly.yml`  |
 | Export usage        | `scripts/audit-library-exports.mjs`                | every export used (or ignored)     | CI `export-usage-check` |
 | Log-key convention  | `scripts/audit-log-keys.mjs`                       | all match regex; no reserved reuse | CI (Phase 18)           |
