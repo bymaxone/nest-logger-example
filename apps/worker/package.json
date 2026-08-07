@@ -45,6 +45,6 @@
   },
   "optionalDependencies": {
     "pino-pretty": "^13",
-    "pino-roll": "^3"
+    "pino-roll": "^4"
   }
 }
