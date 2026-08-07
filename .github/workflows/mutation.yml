@@ -114,7 +114,7 @@ jobs:
           # only needs to satisfy the schema's env("DATABASE_URL") reference.
           DATABASE_URL: postgresql://localhost:5432/ci_placeholder
       - name: Restore Stryker incremental cache (api)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/api/reports/stryker-incremental.json
           # The key is per-commit so every run writes fresh state; the prefix
@@ -151,7 +151,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Restore Stryker incremental cache (web)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/web/reports/stryker-incremental.json
           # The key is per-commit so every run writes fresh state; the prefix
