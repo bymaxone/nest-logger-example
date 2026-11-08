@@ -61,7 +61,7 @@ jobs:
       - name: API image metadata
         if: steps.api-exists.outputs.exists != 'true'
         id: api-meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/bymaxone/nest-logger-example-api
           flavor: latest=auto
@@ -82,7 +82,7 @@ jobs:
       - name: Web image metadata
         if: steps.web-exists.outputs.exists != 'true'
         id: web-meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/bymaxone/nest-logger-example-web
           flavor: latest=auto
