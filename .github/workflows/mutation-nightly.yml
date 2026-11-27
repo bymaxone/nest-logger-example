@@ -1,5 +1,10 @@
 name: Mutation Testing (Nightly Full)
 
+# A scheduled run is skipped when `main` has no commit since the last run of
+# this workflow that finished with a verdict (success or failure): the score
+# depends only on what the repository holds, so the same commit measured again
+# gives the same verdict, and a failed week has already been reported. A manual
+# run always measures.
 on:
   schedule:
     - cron: '0 3 * * 1' # Mondays at 03:00 UTC
@@ -13,8 +18,37 @@ env:
   DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
 
 jobs:
+  changed:
+    name: New commit since the last run
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.compare.outputs.run }}
+    steps:
+      - id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow mutation-nightly.yml \
+            --branch "$DEFAULT_BRANCH" --status completed --limit 20 --json headSha,conclusion \
+            --jq '[.[] | select(.conclusion == "success" or .conclusion == "failure")][0].headSha // empty')
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "No commit on $DEFAULT_BRANCH since the last run ($last); skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   full-api:
     name: Mutation full — apps/api
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -66,6 +100,8 @@ jobs:
 
   full-web:
     name: Mutation full — apps/web
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

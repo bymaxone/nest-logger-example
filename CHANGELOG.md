@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CI: the weekly full mutation run (`mutation-nightly.yml`) is skipped on a schedule when `main` has no commit since the last run that finished with a verdict, so an unchanged repository is not measured again every Monday; a manual run always measures.
+
 ## [1.0.0] - 2026-06-18
 
 ### Added
