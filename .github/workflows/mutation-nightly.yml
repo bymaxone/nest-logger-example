@@ -71,9 +71,12 @@ jobs:
           DATABASE_URL: postgresql://localhost:5432/ci_placeholder
       - name: Run full mutation testing (api)
         working-directory: apps/api
-        # --force runs all mutants and rebuilds the incremental file, giving a
-        # true cold baseline regardless of any cached incremental state.
-        run: pnpm exec stryker run --force
+        # The package script sets NODE_OPTIONS=--experimental-vm-modules, which
+        # the ESM ts-jest setup needs; calling stryker directly drops it and every
+        # spec fails to load. --force runs all mutants and rebuilds the
+        # incremental file, giving a true cold baseline regardless of any cached
+        # incremental state.
+        run: pnpm run mutation --force
       - name: Upload full mutation HTML report (api)
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,6 +90,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # The label is created on first use, so a missing or deleted
+          # label cannot make the alert itself fail.
+          gh label create mutation-drift --color B60205 \
+            --description "Weekly full mutation run regressed below its break threshold" --force
           TITLE="Mutation drift detected (api) — $(date -u +%Y-%m-%d)"
           if gh issue list --label mutation-drift --state open \
                --search "in:title (api)" | grep -q .; then
@@ -134,6 +141,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # The label is created on first use, so a missing or deleted
+          # label cannot make the alert itself fail.
+          gh label create mutation-drift --color B60205 \
+            --description "Weekly full mutation run regressed below its break threshold" --force
           TITLE="Mutation drift detected (web) — $(date -u +%Y-%m-%d)"
           if gh issue list --label mutation-drift --state open \
                --search "in:title (web)" | grep -q .; then

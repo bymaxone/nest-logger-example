@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CI: the weekly full mutation run (`mutation-nightly.yml`) is skipped on a schedule when `main` has no commit since the last run that finished with a verdict, so an unchanged repository is not measured again every Monday; a manual run always measures.
 
+### Fixed
+
+- CI: the weekly full mutation run on `apps/api` calls the package script, which sets `NODE_OPTIONS=--experimental-vm-modules`; calling `stryker` directly left the ESM Jest setup unable to load any spec, so the job had failed every week.
+- CI: the mutation drift alert creates the `mutation-drift` label when it is missing, instead of failing on it.
+- CI: the web end-to-end job runs on `ubuntu-24.04`, because Playwright 1.60 cannot install Chromium on `ubuntu-26.04`, which `ubuntu-latest` now resolves to.
+
 ## [1.0.0] - 2026-06-18
 
 ### Added

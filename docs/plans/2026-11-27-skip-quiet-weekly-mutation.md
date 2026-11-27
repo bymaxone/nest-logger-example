@@ -1,6 +1,6 @@
 # Plan: skip the weekly full mutation run when main has no new commit (#48)
 
-> **Date:** 2026-11-27 · **Scope:** `.github/workflows/mutation-nightly.yml`
+> **Date:** 2026-11-27 · **Scope:** `.github/workflows/mutation-nightly.yml`, `.github/workflows/ci.yml` (job `e2e-web`)
 
 ## Problem
 
@@ -13,10 +13,11 @@
 - The comparison counts a failed run, not only a successful one. A full cold run of the same commit gives the same verdict, so measuring an unchanged failure again every week adds nothing; a manual run re-measures when needed (a flaky runner, an infrastructure error).
 - Prose: `CHANGELOG.md` and `docs/stryker/IMPLEMENTATION_PLAN.md`.
 
-## Out of scope (reported separately)
+## Fixes in the same change
 
-- `full-api` has failed in about 30 seconds every week since 2026-08-10 with `SyntaxError: Cannot use import statement outside a module` in Stryker's dry run, while `mutation.yml` passed on the same commit.
-- The drift-issue step fails too, because the `mutation-drift` label does not exist in the repository, so no drift issue was ever opened.
+- `full-api` failed in about 30 seconds every week since 2026-08-10 with `SyntaxError: Cannot use import statement outside a module` in Stryker's dry run, while `mutation.yml` passed on the same commit. Cause: the job called `stryker run` directly and lost the `NODE_OPTIONS=--experimental-vm-modules` that the package script sets for the ESM ts-jest setup. The job now calls `pnpm run mutation --force`, as `mutation.yml` already calls the incremental script.
+- The drift-issue step failed too, because the `mutation-drift` label did not exist, so no drift issue was ever opened. The step now creates the label first (`gh label create --force`).
+- `E2E — apps/web` in `ci.yml` failed on this pull request because `ubuntu-latest` now resolves to `ubuntu-26.04`, where Playwright 1.60 cannot install Chromium. The job is pinned to `ubuntu-24.04` until a Playwright release supports the new image.
 
 ## Risks
 
