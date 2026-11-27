@@ -72,5 +72,5 @@ These mutants produce observably identical behavior. Each has a `// Stryker disa
 ## CI plan (Phase 17)
 
 - `mutation.yml`: per-PR `mutation:incremental` job; `dorny/paths-filter` gates per workspace so only changed-workspace Stryker runs are triggered; `actions/cache` of `reports/stryker-incremental.json` keyed on `apps/api/**` or `apps/web/**` changes.
-- `mutation-nightly.yml`: Monday 03:00 UTC full cold run (`pnpm mutation`); opens a GitHub Issue on regression (score drops below threshold).
+- `mutation-nightly.yml`: Monday 03:00 UTC full cold run (`pnpm mutation`); opens a GitHub Issue on regression (score drops below threshold). A scheduled run is skipped when `main` has no commit since the last run that finished with a verdict (success or failure); a manual run always measures.
 - Both workflows inherit `NODE_OPTIONS='--experimental-vm-modules'` for the API jest-runner.

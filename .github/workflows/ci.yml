@@ -151,7 +151,9 @@ jobs:
   e2e-web:
     name: E2E — apps/web
     needs: e2e-api
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.60 cannot install Chromium on ubuntu-26.04, which
+    # ubuntu-latest now resolves to.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5

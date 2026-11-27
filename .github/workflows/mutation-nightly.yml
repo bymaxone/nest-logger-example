@@ -1,5 +1,10 @@
 name: Mutation Testing (Nightly Full)
 
+# A scheduled run is skipped when `main` has no commit since the last run of
+# this workflow that finished with a verdict (success or failure): the score
+# depends only on what the repository holds, so the same commit measured again
+# gives the same verdict, and a failed week has already been reported. A manual
+# run always measures.
 on:
   schedule:
     - cron: '0 3 * * 1' # Mondays at 03:00 UTC
@@ -13,8 +18,37 @@ env:
   DATABASE_URL: postgresql://ci_runner@localhost/ci_placeholder
 
 jobs:
+  changed:
+    name: New commit since the last run
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.compare.outputs.run }}
+    steps:
+      - id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow mutation-nightly.yml \
+            --branch "$DEFAULT_BRANCH" --status completed --limit 20 --json headSha,conclusion \
+            --jq '[.[] | select(.conclusion == "success" or .conclusion == "failure")][0].headSha // empty')
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "No commit on $DEFAULT_BRANCH since the last run ($last); skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   full-api:
     name: Mutation full — apps/api
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -37,9 +71,12 @@ jobs:
           DATABASE_URL: postgresql://localhost:5432/ci_placeholder
       - name: Run full mutation testing (api)
         working-directory: apps/api
-        # --force runs all mutants and rebuilds the incremental file, giving a
-        # true cold baseline regardless of any cached incremental state.
-        run: pnpm exec stryker run --force
+        # The package script sets NODE_OPTIONS=--experimental-vm-modules, which
+        # the ESM ts-jest setup needs; calling stryker directly drops it and every
+        # spec fails to load. --force runs all mutants and rebuilds the
+        # incremental file, giving a true cold baseline regardless of any cached
+        # incremental state.
+        run: pnpm run mutation --force
       - name: Upload full mutation HTML report (api)
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,6 +90,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # The label is created on first use, so a missing or deleted
+          # label cannot make the alert itself fail.
+          gh label create mutation-drift --color B60205 \
+            --description "Weekly full mutation run regressed below its break threshold" --force
           TITLE="Mutation drift detected (api) — $(date -u +%Y-%m-%d)"
           if gh issue list --label mutation-drift --state open \
                --search "in:title (api)" | grep -q .; then
@@ -66,6 +107,8 @@ jobs:
 
   full-web:
     name: Mutation full — apps/web
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -98,6 +141,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # The label is created on first use, so a missing or deleted
+          # label cannot make the alert itself fail.
+          gh label create mutation-drift --color B60205 \
+            --description "Weekly full mutation run regressed below its break threshold" --force
           TITLE="Mutation drift detected (web) — $(date -u +%Y-%m-%d)"
           if gh issue list --label mutation-drift --state open \
                --search "in:title (web)" | grep -q .; then
